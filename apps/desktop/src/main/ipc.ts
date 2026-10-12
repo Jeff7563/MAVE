@@ -7,11 +7,11 @@ import type { WakeManager } from './wake-manager.js';
 
 const logger = createLogger({ name: 'mave:ipc' });
 
-export function handleIpcCommand(
+export async function handleIpcCommand(
   rawPayload: unknown,
   service: MaveService,
   wakeManager?: WakeManager
-): { success: boolean; error?: string } {
+): Promise<{ success: boolean; data?: unknown; error?: string }> {
   const parseResult = SendCommandPayloadSchema.safeParse(rawPayload);
   if (!parseResult.success) {
     const errorMsg = `Invalid command payload: ${parseResult.error.message}`;
@@ -41,25 +41,53 @@ export function handleIpcCommand(
       break;
     case 'restart-wake-engine':
       if (wakeManager) {
-        wakeManager.restart().catch((err) => {
+        try {
+          await wakeManager.restart();
+        } catch (err: any) {
           logger.error({ err }, 'failed to restart wake engine via IPC');
-        });
+          return { success: false, error: err.message };
+        }
       }
       break;
     case 'set-microphone':
       if (wakeManager && payload && typeof payload['index'] === 'number') {
-        wakeManager.setMicrophone(payload['index']).catch((err) => {
+        try {
+          await wakeManager.setMicrophone(payload['index']);
+        } catch (err: any) {
           logger.error({ err }, 'failed to set microphone via IPC');
-        });
+          return { success: false, error: err.message };
+        }
       }
       break;
     case 'set-sensitivity':
-      if (wakeManager && payload && typeof payload['sensitivity'] === 'number') {
-        wakeManager.setSensitivity(payload['sensitivity']).catch((err) => {
-          logger.error({ err }, 'failed to set sensitivity via IPC');
-        });
+      if (wakeManager && payload) {
+        const thresholdVal =
+          typeof payload['threshold'] === 'number'
+            ? payload['threshold']
+            : typeof payload['sensitivity'] === 'number'
+              ? payload['sensitivity']
+              : undefined;
+        if (thresholdVal !== undefined) {
+          try {
+            await wakeManager.setThreshold(thresholdVal);
+          } catch (err: any) {
+            logger.error({ err }, 'failed to set threshold via IPC');
+            return { success: false, error: err.message };
+          }
+        }
       }
       break;
+    case 'test-audio-file':
+      if (wakeManager && payload && typeof payload['path'] === 'string') {
+        try {
+          const testResult = await wakeManager.testAudioFile(payload['path']);
+          return { success: true, data: testResult };
+        } catch (err: any) {
+          logger.error({ err }, 'failed to test audio file via IPC');
+          return { success: false, error: err.message };
+        }
+      }
+      return { success: false, error: 'Missing path or wakeManager not available' };
     case 'quit':
       service.send({ type: 'SHUTDOWN' });
       break;

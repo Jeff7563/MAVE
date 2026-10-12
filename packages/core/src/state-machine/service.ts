@@ -32,6 +32,8 @@ export function createMaveService(options?: {
       availableDevices: snap.context.availableDevices,
       wakeWord: snap.context.wakeWord,
       sensitivity: snap.context.sensitivity,
+      threshold: snap.context.threshold,
+      wakeProvider: snap.context.wakeProvider,
       lastWakeAt: snap.context.lastWakeAt,
       isWakeConfigured: snap.context.isWakeConfigured
     };

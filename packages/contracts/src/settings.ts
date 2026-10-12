@@ -4,9 +4,11 @@ import { ConversationModeSchema } from './state.js';
 export const MaveConfigSchema = z.object({
   wake: z.object({
     enabled: z.boolean(),
-    sensitivity: z.number().min(0).max(1),
-    keywordModelPath: z.string(),
-    microphoneDeviceIndex: z.number().min(-1)
+    wakeProvider: z.string().default('openwakeword'),
+    threshold: z.number().min(0).max(1).default(0.5),
+    sensitivity: z.number().min(0).max(1).optional(),
+    keywordModelPath: z.string().default('assets/wake/mave.onnx'),
+    microphoneDeviceIndex: z.number().min(-1).default(-1)
   }),
   conversation: z.object({
     idleTimeoutMs: z.number().positive(),
@@ -29,8 +31,10 @@ export type MaveConfig = z.infer<typeof MaveConfigSchema>;
 export const DefaultMaveConfig: MaveConfig = {
   wake: {
     enabled: true,
+    wakeProvider: 'openwakeword',
+    threshold: 0.5,
     sensitivity: 0.5,
-    keywordModelPath: 'assets/wake/mave_windows.ppn',
+    keywordModelPath: 'assets/wake/mave.onnx',
     microphoneDeviceIndex: -1
   },
   conversation: {

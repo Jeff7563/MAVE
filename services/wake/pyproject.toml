@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mave-wake"
+version = "0.1.0"
+description = "MAVE local openWakeWord voice detection service"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "openwakeword>=0.6.0",
+    "onnxruntime>=1.15.0",
+    "sounddevice>=0.4.6",
+    "numpy>=1.22.0",
+    "scipy>=1.10.0"
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest>=7.0.0"
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+

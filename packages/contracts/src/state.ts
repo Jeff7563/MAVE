@@ -62,6 +62,8 @@ export const AssistantStateSnapshotSchema = z.object({
   availableDevices: z.array(z.string()).optional(),
   wakeWord: z.string().optional(),
   sensitivity: z.number().optional(),
+  threshold: z.number().optional(),
+  wakeProvider: z.string().optional(),
   lastWakeAt: z.number().optional(),
   isWakeConfigured: z.boolean().optional()
 });

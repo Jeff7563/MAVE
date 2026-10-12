@@ -14,6 +14,8 @@ export const initialContext: MaveMachineContext = {
   availableDevices: [],
   wakeWord: 'MAVE',
   sensitivity: 0.5,
+  threshold: 0.5,
+  wakeProvider: 'openWakeWord',
   lastWakeAt: undefined,
   isWakeConfigured: false
 };

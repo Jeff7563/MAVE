@@ -4,11 +4,11 @@ import path from 'node:path';
 test('Electron desktop smoke test: Milestone 1 local wake word, diagnostics, and lifecycle', async () => {
   // Launch Electron application with built main script
   const mainScript = path.resolve(__dirname, '../../dist/main/index.js');
-  const env = {
-    ...process.env,
+  const env: Record<string, string> = {
+    ...(process.env as Record<string, string>),
     NODE_ENV: 'test'
   };
-  delete env.ELECTRON_RUN_AS_NODE;
+  delete env['ELECTRON_RUN_AS_NODE'];
 
   const electronApp = await electron.launch({
     args: [mainScript],
@@ -34,6 +34,10 @@ test('Electron desktop smoke test: Milestone 1 local wake word, diagnostics, and
     await expect(wakeStatus).toBeVisible();
     await expect(wakeStatus).toHaveText(/Listening/i);
 
+    const wakeProvider = window.locator('[data-testid="wake-provider"]');
+    await expect(wakeProvider).toBeVisible();
+    await expect(wakeProvider).toHaveText(/openWakeWord/i);
+
     const micStatus = window.locator('[data-testid="mic-status"]');
     await expect(micStatus).toBeVisible();
 
@@ -42,6 +46,9 @@ test('Electron desktop smoke test: Milestone 1 local wake word, diagnostics, and
 
     const sensitivity = window.locator('[data-testid="sensitivity-status"]');
     await expect(sensitivity).toHaveText('0.50');
+
+    const threshold = window.locator('[data-testid="threshold-status"]');
+    await expect(threshold).toBeVisible();
 
     const lastWake = window.locator('[data-testid="last-wake-status"]');
     await expect(lastWake).toHaveText(/Never/i);
@@ -61,6 +68,12 @@ test('Electron desktop smoke test: Milestone 1 local wake word, diagnostics, and
 
     const btnRestart = window.locator('[data-testid="btn-restart-wake"]');
     await expect(btnRestart).toBeVisible();
+
+    const inputWav = window.locator('[data-testid="input-wav-path"]');
+    await expect(inputWav).toBeVisible();
+
+    const btnTestWav = window.locator('[data-testid="btn-test-wav"]');
+    await expect(btnTestWav).toBeVisible();
 
     // 5. Click Simulate Wake triggers WAKING and detection alert
     const btnWake = window.locator('[data-testid="btn-simulate-wake"]');

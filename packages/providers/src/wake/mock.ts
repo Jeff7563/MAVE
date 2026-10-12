@@ -1,16 +1,19 @@
 import type {
   WakeWordProvider,
   WakeDiagnostics,
-  WakeEngineStatus
+  WakeEngineStatus,
+  OfflineWavTestResult
 } from '@mave/contracts';
 import { createLogger } from '@mave/shared';
 
 export interface MockWakeWordProviderOptions {
   status?: WakeEngineStatus;
+  wakeProvider?: string;
   microphoneName?: string;
   microphoneIndex?: number;
   availableDevices?: string[];
   sensitivity?: number;
+  threshold?: number;
   isConfigured?: boolean;
 }
 
@@ -18,11 +21,13 @@ export class MockWakeWordProvider implements WakeWordProvider {
   private logger = createLogger({ name: 'mave:providers:mock-wake' });
   private isRunning = false;
   private status: WakeEngineStatus = 'ready';
+  private wakeProvider = 'openWakeWord';
   private microphoneName = 'Mock Microphone';
   private microphoneIndex = -1;
   private availableDevices: string[] = ['Default System Microphone', 'Mock Headset Mic'];
   private wakeWord = 'MAVE';
   private sensitivity = 0.5;
+  private threshold = 0.5;
   private lastWakeAt?: number;
   private isConfigured = true;
   private errorMessage?: string;
@@ -32,14 +37,20 @@ export class MockWakeWordProvider implements WakeWordProvider {
 
   constructor(options?: MockWakeWordProviderOptions) {
     if (options?.status) this.status = options.status;
+    if (options?.wakeProvider) this.wakeProvider = options.wakeProvider;
     if (options?.microphoneName) this.microphoneName = options.microphoneName;
     if (options?.microphoneIndex !== undefined) this.microphoneIndex = options.microphoneIndex;
     if (options?.availableDevices) this.availableDevices = options.availableDevices;
     if (options?.sensitivity !== undefined) this.sensitivity = options.sensitivity;
+    if (options?.threshold !== undefined) this.threshold = options.threshold;
     if (options?.isConfigured !== undefined) this.isConfigured = options.isConfigured;
   }
 
   async start(): Promise<void> {
+    if (!this.isConfigured) {
+      this.status = 'not_configured';
+      return;
+    }
     if (this.isRunning) {
       this.logger.debug('MockWakeWordProvider: start called while already running (idempotent)');
       return;
@@ -88,11 +99,13 @@ export class MockWakeWordProvider implements WakeWordProvider {
   getDiagnostics(): WakeDiagnostics {
     return {
       status: this.status,
+      wakeProvider: this.wakeProvider,
       microphoneName: this.microphoneName,
       microphoneIndex: this.microphoneIndex,
       availableDevices: this.availableDevices,
       wakeWord: this.wakeWord,
       sensitivity: this.sensitivity,
+      threshold: this.threshold,
       lastWakeAt: this.lastWakeAt,
       isConfigured: this.isConfigured,
       errorMessage: this.errorMessage
@@ -144,5 +157,22 @@ export class MockWakeWordProvider implements WakeWordProvider {
 
   setSensitivity(sensitivity: number): void {
     this.sensitivity = Math.max(0, Math.min(1, sensitivity));
+    this.threshold = this.sensitivity;
+  }
+
+  setThreshold(threshold: number): void {
+    this.threshold = Math.max(0, Math.min(1, threshold));
+    this.sensitivity = this.threshold;
+  }
+
+  async testAudioFile(wavPath: string): Promise<OfflineWavTestResult> {
+    this.logger.info({ wavPath }, 'offline_test.completed');
+    return {
+      path: wavPath,
+      maxScore: 0.85,
+      wakeDetected: true,
+      framesProcessed: 10,
+      scores: [0.1, 0.2, 0.85]
+    };
   }
 }

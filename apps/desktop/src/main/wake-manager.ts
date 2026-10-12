@@ -1,7 +1,7 @@
 import type { MaveService } from '@mave/core';
 import type { MaveDatabase } from '@mave/database';
-import type { WakeWordProvider, WakeDiagnostics } from '@mave/contracts';
-import { PicovoiceWakeWordProvider, MockWakeWordProvider } from '@mave/providers';
+import type { WakeWordProvider, WakeDiagnostics, OfflineWavTestResult } from '@mave/contracts';
+import { OpenWakeWordProvider, MockWakeWordProvider } from '@mave/providers';
 import { createLogger } from '@mave/shared';
 
 const logger = createLogger({ name: 'mave:wake-manager' });
@@ -32,11 +32,12 @@ export class WakeManager {
       this.provider = new MockWakeWordProvider();
     } else {
       const persistedDevice = this.getPersistedSetting('wake.microphoneDeviceIndex');
-      const persistedSensitivity = this.getPersistedSetting('wake.sensitivity');
+      const persistedThreshold =
+        this.getPersistedSetting('wake.threshold') ?? this.getPersistedSetting('wake.sensitivity');
 
-      this.provider = new PicovoiceWakeWordProvider({
+      this.provider = new OpenWakeWordProvider({
         deviceIndex: persistedDevice !== null ? parseInt(persistedDevice, 10) : -1,
-        sensitivity: persistedSensitivity !== null ? parseFloat(persistedSensitivity) : 0.5,
+        threshold: persistedThreshold !== null ? parseFloat(persistedThreshold) : 0.5,
         rootDir: options.rootDir
       });
     }
@@ -121,11 +122,13 @@ export class WakeManager {
         type: 'SET_WAKE_DIAGNOSTICS',
         diagnostics: {
           status: diag.status,
+          wakeProvider: diag.wakeProvider || 'openWakeWord',
           microphoneName: diag.microphoneName,
           microphoneIndex: diag.microphoneIndex,
           availableDevices: diag.availableDevices,
           wakeWord: diag.wakeWord,
-          sensitivity: diag.sensitivity,
+          sensitivity: diag.threshold ?? diag.sensitivity ?? 0.5,
+          threshold: diag.threshold ?? diag.sensitivity ?? 0.5,
           lastWakeAt: diag.lastWakeAt,
           isWakeConfigured: diag.isConfigured,
           errorMessage: diag.errorMessage
@@ -144,14 +147,29 @@ export class WakeManager {
     this.syncDiagnostics();
   }
 
-  async setSensitivity(sensitivity: number): Promise<void> {
-    logger.info({ sensitivity }, 'setting sensitivity');
-    this.persistSetting('wake.sensitivity', String(sensitivity));
+  async setThreshold(threshold: number): Promise<void> {
+    logger.info({ threshold }, 'setting threshold');
+    this.persistSetting('wake.threshold', String(threshold));
+    this.persistSetting('wake.sensitivity', String(threshold));
 
-    if ('setSensitivity' in this.provider && typeof (this.provider as any).setSensitivity === 'function') {
-      await (this.provider as any).setSensitivity(sensitivity);
+    if ('setThreshold' in this.provider && typeof (this.provider as any).setThreshold === 'function') {
+      await (this.provider as any).setThreshold(threshold);
+    } else if ('setSensitivity' in this.provider && typeof (this.provider as any).setSensitivity === 'function') {
+      await (this.provider as any).setSensitivity(threshold);
     }
     this.syncDiagnostics();
+  }
+
+  async setSensitivity(sensitivity: number): Promise<void> {
+    return this.setThreshold(sensitivity);
+  }
+
+  async testAudioFile(wavPath: string): Promise<OfflineWavTestResult | null> {
+    logger.info({ wavPath }, 'testing offline audio file');
+    if (this.provider.testAudioFile) {
+      return await this.provider.testAudioFile(wavPath);
+    }
+    return null;
   }
 
   async restart(): Promise<void> {

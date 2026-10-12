@@ -6,7 +6,7 @@ export interface MaveApi {
   sendCommand: (
     command: MaveCommand,
     payload?: Record<string, unknown>
-  ) => Promise<{ success: boolean; error?: string }>;
+  ) => Promise<{ success: boolean; data?: unknown; error?: string }>;
   onStateChanged: (callback: (snapshot: AssistantStateSnapshot) => void) => () => void;
 }
 
@@ -18,7 +18,7 @@ const api: MaveApi = {
     return (await ipcRenderer.invoke('mave:send-command', {
       command,
       payload
-    })) as { success: boolean; error?: string };
+    })) as { success: boolean; data?: unknown; error?: string };
   },
   onStateChanged: (callback) => {
     const listener = (_event: Electron.IpcRendererEvent, snapshot: AssistantStateSnapshot) => {

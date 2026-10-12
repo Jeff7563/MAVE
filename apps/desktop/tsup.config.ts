@@ -7,9 +7,7 @@ export default defineConfig([
     outDir: 'dist/main',
     external: [
       'electron',
-      'sql.js',
-      '@picovoice/porcupine-node',
-      '@picovoice/pvrecorder-node'
+      'sql.js'
     ],
     noExternal: [/@mave\/.*/, 'pino', 'xstate', 'zod', 'drizzle-orm'],
     target: 'node20'

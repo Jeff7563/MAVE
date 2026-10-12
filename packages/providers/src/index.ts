@@ -1,10 +1,8 @@
 export { MockWakeWordProvider, type MockWakeWordProviderOptions } from './wake/mock.js';
 export {
-  PicovoiceWakeWordProvider,
-  type PicovoiceWakeWordProviderOptions,
-  type PorcupineLike,
-  type PvRecorderLike
-} from './wake/picovoice.js';
+  OpenWakeWordProvider,
+  type OpenWakeWordProviderOptions
+} from './wake/openwakeword.js';
 
 import type { VoiceProvider } from '@mave/contracts';
 import { createLogger } from '@mave/shared';

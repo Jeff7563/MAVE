@@ -19,6 +19,8 @@ export interface MaveMachineContext {
   availableDevices?: string[];
   wakeWord?: string;
   sensitivity?: number;
+  threshold?: number;
+  wakeProvider?: string;
   lastWakeAt?: number;
   isWakeConfigured?: boolean;
 }
@@ -42,11 +44,13 @@ export type MaveMachineEvent =
       type: 'SET_WAKE_DIAGNOSTICS';
       diagnostics: {
         status?: WakeEngineStatus;
+        wakeProvider?: string;
         microphoneName?: string;
         microphoneIndex?: number;
         availableDevices?: string[];
         wakeWord?: string;
         sensitivity?: number;
+        threshold?: number;
         lastWakeAt?: number;
         isWakeConfigured?: boolean;
         errorMessage?: string;

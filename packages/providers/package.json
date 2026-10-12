@@ -8,14 +8,12 @@
   "scripts": {
     "build": "tsc",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run",
+    "test": "vitest run src",
     "clean": "rimraf dist"
   },
   "dependencies": {
     "@mave/contracts": "workspace:*",
-    "@mave/shared": "workspace:*",
-    "@picovoice/porcupine-node": "^4.0.2",
-    "@picovoice/pvrecorder-node": "^1.2.9"
+    "@mave/shared": "workspace:*"
   },
   "devDependencies": {
     "rimraf": "^6.0.1",

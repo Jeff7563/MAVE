@@ -8,14 +8,25 @@ export interface VoiceProvider {
 
 export interface WakeDiagnostics {
   status: WakeEngineStatus;
+  wakeProvider?: string;
   microphoneName: string;
   microphoneIndex: number;
   availableDevices: string[];
   wakeWord: string;
-  sensitivity: number;
+  sensitivity?: number;
+  threshold?: number;
   lastWakeAt?: number;
   isConfigured: boolean;
   errorMessage?: string;
+}
+
+export interface OfflineWavTestResult {
+  path: string;
+  maxScore: number;
+  wakeDetected: boolean;
+  framesProcessed: number;
+  scores?: number[];
+  error?: string;
 }
 
 export interface WakeWordProvider {
@@ -26,4 +37,5 @@ export interface WakeWordProvider {
   onError?(callback: (error: Error) => void): () => void;
   getStatus(): WakeEngineStatus;
   getDiagnostics?(): WakeDiagnostics;
+  testAudioFile?(wavPath: string): Promise<OfflineWavTestResult>;
 }

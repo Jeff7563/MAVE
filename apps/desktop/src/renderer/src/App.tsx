@@ -49,11 +49,17 @@ export const App: React.FC = () => {
     return undefined;
   }, []);
 
-  const handleSendCommand = (command: MaveCommand, payload?: Record<string, unknown>) => {
+  const handleSendCommand = async (
+    command: MaveCommand,
+    payload?: Record<string, unknown>
+  ): Promise<{ success: boolean; data?: unknown; error?: string }> => {
     if (window.mave?.sendCommand) {
-      window.mave.sendCommand(command, payload).catch((err) => {
+      try {
+        return await window.mave.sendCommand(command, payload);
+      } catch (err: any) {
         console.error('Failed to send command:', err);
-      });
+        return { success: false, error: err.message };
+      }
     } else {
       // Local fallback for standalone browser preview
       if (command === 'simulate-wake') {
@@ -83,12 +89,27 @@ export const App: React.FC = () => {
           microphoneIndex: idx,
           microphoneName: prev.availableDevices?.[idx] || (idx === -1 ? 'Default Microphone' : prev.microphoneName)
         }));
-      } else if (command === 'set-sensitivity' && payload && typeof payload['sensitivity'] === 'number') {
-        setSnapshot((prev) => ({
-          ...prev,
-          sensitivity: payload['sensitivity'] as number
-        }));
+      } else if (command === 'set-sensitivity' && payload) {
+        const val = (payload['threshold'] ?? payload['sensitivity']) as number;
+        if (typeof val === 'number') {
+          setSnapshot((prev) => ({
+            ...prev,
+            sensitivity: val,
+            threshold: val
+          }));
+        }
+      } else if (command === 'test-audio-file' && payload && typeof payload['path'] === 'string') {
+        return {
+          success: true,
+          data: {
+            path: payload['path'],
+            maxScore: 0.88,
+            wakeDetected: true,
+            framesProcessed: 12
+          }
+        };
       }
+      return { success: true };
     }
   };
 

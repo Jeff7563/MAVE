@@ -20,8 +20,6 @@
     "@mave/prompts": "workspace:*",
     "@mave/providers": "workspace:*",
     "@mave/shared": "workspace:*",
-    "@picovoice/porcupine-node": "^4.0.2",
-    "@picovoice/pvrecorder-node": "^1.2.9",
     "better-sqlite3": "^13.0.3",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",

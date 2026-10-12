@@ -119,32 +119,24 @@ apps/desktop (Electron Shell & React UI)
 
 ---
 
-## Milestone 1: Local Wake Word (Implemented)
+## Milestone 1.1: Local Wake Word (openWakeWord)
 
-Milestone 1 introduces local, on-device wake-word detection using Picovoice Porcupine and PvRecorder on Windows:
+Milestone 1.1 provides local, on-device wake-word detection using openWakeWord:
 - **Wake Word**: `MAVE` (/meɪv/ — “เมฟ”)
-- **Engine**: `@picovoice/porcupine-node` + `@picovoice/pvrecorder-node`
-- **Architecture**: Inversion of dependencies via `WakeWordProvider` contract. Porcupine runs strictly on desktop main infrastructure and is never bundled into React renderer.
-- **Privacy**: Wake audio is processed entirely locally in real-time memory frames; raw audio is never stored or transmitted.
-- **Diagnostics UI**: Displays Wake engine status (`Ready` / `Listening` / `Not configured` / `Error`), Microphone device selector, Sensitivity slider (0.0 – 1.0), and Last wake timestamp.
+- **Engine**: Python `openwakeword` runtime managed by Electron via a supervised subprocess boundary (`services/wake/`).
+- **Communication**: Strict newline-delimited JSON stdio protocol (`services/wake/src/mave_wake/protocol.py`).
+- **Privacy & Security**: No cloud API keys required. Audio is processed strictly in local streaming chunks. No audio is persisted or transmitted.
+- **Diagnostics UI**: Displays Wake engine status (`Ready` / `Listening` / `Not configured` / `Error`), Wake provider (`openWakeWord`), Microphone selector, Threshold slider (0.0 – 1.0), Last wake timestamp, and offline WAV diagnostic tester.
+- **Offline Audio Testing**: Developers can evaluate local WAV files through the identical openWakeWord chunking and inference pipeline via the UI or CLI (`python -m mave_wake.main --test-wav <file.wav>`).
 
-### Setting Up Live Wake Detection (Optional / User Provided)
+### Wake Model Configuration (Milestone 1.2)
 
-To test live physical voice wake:
-1. Obtain an AccessKey from [Picovoice Console](https://console.picovoice.ai/).
-2. Train/download a Windows Porcupine `.ppn` model for keyword **MAVE** (or **Maeve**).
-3. Place model at:
-   ```text
-   assets/wake/mave_windows.ppn
-   ```
-4. Set environment variable in `.env`:
-   ```env
-   PICOVOICE_ACCESS_KEY=your_actual_access_key_here
-   ```
-5. Run `pnpm dev`. Status will transition to **Wake engine: Listening**.
-6. Say **"MAVE"** to trigger wake transition to `waking`.
-
-If credentials or `.ppn` are not provided, MAVE operates cleanly in **Not configured** state without crashing, with full UI simulation and mock provider testability.
+- Default keyword ONNX model path:
+  ```text
+  assets/wake/mave.onnx
+  ```
+- If the model file is not yet present, MAVE starts safely in **Not configured** state without crashing, with full simulation and diagnostic capabilities.
+- Custom MAVE model training will be completed in Milestone 1.2.
 
 ---
 

@@ -67,6 +67,13 @@ export const StatusCard: React.FC<StatusCardProps> = ({ snapshot }) => {
       </div>
 
       <div className="status-row">
+        <span className="status-label">Wake provider:</span>
+        <span className="status-value" data-testid="wake-provider">
+          {snapshot.wakeProvider || 'openWakeWord'}
+        </span>
+      </div>
+
+      <div className="status-row">
         <span className="status-label">Microphone:</span>
         <span className="status-value" data-testid="mic-status">
           {micText}
@@ -81,9 +88,13 @@ export const StatusCard: React.FC<StatusCardProps> = ({ snapshot }) => {
       </div>
 
       <div className="status-row">
-        <span className="status-label">Sensitivity:</span>
-        <span className="status-value" data-testid="sensitivity-status">
-          {sensitivityText}
+        <span className="status-label">Threshold:</span>
+        <span
+          className="status-value"
+          data-testid="threshold-status"
+          id="sensitivity-status-val"
+        >
+          <span data-testid="sensitivity-status">{sensitivityText}</span>
         </span>
       </div>
 
