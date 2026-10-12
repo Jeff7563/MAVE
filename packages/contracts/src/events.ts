@@ -12,6 +12,7 @@ export const MaveCommandSchema = z.enum([
   'restart-wake-engine',
   'set-microphone',
   'set-sensitivity',
+  'set-threshold',
   'test-audio-file'
 ]);
 export type MaveCommand = z.infer<typeof MaveCommandSchema>;
