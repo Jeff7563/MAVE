@@ -18,6 +18,9 @@ export interface WakeDiagnostics {
   lastWakeAt?: number;
   isConfigured: boolean;
   errorMessage?: string;
+  latestScore?: number;
+  peakScore?: number;
+  lastWakeScore?: number;
 }
 
 export interface OfflineWavTestResult {
@@ -35,6 +38,14 @@ export interface WakeWordProvider {
   dispose(): Promise<void>;
   onWake(callback: () => void): () => void;
   onError?(callback: (error: Error) => void): () => void;
+  onTelemetry?(
+    callback: (telemetry: {
+      latestScore: number;
+      peakScore: number;
+      lastWakeScore?: number;
+      threshold: number;
+    }) => void
+  ): () => void;
   getStatus(): WakeEngineStatus;
   getDiagnostics?(): WakeDiagnostics;
   testAudioFile?(wavPath: string): Promise<OfflineWavTestResult>;

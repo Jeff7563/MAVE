@@ -34,13 +34,11 @@ export const StatusCard: React.FC<StatusCardProps> = ({ snapshot }) => {
     snapshot.sensitivity !== undefined ? snapshot.sensitivity.toFixed(2) : '0.50';
   const lastWakeText = formatLastWake(snapshot.lastWakeAt);
 
-  const isWakeDetectedRecent =
-    snapshot.state === 'waking' ||
-    (snapshot.lastWakeAt && Date.now() - snapshot.lastWakeAt < 5000);
+  const isWakeDetectedActive = snapshot.state === 'waking';
 
   return (
     <div className="card">
-      {isWakeDetectedRecent && (
+      {isWakeDetectedActive && (
         <div className="wake-badge" data-testid="wake-detected-badge">
           ✨ MAVE detected
         </div>
@@ -95,6 +93,27 @@ export const StatusCard: React.FC<StatusCardProps> = ({ snapshot }) => {
           id="sensitivity-status-val"
         >
           <span data-testid="sensitivity-status">{sensitivityText}</span>
+        </span>
+      </div>
+
+      <div className="status-row">
+        <span className="status-label">Last wake score:</span>
+        <span className="status-value" data-testid="last-wake-score">
+          {snapshot.lastWakeScore !== undefined ? snapshot.lastWakeScore.toFixed(2) : '—'}
+        </span>
+      </div>
+
+      <div className="status-row">
+        <span className="status-label">Recent peak score:</span>
+        <span className="status-value" data-testid="peak-score">
+          {snapshot.peakScore !== undefined ? snapshot.peakScore.toFixed(2) : '0.00'}
+        </span>
+      </div>
+
+      <div className="status-row">
+        <span className="status-label">Latest score:</span>
+        <span className="status-value" data-testid="latest-score">
+          {snapshot.latestScore !== undefined ? snapshot.latestScore.toFixed(2) : '0.00'}
         </span>
       </div>
 

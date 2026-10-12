@@ -325,5 +325,33 @@ describe('OpenWakeWordProvider Supervisor & Protocol', () => {
     expect(provider.getDiagnostics().errorMessage).toContain('exited unexpectedly');
     expect(errorSpy).toHaveBeenCalled();
   });
+
+  it('receives telemetry event and notifies telemetry subscribers', async () => {
+    const provider = createProvider();
+    const telemetrySpy = vi.fn();
+    provider.onTelemetry(telemetrySpy);
+
+    await provider.start();
+
+    mockProc.sendStdoutLine({
+      type: 'telemetry',
+      latest_score: 0.35,
+      peak_score: 0.49,
+      last_wake_score: 0.88,
+      threshold: 0.5
+    });
+
+    expect(telemetrySpy).toHaveBeenCalledWith({
+      latestScore: 0.35,
+      peakScore: 0.49,
+      lastWakeScore: 0.88,
+      threshold: 0.5
+    });
+
+    const diag = provider.getDiagnostics();
+    expect(diag.latestScore).toBe(0.35);
+    expect(diag.peakScore).toBe(0.49);
+    expect(diag.lastWakeScore).toBe(0.88);
+  });
 });
 

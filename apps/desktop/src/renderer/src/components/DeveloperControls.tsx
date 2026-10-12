@@ -10,6 +10,9 @@ interface DeveloperControlsProps {
   availableDevices?: string[];
   currentDeviceIndex?: number;
   currentSensitivity?: number;
+  lastWakeScore?: number;
+  peakScore?: number;
+  latestScore?: number;
 }
 
 export const DeveloperControls: React.FC<DeveloperControlsProps> = ({
@@ -17,7 +20,10 @@ export const DeveloperControls: React.FC<DeveloperControlsProps> = ({
   isMuted,
   availableDevices = [],
   currentDeviceIndex = -1,
-  currentSensitivity = 0.5
+  currentSensitivity = 0.5,
+  lastWakeScore,
+  peakScore = 0,
+  latestScore = 0
 }) => {
   const [selectedDevice, setSelectedDevice] = useState<number>(currentDeviceIndex);
   const [sensitivity, setSensitivity] = useState<number>(currentSensitivity);
@@ -72,6 +78,35 @@ export const DeveloperControls: React.FC<DeveloperControlsProps> = ({
   return (
     <div className="card developer-controls">
       <h2>Controls & Diagnostics</h2>
+
+      <div
+        className="telemetry-bar"
+        data-testid="dev-telemetry-bar"
+        style={{
+          display: 'flex',
+          gap: '12px',
+          padding: '8px 12px',
+          marginBottom: '16px',
+          background: 'rgba(255, 255, 255, 0.04)',
+          borderRadius: '6px',
+          fontSize: '0.85rem'
+        }}
+      >
+        <div>
+          Last Wake:{' '}
+          <strong data-testid="dev-last-wake-score">
+            {lastWakeScore !== undefined ? lastWakeScore.toFixed(2) : '—'}
+          </strong>
+        </div>
+        <div>
+          Recent Peak:{' '}
+          <strong data-testid="dev-peak-score">{peakScore.toFixed(2)}</strong>
+        </div>
+        <div>
+          Latest:{' '}
+          <strong data-testid="dev-latest-score">{latestScore.toFixed(2)}</strong>
+        </div>
+      </div>
 
       <div className="control-group">
         <label htmlFor="microphone-select" className="control-label">

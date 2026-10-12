@@ -144,4 +144,150 @@ describe('WakeManager Lifecycle & State Machine Coordinator', () => {
 
     await manager.dispose();
   });
+
+  it('wake -> Waking -> Return to Sleep with ONE command deterministically', async () => {
+    const mockProvider = new MockWakeWordProvider();
+    const manager = new WakeManager({
+      service,
+      database: mockDb,
+      provider: mockProvider,
+      rearmGuardMs: 50
+    });
+
+    await manager.initialize();
+    expect(service.getSnapshot().state).toBe('sleeping');
+    expect(mockProvider.getStatus()).toBe('listening');
+
+    // Wake triggers Waking
+    mockProvider.simulateWake(0.92);
+    expect(service.getSnapshot().state).toBe('waking');
+    expect(mockProvider.getStatus()).toBe('ready');
+
+    // Exactly ONE command returns to sleep
+    service.send({ type: 'SLEEP_REQUESTED' });
+    expect(service.getSnapshot().state).toBe('sleeping');
+    expect(mockProvider.getStatus()).toBe('listening');
+
+    await manager.dispose();
+  });
+
+  it('suppresses immediate duplicate WAKE_DETECTED within re-arm guard window', async () => {
+    const mockProvider = new MockWakeWordProvider();
+    const manager = new WakeManager({
+      service,
+      database: mockDb,
+      provider: mockProvider,
+      rearmGuardMs: 100
+    });
+
+    await manager.initialize();
+
+    // 1. First wake
+    mockProvider.simulateWake(0.85);
+    expect(service.getSnapshot().state).toBe('waking');
+
+    // 2. Return to sleep
+    service.send({ type: 'SLEEP_REQUESTED' });
+    expect(service.getSnapshot().state).toBe('sleeping');
+
+    // 3. Immediately attempt duplicate wake within 100ms rearm window
+    mockProvider.simulateWake(0.89);
+    // State MUST remain sleeping (guard suppressed immediate re-trigger)
+    expect(service.getSnapshot().state).toBe('sleeping');
+
+    // 4. Wait past rearm window
+    await new Promise((r) => setTimeout(r, 120));
+
+    // 5. Subsequent intentional wake succeeds
+    mockProvider.simulateWake(0.89);
+    expect(service.getSnapshot().state).toBe('waking');
+
+    await manager.dispose();
+  });
+
+  it('runs repeated 20-cycle mock lifecycle cleanly and deterministically', async () => {
+    const mockProvider = new MockWakeWordProvider();
+    const manager = new WakeManager({
+      service,
+      database: mockDb,
+      provider: mockProvider,
+      rearmGuardMs: 5
+    });
+
+    await manager.initialize();
+
+    for (let cycle = 1; cycle <= 20; cycle++) {
+      expect(service.getSnapshot().state).toBe('sleeping');
+      expect(mockProvider.getStatus()).toBe('listening');
+
+      // Wait 10ms past re-arm guard
+      await new Promise((r) => setTimeout(r, 10));
+
+      // Wake
+      mockProvider.simulateWake(0.80 + (cycle % 10) * 0.01);
+      expect(service.getSnapshot().state).toBe('waking');
+      expect(mockProvider.getStatus()).toBe('ready');
+
+      // Return to sleep with ONE command
+      service.send({ type: 'SLEEP_REQUESTED' });
+      expect(service.getSnapshot().state).toBe('sleeping');
+      expect(mockProvider.getStatus()).toBe('listening');
+    }
+
+    const finalSnapshot = service.getSnapshot();
+    expect(finalSnapshot.state).toBe('sleeping');
+    expect(finalSnapshot.lastWakeAt).toBeDefined();
+
+    await manager.dispose();
+  });
+
+  it('ensures start and stop remain idempotent across multiple calls', async () => {
+    const mockProvider = new MockWakeWordProvider();
+    const manager = new WakeManager({
+      service,
+      database: mockDb,
+      provider: mockProvider
+    });
+
+    await manager.initialize();
+    expect(mockProvider.getStatus()).toBe('listening');
+
+    // Repeated start calls on provider while already listening
+    await mockProvider.start();
+    await mockProvider.start();
+    expect(mockProvider.getStatus()).toBe('listening');
+
+    // Repeated stop calls on provider
+    await mockProvider.stop();
+    await mockProvider.stop();
+    expect(mockProvider.getStatus()).toBe('ready');
+
+    await manager.dispose();
+  });
+
+  it('synchronizes live inference telemetry scores into state snapshot', async () => {
+    const mockProvider = new MockWakeWordProvider();
+    const manager = new WakeManager({
+      service,
+      database: mockDb,
+      provider: mockProvider
+    });
+
+    await manager.initialize();
+
+    mockProvider.setTelemetry(0.42, 0.48, undefined);
+    manager.syncDiagnostics();
+
+    let snap = service.getSnapshot();
+    expect(snap.latestScore).toBe(0.42);
+    expect(snap.peakScore).toBe(0.48);
+
+    // Simulate wake with score 0.88
+    mockProvider.simulateWake(0.88);
+    snap = service.getSnapshot();
+    expect(snap.lastWakeScore).toBe(0.88);
+    expect(snap.peakScore).toBe(0.88);
+
+    await manager.dispose();
+  });
 });

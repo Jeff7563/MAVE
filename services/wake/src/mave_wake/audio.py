@@ -17,11 +17,14 @@ class AudioCapture:
         chunk_size: int = 1280,
         device_index: Optional[int] = None,
         on_chunk: Optional[Callable[[np.ndarray], None]] = None,
+        discard_initial_chunks: int = 2,
     ):
         self.sample_rate = sample_rate
         self.chunk_size = chunk_size
         self.device_index = device_index
         self.on_chunk = on_chunk
+        self.discard_initial_chunks = discard_initial_chunks
+        self._chunks_to_discard = 0
         self.is_recording = False
         self._stream: Optional[Any] = None
         self._thread: Optional[threading.Thread] = None
@@ -64,6 +67,17 @@ class AudioCapture:
             pass
         return "Default System Microphone"
 
+    def drain_queue(self) -> int:
+        """Discard all pending audio chunks in queue."""
+        dropped = 0
+        while not self._queue.empty():
+            try:
+                self._queue.get_nowait()
+                dropped += 1
+            except queue.Empty:
+                break
+        return dropped
+
     def _audio_callback(self, indata: np.ndarray, frames: int, time_info: Any, status: Any) -> None:
         """Callback invoked by sounddevice on audio hardware thread."""
         if status:
@@ -86,7 +100,15 @@ class AudioCapture:
         while not self._stop_event.is_set():
             try:
                 chunk = self._queue.get(timeout=0.1)
-                if self.on_chunk and self.is_recording:
+                if not self.is_recording:
+                    continue
+
+                # Discard initial frames upon starting to eliminate OS/hardware buffer transients
+                if self._chunks_to_discard > 0:
+                    self._chunks_to_discard -= 1
+                    continue
+
+                if self.on_chunk:
                     try:
                         self.on_chunk(chunk)
                     except Exception as exc:
@@ -109,12 +131,8 @@ class AudioCapture:
             import sounddevice as sd
 
             self._stop_event.clear()
-            # Drain queue
-            while not self._queue.empty():
-                try:
-                    self._queue.get_nowait()
-                except queue.Empty:
-                    break
+            self.drain_queue()
+            self._chunks_to_discard = self.discard_initial_chunks
 
             dev_to_use = self.device_index if self.device_index is not None else None
             self._stream = sd.InputStream(
@@ -142,6 +160,7 @@ class AudioCapture:
     def stop(self) -> None:
         """Stop microphone capture stream."""
         if not self.is_recording:
+            self.drain_queue()
             return
 
         self.is_recording = False
@@ -159,5 +178,6 @@ class AudioCapture:
             self._thread.join(timeout=0.5)
             self._thread = None
 
+        self.drain_queue()
         log_info("Microphone capture stopped")
 

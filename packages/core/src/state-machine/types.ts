@@ -23,6 +23,9 @@ export interface MaveMachineContext {
   wakeProvider?: string;
   lastWakeAt?: number;
   isWakeConfigured?: boolean;
+  latestScore?: number;
+  peakScore?: number;
+  lastWakeScore?: number;
 }
 
 export type MaveMachineEvent =
@@ -54,6 +57,9 @@ export type MaveMachineEvent =
         lastWakeAt?: number;
         isWakeConfigured?: boolean;
         errorMessage?: string;
+        latestScore?: number;
+        peakScore?: number;
+        lastWakeScore?: number;
       };
     }
   | { type: 'DATABASE_READY' }

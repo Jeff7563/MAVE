@@ -65,7 +65,10 @@ export const AssistantStateSnapshotSchema = z.object({
   threshold: z.number().optional(),
   wakeProvider: z.string().optional(),
   lastWakeAt: z.number().optional(),
-  isWakeConfigured: z.boolean().optional()
+  isWakeConfigured: z.boolean().optional(),
+  latestScore: z.number().optional(),
+  peakScore: z.number().optional(),
+  lastWakeScore: z.number().optional()
 });
 
 export type AssistantStateSnapshot = z.infer<typeof AssistantStateSnapshotSchema>;

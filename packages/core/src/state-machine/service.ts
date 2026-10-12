@@ -35,7 +35,10 @@ export function createMaveService(options?: {
       threshold: snap.context.threshold,
       wakeProvider: snap.context.wakeProvider,
       lastWakeAt: snap.context.lastWakeAt,
-      isWakeConfigured: snap.context.isWakeConfigured
+      isWakeConfigured: snap.context.isWakeConfigured,
+      latestScore: snap.context.latestScore,
+      peakScore: snap.context.peakScore,
+      lastWakeScore: snap.context.lastWakeScore
     };
   }
 

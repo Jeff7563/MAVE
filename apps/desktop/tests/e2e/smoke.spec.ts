@@ -53,6 +53,15 @@ test('Electron desktop smoke test: Milestone 1 local wake word, diagnostics, and
     const lastWake = window.locator('[data-testid="last-wake-status"]');
     await expect(lastWake).toHaveText(/Never/i);
 
+    const lastWakeScore = window.locator('[data-testid="last-wake-score"]');
+    await expect(lastWakeScore).toBeVisible();
+
+    const peakScore = window.locator('[data-testid="peak-score"]');
+    await expect(peakScore).toBeVisible();
+
+    const latestScore = window.locator('[data-testid="latest-score"]');
+    await expect(latestScore).toBeVisible();
+
     const dbStatus = window.locator('[data-testid="db-status"]');
     await expect(dbStatus).toHaveText(/Ready/i);
 
@@ -86,13 +95,18 @@ test('Electron desktop smoke test: Milestone 1 local wake word, diagnostics, and
 
     // Last wake should now show a recorded time instead of 'Never'
     await expect(lastWake).not.toHaveText(/Never/i);
+    await expect(lastWakeScore).toHaveText(/0\.88/);
 
-    // 6. Click Return to Sleep changes it back to Sleeping and resumes Listening
+    // 6. Click Return to Sleep with ONE click changes it back to Sleeping, clears badge, and resumes Listening
     const btnSleep = window.locator('[data-testid="btn-return-sleep"]');
     await btnSleep.click();
 
     await expect(status).toHaveText(/Sleeping/i);
     await expect(wakeStatus).toHaveText(/Listening/i);
+    // Crucial: "MAVE detected" badge must be cleared immediately upon returning to Sleeping
+    await expect(wakeBadge).not.toBeVisible();
+    // Crucial: Last Wake timestamp is preserved separately
+    await expect(lastWake).not.toHaveText(/Never/i);
 
     // 7. Restart Wake Engine operates cleanly
     await btnRestart.click();

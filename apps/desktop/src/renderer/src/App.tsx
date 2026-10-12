@@ -66,10 +66,13 @@ export const App: React.FC = () => {
         setSnapshot((prev) => ({
           ...prev,
           state: 'waking',
-          lastWakeAt: Date.now()
+          lastWakeAt: Date.now(),
+          lastWakeScore: 0.88,
+          peakScore: 0.88,
+          latestScore: 0.88
         }));
       } else if (command === 'return-to-sleep') {
-        setSnapshot((prev) => ({ ...prev, state: 'sleeping' }));
+        setSnapshot((prev) => ({ ...prev, state: 'sleeping', latestScore: 0.0 }));
       } else if (command === 'toggle-mute') {
         setSnapshot((prev) => ({
           ...prev,
@@ -127,6 +130,9 @@ export const App: React.FC = () => {
           availableDevices={snapshot.availableDevices}
           currentDeviceIndex={snapshot.microphoneIndex}
           currentSensitivity={snapshot.sensitivity}
+          lastWakeScore={snapshot.lastWakeScore}
+          peakScore={snapshot.peakScore}
+          latestScore={snapshot.latestScore}
         />
       </main>
     </div>

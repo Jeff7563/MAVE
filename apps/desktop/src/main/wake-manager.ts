@@ -12,19 +12,24 @@ export interface WakeManagerOptions {
   provider?: WakeWordProvider;
   useMockProvider?: boolean;
   rootDir?: string;
+  rearmGuardMs?: number;
 }
 
 export class WakeManager {
   private service: MaveService;
   private database: MaveDatabase;
   private provider: WakeWordProvider;
+  private rearmGuardMs: number;
+  private sleepingSince = 0;
   private unsubscribeService?: () => void;
   private unsubscribeWake?: () => void;
+  private unsubscribeTelemetry?: () => void;
   private isDisposed = false;
 
   constructor(options: WakeManagerOptions) {
     this.service = options.service;
     this.database = options.database;
+    this.rearmGuardMs = options.rearmGuardMs ?? 300;
 
     if (options.provider) {
       this.provider = options.provider;
@@ -46,8 +51,26 @@ export class WakeManager {
   async initialize(): Promise<void> {
     logger.info('initializing wake manager lifecycle coordinator');
 
-    // 1. Hook wake detection -> state machine transition
+    // 1. Hook wake detection -> state machine transition with guards
     this.unsubscribeWake = this.provider.onWake(() => {
+      const snapshot = this.service.getSnapshot();
+      if (snapshot.state !== 'sleeping' || snapshot.isMuted) {
+        logger.warn(
+          { state: snapshot.state, isMuted: snapshot.isMuted },
+          'ignoring wake event received while not in sleeping state or muted'
+        );
+        return;
+      }
+
+      const elapsed = Date.now() - this.sleepingSince;
+      if (elapsed < this.rearmGuardMs) {
+        logger.warn(
+          { elapsed, rearmGuardMs: this.rearmGuardMs },
+          'ignoring wake event within rearm guard window'
+        );
+        return;
+      }
+
       logger.info('wake event received from provider -> dispatching WAKE_DETECTED');
       this.service.send({ type: 'WAKE_DETECTED' });
       this.syncDiagnostics();
@@ -61,6 +84,12 @@ export class WakeManager {
           status: 'error',
           error: err.message
         });
+      });
+    }
+
+    if (this.provider.onTelemetry) {
+      this.unsubscribeTelemetry = this.provider.onTelemetry(() => {
+        this.syncDiagnostics();
       });
     }
 
@@ -79,6 +108,7 @@ export class WakeManager {
 
       if (stateChanged || muteChanged) {
         if (snapshot.state === 'sleeping' && !snapshot.isMuted) {
+          this.sleepingSince = Date.now();
           logger.info('state is sleeping and unmuted: starting wake capture');
           try {
             await this.provider.start();
@@ -131,7 +161,10 @@ export class WakeManager {
           threshold: diag.threshold ?? diag.sensitivity ?? 0.5,
           lastWakeAt: diag.lastWakeAt,
           isWakeConfigured: diag.isConfigured,
-          errorMessage: diag.errorMessage
+          errorMessage: diag.errorMessage,
+          latestScore: diag.latestScore,
+          peakScore: diag.peakScore,
+          lastWakeScore: diag.lastWakeScore
         }
       });
     }
@@ -189,6 +222,7 @@ export class WakeManager {
 
     logger.info('disposing wake manager and releasing audio resources');
     this.unsubscribeWake?.();
+    this.unsubscribeTelemetry?.();
     this.unsubscribeService?.();
 
     try {

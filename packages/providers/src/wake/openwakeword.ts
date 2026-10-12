@@ -38,9 +38,13 @@ export class OpenWakeWordProvider implements WakeWordProvider {
   private lastWakeAt?: number;
   private isConfigured = false;
   private errorMessage?: string;
+  private latestScore = 0;
+  private peakScore = 0;
+  private lastWakeScore?: number;
 
   private wakeListeners = new Set<() => void>();
   private errorListeners = new Set<(err: Error) => void>();
+  private telemetryListeners = new Set<(t: { latestScore: number; peakScore: number; lastWakeScore?: number; threshold: number }) => void>();
   private pendingWavTests = new Map<string, (result: OfflineWavTestResult) => void>();
 
   constructor(options?: OpenWakeWordProviderOptions) {
@@ -202,6 +206,9 @@ export class OpenWakeWordProvider implements WakeWordProvider {
           this.availableDevices = Array.isArray(msg.available_devices) ? msg.available_devices : this.availableDevices;
           this.isConfigured = Boolean(msg.model_loaded);
           this.errorMessage = msg.error_message || undefined;
+          if (typeof msg.latest_score === 'number') this.latestScore = msg.latest_score;
+          if (typeof msg.peak_score === 'number') this.peakScore = msg.peak_score;
+          if (typeof msg.last_wake_score === 'number') this.lastWakeScore = msg.last_wake_score;
           this.logger.info(
             { status: this.status, device: this.microphoneName, threshold: this.threshold },
             'wake.status_updated'
@@ -209,8 +216,34 @@ export class OpenWakeWordProvider implements WakeWordProvider {
           break;
         }
 
+        case 'telemetry': {
+          if (typeof msg.latest_score === 'number') this.latestScore = msg.latest_score;
+          if (typeof msg.peak_score === 'number') this.peakScore = msg.peak_score;
+          if (typeof msg.last_wake_score === 'number') this.lastWakeScore = msg.last_wake_score;
+          if (typeof msg.threshold === 'number') this.threshold = msg.threshold;
+
+          for (const listener of this.telemetryListeners) {
+            try {
+              listener({
+                latestScore: this.latestScore,
+                peakScore: this.peakScore,
+                lastWakeScore: this.lastWakeScore,
+                threshold: this.threshold
+              });
+            } catch (err) {
+              this.logger.error({ err }, 'error in telemetry listener callback');
+            }
+          }
+          break;
+        }
+
         case 'wake_detected': {
           this.lastWakeAt = msg.timestamp || Date.now();
+          if (typeof msg.score === 'number') {
+            this.lastWakeScore = msg.score;
+            this.peakScore = Math.max(this.peakScore, msg.score);
+            this.latestScore = msg.score;
+          }
           this.logger.info(
             { model: msg.model, score: msg.score, lastWakeAt: this.lastWakeAt },
             'wake.detected'
@@ -220,6 +253,18 @@ export class OpenWakeWordProvider implements WakeWordProvider {
               listener();
             } catch (err) {
               this.logger.error({ err }, 'error in wake listener callback');
+            }
+          }
+          for (const listener of this.telemetryListeners) {
+            try {
+              listener({
+                latestScore: this.latestScore,
+                peakScore: this.peakScore,
+                lastWakeScore: this.lastWakeScore,
+                threshold: this.threshold
+              });
+            } catch (err) {
+              this.logger.error({ err }, 'error in telemetry listener callback');
             }
           }
           break;
@@ -339,6 +384,7 @@ export class OpenWakeWordProvider implements WakeWordProvider {
     this.status = 'not_configured';
     this.wakeListeners.clear();
     this.errorListeners.clear();
+    this.telemetryListeners.clear();
     this.pendingWavTests.clear();
     this.logger.info('wake.disposed');
   }
@@ -368,6 +414,20 @@ export class OpenWakeWordProvider implements WakeWordProvider {
     };
   }
 
+  onTelemetry(
+    callback: (telemetry: {
+      latestScore: number;
+      peakScore: number;
+      lastWakeScore?: number;
+      threshold: number;
+    }) => void
+  ): () => void {
+    this.telemetryListeners.add(callback);
+    return () => {
+      this.telemetryListeners.delete(callback);
+    };
+  }
+
   getStatus(): WakeEngineStatus {
     return this.status;
   }
@@ -384,7 +444,10 @@ export class OpenWakeWordProvider implements WakeWordProvider {
       threshold: this.threshold,
       lastWakeAt: this.lastWakeAt,
       isConfigured: this.isConfigured,
-      errorMessage: this.errorMessage
+      errorMessage: this.errorMessage,
+      latestScore: this.latestScore,
+      peakScore: this.peakScore,
+      lastWakeScore: this.lastWakeScore
     };
   }
 

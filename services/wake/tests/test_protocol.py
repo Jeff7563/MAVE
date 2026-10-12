@@ -97,3 +97,25 @@ def test_parse_command():
     # JSON without 'command' field
     assert parse_command('{"other": 123}') is None
 
+
+def test_emit_telemetry(monkeypatch):
+    from mave_wake.protocol import emit_telemetry
+
+    buf = io.StringIO()
+    monkeypatch.setattr(sys, "stdout", buf)
+
+    emit_telemetry(latest_score=0.25, peak_score=0.48, last_wake_score=0.88, threshold=0.5)
+
+    data = json.loads(buf.getvalue().strip())
+    assert data["type"] == "telemetry"
+    assert data["latest_score"] == 0.25
+    assert data["peak_score"] == 0.48
+    assert data["last_wake_score"] == 0.88
+    assert data["threshold"] == 0.5
+
+
+def test_parse_reset_command():
+    cmd = parse_command('{"command": "reset"}')
+    assert cmd == {"command": "reset"}
+
+

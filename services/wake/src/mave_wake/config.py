@@ -15,6 +15,8 @@ class WakeConfig:
     chunk_size: int = 1280  # 80ms at 16kHz
     sample_rate: int = 16000
     model_name: str = "mave"
+    rearm_guard_ms: float = 300.0
+    cooldown_seconds: float = 1.0
 
     def __post_init__(self) -> None:
         # Clamp threshold to [0.0, 1.0]

@@ -1,11 +1,12 @@
 """Main executable entrypoint for MAVE openWakeWord daemon."""
 
 import argparse
+from collections import deque
 import sys
 import threading
 import time
 from pathlib import Path
-from typing import Optional
+from typing import Deque, Optional, Tuple
 
 from .audio import AudioCapture
 from .config import WakeConfig
@@ -14,6 +15,7 @@ from .protocol import (
     emit_devices,
     emit_error,
     emit_status,
+    emit_telemetry,
     emit_test_audio_result,
     emit_wake_detected,
     log_info,
@@ -37,6 +39,29 @@ class WakeService:
         self.status = "initializing"
         self._is_running = True
         self._last_wake_time = 0.0
+        self._rearm_until = 0.0
+        self._last_telemetry_time = 0.0
+        self.latest_score: float = 0.0
+        self.last_wake_score: Optional[float] = None
+        self._recent_scores: Deque[Tuple[float, float]] = deque()
+        self.recent_window_seconds = 4.0
+
+    def _update_scores(self, score: float, now: float) -> Tuple[float, float]:
+        """Update sliding window of scores and compute current and peak score."""
+        cutoff = now - self.recent_window_seconds
+        while self._recent_scores and self._recent_scores[0][0] < cutoff:
+            self._recent_scores.popleft()
+        self._recent_scores.append((now, score))
+        peak = max((s for _, s in self._recent_scores), default=0.0)
+        return score, peak
+
+    def get_peak_score(self) -> float:
+        """Get peak score within the recent window."""
+        now = time.time()
+        cutoff = now - self.recent_window_seconds
+        while self._recent_scores and self._recent_scores[0][0] < cutoff:
+            self._recent_scores.popleft()
+        return max((s for _, s in self._recent_scores), default=0.0)
 
     def initialize(self) -> None:
         """Initialize models and determine ready status."""
@@ -70,36 +95,77 @@ class WakeService:
             model_path=str(self.config.resolved_model_path(self.base_dir)),
             model_loaded=self.engine.is_loaded,
             available_devices=dev_names,
-            error_message=error_message or self.engine.error_message,
+            error_message=error_message or getattr(self.engine, "error_message", None),
+            latest_score=self.latest_score,
+            peak_score=self.get_peak_score(),
+            last_wake_score=self.last_wake_score,
         )
 
     def _on_audio_chunk(self, chunk) -> None:
         """Callback from audio thread processing live chunk."""
         score = self.engine.process_chunk(chunk)
         now = time.time()
-        # Cooldown of 1.0s to avoid spamming multiple triggers from the same word
-        if score >= self.config.threshold and (now - self._last_wake_time > 1.0):
+        self.latest_score, peak_score = self._update_scores(score, now)
+
+        is_rearming = now < self._rearm_until
+        cooldown_elapsed = (now - self._last_wake_time) > self.config.cooldown_seconds
+
+        if not is_rearming and score >= self.config.threshold and cooldown_elapsed:
             self._last_wake_time = now
+            self.last_wake_score = score
             emit_wake_detected(self.config.model_name, score)
+            # CRITICAL: Reset inference state immediately to flush the detected wake phrase
+            self.engine.reset()
+            self.latest_score = 0.0
+            self._last_telemetry_time = now
+            emit_telemetry(self.latest_score, peak_score, self.last_wake_score, self.config.threshold)
+        elif now - self._last_telemetry_time >= 0.25:
+            self._last_telemetry_time = now
+            emit_telemetry(self.latest_score, peak_score, self.last_wake_score, self.config.threshold)
 
     def start_listening(self) -> None:
         """Start listening loop."""
+        if self.status == "listening" and self.audio.is_recording:
+            return
+
         if not self.engine.is_loaded:
             self.engine.load_model()
+
+        # CRITICAL: Reset model state and clear live scores before starting new session
+        self.engine.reset()
+        self.latest_score = 0.0
+        self._recent_scores.clear()
+
+        # Re-arm guard: suppress wake detection during the first short period
+        self._rearm_until = time.time() + (self.config.rearm_guard_ms / 1000.0)
 
         success, err = self.audio.start()
         if success:
             self.status = "listening"
             self.emit_current_status()
+            emit_telemetry(self.latest_score, 0.0, self.last_wake_score, self.config.threshold)
+            self._last_telemetry_time = time.time()
         else:
             self.status = "error"
             self.emit_current_status(err)
 
     def stop_listening(self) -> None:
         """Stop listening loop."""
+        if self.status != "listening" and not self.audio.is_recording:
+            return
+
         self.audio.stop()
-        self.status = "ready" if self.engine.is_loaded else ("not_configured" if not self.config.is_model_available(self.base_dir) else "error")
+        # CRITICAL: Reset model state upon stopping listening session
+        self.engine.reset()
+        self.latest_score = 0.0
+
+        self.status = (
+            "ready"
+            if self.engine.is_loaded
+            else ("not_configured" if not self.config.is_model_available(self.base_dir) else "error")
+        )
         self.emit_current_status()
+        emit_telemetry(self.latest_score, self.get_peak_score(), self.last_wake_score, self.config.threshold)
 
     def set_device(self, device_index: int) -> None:
         """Switch audio input device."""
@@ -149,6 +215,11 @@ class WakeService:
                 self.start_listening()
             elif command == "stop":
                 self.stop_listening()
+            elif command == "reset":
+                self.engine.reset()
+                self.latest_score = 0.0
+                self._recent_scores.clear()
+                emit_telemetry(0.0, 0.0, self.last_wake_score, self.config.threshold)
             elif command == "get_status":
                 self.emit_current_status()
             elif command == "get_devices":

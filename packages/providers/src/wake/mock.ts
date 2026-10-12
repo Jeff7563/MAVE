@@ -31,9 +31,13 @@ export class MockWakeWordProvider implements WakeWordProvider {
   private lastWakeAt?: number;
   private isConfigured = true;
   private errorMessage?: string;
+  private latestScore = 0;
+  private peakScore = 0;
+  private lastWakeScore?: number;
 
   private wakeListeners = new Set<() => void>();
   private errorListeners = new Set<(err: Error) => void>();
+  private telemetryListeners = new Set<(t: { latestScore: number; peakScore: number; lastWakeScore?: number; threshold: number }) => void>();
 
   constructor(options?: MockWakeWordProviderOptions) {
     if (options?.status) this.status = options.status;
@@ -75,6 +79,7 @@ export class MockWakeWordProvider implements WakeWordProvider {
     this.status = 'not_configured';
     this.wakeListeners.clear();
     this.errorListeners.clear();
+    this.telemetryListeners.clear();
     this.logger.info('wake.disposed');
   }
 
@@ -89,6 +94,20 @@ export class MockWakeWordProvider implements WakeWordProvider {
     this.errorListeners.add(callback);
     return () => {
       this.errorListeners.delete(callback);
+    };
+  }
+
+  onTelemetry(
+    callback: (telemetry: {
+      latestScore: number;
+      peakScore: number;
+      lastWakeScore?: number;
+      threshold: number;
+    }) => void
+  ): () => void {
+    this.telemetryListeners.add(callback);
+    return () => {
+      this.telemetryListeners.delete(callback);
     };
   }
 
@@ -108,7 +127,10 @@ export class MockWakeWordProvider implements WakeWordProvider {
       threshold: this.threshold,
       lastWakeAt: this.lastWakeAt,
       isConfigured: this.isConfigured,
-      errorMessage: this.errorMessage
+      errorMessage: this.errorMessage,
+      latestScore: this.latestScore,
+      peakScore: this.peakScore,
+      lastWakeScore: this.lastWakeScore
     };
   }
 
@@ -116,15 +138,46 @@ export class MockWakeWordProvider implements WakeWordProvider {
     return this.isRunning;
   }
 
-  simulateWake(): void {
+  simulateWake(score: number = 0.88): void {
     this.lastWakeAt = Date.now();
-    this.logger.info({ lastWakeAt: this.lastWakeAt }, 'wake.detected');
+    this.lastWakeScore = score;
+    this.peakScore = Math.max(this.peakScore, score);
+    this.latestScore = score;
+    this.logger.info({ lastWakeAt: this.lastWakeAt, score }, 'wake.detected');
     for (const listener of this.wakeListeners) {
       try {
         listener();
       } catch (err) {
         this.logger.error({ err }, 'error in wake listener');
       }
+    }
+    for (const listener of this.telemetryListeners) {
+      try {
+        listener({
+          latestScore: this.latestScore,
+          peakScore: this.peakScore,
+          lastWakeScore: this.lastWakeScore,
+          threshold: this.threshold
+        });
+      } catch (err) {
+        this.logger.error({ err }, 'error in telemetry listener');
+      }
+    }
+  }
+
+  setTelemetry(latest: number, peak: number, lastWake?: number): void {
+    this.latestScore = latest;
+    this.peakScore = peak;
+    if (lastWake !== undefined) this.lastWakeScore = lastWake;
+    for (const listener of this.telemetryListeners) {
+      try {
+        listener({
+          latestScore: this.latestScore,
+          peakScore: this.peakScore,
+          lastWakeScore: this.lastWakeScore,
+          threshold: this.threshold
+        });
+      } catch {}
     }
   }
 

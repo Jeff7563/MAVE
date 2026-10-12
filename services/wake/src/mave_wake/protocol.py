@@ -25,6 +25,9 @@ def emit_status(
     model_loaded: bool,
     available_devices: List[str],
     error_message: Optional[str] = None,
+    latest_score: float = 0.0,
+    peak_score: float = 0.0,
+    last_wake_score: Optional[float] = None,
 ) -> None:
     """Emit status event over protocol."""
     payload: Dict[str, Any] = {
@@ -35,10 +38,31 @@ def emit_status(
         "model_path": model_path,
         "model_loaded": model_loaded,
         "available_devices": available_devices,
+        "latest_score": round(float(latest_score), 4),
+        "peak_score": round(float(peak_score), 4),
     }
+    if last_wake_score is not None:
+        payload["last_wake_score"] = round(float(last_wake_score), 4)
     if error_message:
         payload["error_message"] = error_message
     emit_event("status", payload)
+
+
+def emit_telemetry(
+    latest_score: float,
+    peak_score: float,
+    last_wake_score: Optional[float],
+    threshold: float,
+) -> None:
+    """Emit live inference score telemetry without storing or transmitting raw audio."""
+    payload: Dict[str, Any] = {
+        "latest_score": round(float(latest_score), 4),
+        "peak_score": round(float(peak_score), 4),
+        "threshold": round(float(threshold), 4),
+    }
+    if last_wake_score is not None:
+        payload["last_wake_score"] = round(float(last_wake_score), 4)
+    emit_event("telemetry", payload)
 
 
 def emit_wake_detected(model: str, score: float, timestamp: Optional[int] = None) -> None:

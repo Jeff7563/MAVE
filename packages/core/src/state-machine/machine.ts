@@ -17,7 +17,10 @@ export const initialContext: MaveMachineContext = {
   threshold: 0.5,
   wakeProvider: 'openWakeWord',
   lastWakeAt: undefined,
-  isWakeConfigured: false
+  isWakeConfigured: false,
+  latestScore: 0,
+  peakScore: 0,
+  lastWakeScore: undefined
 };
 
 export const maveMachine = setup({
