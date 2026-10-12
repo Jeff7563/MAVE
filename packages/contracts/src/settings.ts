@@ -6,7 +6,7 @@ export const MaveConfigSchema = z.object({
     enabled: z.boolean(),
     sensitivity: z.number().min(0).max(1),
     keywordModelPath: z.string(),
-    microphoneDeviceIndex: z.number()
+    microphoneDeviceIndex: z.number().min(-1)
   }),
   conversation: z.object({
     idleTimeoutMs: z.number().positive(),
@@ -31,7 +31,7 @@ export const DefaultMaveConfig: MaveConfig = {
     enabled: true,
     sensitivity: 0.5,
     keywordModelPath: 'assets/wake/mave_windows.ppn',
-    microphoneDeviceIndex: 0
+    microphoneDeviceIndex: -1
   },
   conversation: {
     idleTimeoutMs: 75000,

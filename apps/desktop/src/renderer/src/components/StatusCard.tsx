@@ -10,6 +10,12 @@ function formatStatus(text: string): string {
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
+function formatLastWake(timestamp?: number): string {
+  if (!timestamp) return 'Never';
+  const date = new Date(timestamp);
+  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}
+
 export const StatusCard: React.FC<StatusCardProps> = ({ snapshot }) => {
   const wakeEngineText =
     snapshot.wakeEngineStatus === 'not_configured'
@@ -22,8 +28,24 @@ export const StatusCard: React.FC<StatusCardProps> = ({ snapshot }) => {
   const dbText =
     snapshot.databaseStatus === 'ready' ? 'Ready' : formatStatus(snapshot.databaseStatus);
 
+  const micText = snapshot.microphoneName || 'Default Microphone';
+  const wakeWordText = snapshot.wakeWord || 'MAVE';
+  const sensitivityText =
+    snapshot.sensitivity !== undefined ? snapshot.sensitivity.toFixed(2) : '0.50';
+  const lastWakeText = formatLastWake(snapshot.lastWakeAt);
+
+  const isWakeDetectedRecent =
+    snapshot.state === 'waking' ||
+    (snapshot.lastWakeAt && Date.now() - snapshot.lastWakeAt < 5000);
+
   return (
     <div className="card">
+      {isWakeDetectedRecent && (
+        <div className="wake-badge" data-testid="wake-detected-badge">
+          ✨ MAVE detected
+        </div>
+      )}
+
       <div className="status-row">
         <span className="status-label">Status:</span>
         <span
@@ -36,8 +58,39 @@ export const StatusCard: React.FC<StatusCardProps> = ({ snapshot }) => {
 
       <div className="status-row">
         <span className="status-label">Wake engine:</span>
-        <span className="status-value" data-testid="wake-status">
+        <span
+          className={`status-value wake-${snapshot.wakeEngineStatus}`}
+          data-testid="wake-status"
+        >
           {wakeEngineText}
+        </span>
+      </div>
+
+      <div className="status-row">
+        <span className="status-label">Microphone:</span>
+        <span className="status-value" data-testid="mic-status">
+          {micText}
+        </span>
+      </div>
+
+      <div className="status-row">
+        <span className="status-label">Wake word:</span>
+        <span className="status-value" data-testid="wake-word">
+          {wakeWordText}
+        </span>
+      </div>
+
+      <div className="status-row">
+        <span className="status-label">Sensitivity:</span>
+        <span className="status-value" data-testid="sensitivity-status">
+          {sensitivityText}
+        </span>
+      </div>
+
+      <div className="status-row">
+        <span className="status-label">Last wake:</span>
+        <span className="status-value" data-testid="last-wake-status">
+          {lastWakeText}
         </span>
       </div>
 

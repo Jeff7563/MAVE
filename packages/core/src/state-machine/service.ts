@@ -26,7 +26,14 @@ export function createMaveService(options?: {
       isMuted: snap.context.isMuted,
       mode: snap.context.mode,
       errorMessage: snap.context.errorMessage,
-      lastActiveAt: snap.context.lastActiveAt
+      lastActiveAt: snap.context.lastActiveAt,
+      microphoneName: snap.context.microphoneName,
+      microphoneIndex: snap.context.microphoneIndex,
+      availableDevices: snap.context.availableDevices,
+      wakeWord: snap.context.wakeWord,
+      sensitivity: snap.context.sensitivity,
+      lastWakeAt: snap.context.lastWakeAt,
+      isWakeConfigured: snap.context.isWakeConfigured
     };
   }
 

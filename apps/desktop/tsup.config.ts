@@ -5,7 +5,12 @@ export default defineConfig([
     entry: ['src/main/index.ts'],
     format: ['cjs'],
     outDir: 'dist/main',
-    external: ['electron', 'sql.js'],
+    external: [
+      'electron',
+      'sql.js',
+      '@picovoice/porcupine-node',
+      '@picovoice/pvrecorder-node'
+    ],
     noExternal: [/@mave\/.*/, 'pino', 'xstate', 'zod', 'drizzle-orm'],
     target: 'node20'
   },

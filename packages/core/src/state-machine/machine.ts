@@ -8,7 +8,14 @@ export const initialContext: MaveMachineContext = {
   isMuted: false,
   mode: 'conversation',
   errorMessage: undefined,
-  lastActiveAt: Date.now()
+  lastActiveAt: Date.now(),
+  microphoneName: 'Default Microphone',
+  microphoneIndex: -1,
+  availableDevices: [],
+  wakeWord: 'MAVE',
+  sensitivity: 0.5,
+  lastWakeAt: undefined,
+  isWakeConfigured: false
 };
 
 export const maveMachine = setup({
@@ -36,6 +43,27 @@ export const maveMachine = setup({
     updateActiveTime: assign({
       lastActiveAt: () => Date.now()
     }),
+    recordLastWake: assign({
+      lastWakeAt: () => Date.now(),
+      lastActiveAt: () => Date.now()
+    }),
+    setWakeEngineStatus: assign(({ context, event }) => {
+      if (event.type !== 'SET_WAKE_ENGINE_STATUS') return context;
+      return {
+        ...context,
+        wakeEngineStatus: event.status,
+        errorMessage: event.error ?? context.errorMessage
+      };
+    }),
+    setWakeDiagnostics: assign(({ context, event }) => {
+      if (event.type !== 'SET_WAKE_DIAGNOSTICS') return context;
+      return {
+        ...context,
+        ...event.diagnostics,
+        wakeEngineStatus: event.diagnostics.status ?? context.wakeEngineStatus,
+        errorMessage: event.diagnostics.errorMessage ?? context.errorMessage
+      };
+    }),
     setDatabaseReady: assign({
       databaseStatus: () => 'ready' as const
     }),
@@ -62,6 +90,12 @@ export const maveMachine = setup({
     },
     DATABASE_ERROR: {
       actions: ['setDatabaseError']
+    },
+    SET_WAKE_ENGINE_STATUS: {
+      actions: ['setWakeEngineStatus']
+    },
+    SET_WAKE_DIAGNOSTICS: {
+      actions: ['setWakeDiagnostics']
     }
   },
   states: {
@@ -77,7 +111,7 @@ export const maveMachine = setup({
       on: {
         WAKE_DETECTED: {
           target: 'waking',
-          actions: ['clearError', 'updateActiveTime']
+          actions: ['clearError', 'recordLastWake']
         },
         MUTE: {
           target: 'muted',

@@ -100,4 +100,59 @@ describe('MAVE State Machine', () => {
     unsubscribe();
     service.stop();
   });
+
+  it('records lastWakeAt timestamp when WAKE_DETECTED occurs', () => {
+    const service = createMaveService();
+    service.start();
+    service.send({ type: 'APP_READY' });
+
+    expect(service.getSnapshot().lastWakeAt).toBeUndefined();
+
+    const before = Date.now();
+    service.send({ type: 'WAKE_DETECTED' });
+    const snap = service.getSnapshot();
+
+    expect(snap.state).toBe('waking');
+    expect(snap.lastWakeAt).toBeDefined();
+    expect(snap.lastWakeAt).toBeGreaterThanOrEqual(before);
+
+    service.stop();
+  });
+
+  it('updates wake diagnostics and engine status via events', () => {
+    const service = createMaveService();
+    service.start();
+
+    service.send({
+      type: 'SET_WAKE_DIAGNOSTICS',
+      diagnostics: {
+        status: 'listening',
+        microphoneName: 'Studio USB Mic',
+        microphoneIndex: 1,
+        availableDevices: ['Default', 'Studio USB Mic'],
+        sensitivity: 0.65,
+        isWakeConfigured: true
+      }
+    });
+
+    const snap = service.getSnapshot();
+    expect(snap.wakeEngineStatus).toBe('listening');
+    expect(snap.microphoneName).toBe('Studio USB Mic');
+    expect(snap.microphoneIndex).toBe(1);
+    expect(snap.availableDevices).toEqual(['Default', 'Studio USB Mic']);
+    expect(snap.sensitivity).toBe(0.65);
+    expect(snap.isWakeConfigured).toBe(true);
+
+    service.send({
+      type: 'SET_WAKE_ENGINE_STATUS',
+      status: 'error',
+      error: 'Mic disconnected'
+    });
+
+    const errorSnap = service.getSnapshot();
+    expect(errorSnap.wakeEngineStatus).toBe('error');
+    expect(errorSnap.errorMessage).toBe('Mic disconnected');
+
+    service.stop();
+  });
 });

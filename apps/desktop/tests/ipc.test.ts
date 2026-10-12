@@ -54,4 +54,37 @@ describe('Desktop IPC Command Handler', () => {
     expect(result.success).toBe(false);
     expect(result.error).toBeDefined();
   });
+
+  it('handles wake-specific commands with wakeManager', () => {
+    const mockWakeManager: any = {
+      restart: vi.fn().mockResolvedValue(undefined),
+      setMicrophone: vi.fn().mockResolvedValue(undefined),
+      setSensitivity: vi.fn().mockResolvedValue(undefined),
+      getProvider: vi.fn().mockReturnValue({})
+    };
+
+    const restartRes = handleIpcCommand(
+      { command: 'restart-wake-engine' },
+      mockService,
+      mockWakeManager
+    );
+    expect(restartRes.success).toBe(true);
+    expect(mockWakeManager.restart).toHaveBeenCalled();
+
+    const setMicRes = handleIpcCommand(
+      { command: 'set-microphone', payload: { index: 2 } },
+      mockService,
+      mockWakeManager
+    );
+    expect(setMicRes.success).toBe(true);
+    expect(mockWakeManager.setMicrophone).toHaveBeenCalledWith(2);
+
+    const setSensRes = handleIpcCommand(
+      { command: 'set-sensitivity', payload: { sensitivity: 0.8 } },
+      mockService,
+      mockWakeManager
+    );
+    expect(setSensRes.success).toBe(true);
+    expect(mockWakeManager.setSensitivity).toHaveBeenCalledWith(0.8);
+  });
 });

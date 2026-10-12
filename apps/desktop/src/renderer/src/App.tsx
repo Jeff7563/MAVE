@@ -49,15 +49,19 @@ export const App: React.FC = () => {
     return undefined;
   }, []);
 
-  const handleSendCommand = (command: MaveCommand) => {
+  const handleSendCommand = (command: MaveCommand, payload?: Record<string, unknown>) => {
     if (window.mave?.sendCommand) {
-      window.mave.sendCommand(command).catch((err) => {
+      window.mave.sendCommand(command, payload).catch((err) => {
         console.error('Failed to send command:', err);
       });
     } else {
       // Local fallback for standalone browser preview
       if (command === 'simulate-wake') {
-        setSnapshot((prev) => ({ ...prev, state: 'waking' }));
+        setSnapshot((prev) => ({
+          ...prev,
+          state: 'waking',
+          lastWakeAt: Date.now()
+        }));
       } else if (command === 'return-to-sleep') {
         setSnapshot((prev) => ({ ...prev, state: 'sleeping' }));
       } else if (command === 'toggle-mute') {
@@ -71,6 +75,18 @@ export const App: React.FC = () => {
           ...prev,
           state: 'error',
           errorMessage: 'Simulated developer error'
+        }));
+      } else if (command === 'set-microphone' && payload && typeof payload['index'] === 'number') {
+        const idx = payload['index'];
+        setSnapshot((prev) => ({
+          ...prev,
+          microphoneIndex: idx,
+          microphoneName: prev.availableDevices?.[idx] || (idx === -1 ? 'Default Microphone' : prev.microphoneName)
+        }));
+      } else if (command === 'set-sensitivity' && payload && typeof payload['sensitivity'] === 'number') {
+        setSnapshot((prev) => ({
+          ...prev,
+          sensitivity: payload['sensitivity'] as number
         }));
       }
     }
@@ -87,6 +103,9 @@ export const App: React.FC = () => {
         <DeveloperControls
           onSendCommand={handleSendCommand}
           isMuted={snapshot.isMuted}
+          availableDevices={snapshot.availableDevices}
+          currentDeviceIndex={snapshot.microphoneIndex}
+          currentSensitivity={snapshot.sensitivity}
         />
       </main>
     </div>

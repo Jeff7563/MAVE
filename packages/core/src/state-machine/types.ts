@@ -14,6 +14,13 @@ export interface MaveMachineContext {
   mode: ConversationMode;
   errorMessage?: string;
   lastActiveAt: number;
+  microphoneName?: string;
+  microphoneIndex?: number;
+  availableDevices?: string[];
+  wakeWord?: string;
+  sensitivity?: number;
+  lastWakeAt?: number;
+  isWakeConfigured?: boolean;
 }
 
 export type MaveMachineEvent =
@@ -30,6 +37,21 @@ export type MaveMachineEvent =
   | { type: 'UNMUTE' }
   | { type: 'TOGGLE_MUTE' }
   | { type: 'SET_MODE'; mode: ConversationMode }
+  | { type: 'SET_WAKE_ENGINE_STATUS'; status: WakeEngineStatus; error?: string }
+  | {
+      type: 'SET_WAKE_DIAGNOSTICS';
+      diagnostics: {
+        status?: WakeEngineStatus;
+        microphoneName?: string;
+        microphoneIndex?: number;
+        availableDevices?: string[];
+        wakeWord?: string;
+        sensitivity?: number;
+        lastWakeAt?: number;
+        isWakeConfigured?: boolean;
+        errorMessage?: string;
+      };
+    }
   | { type: 'DATABASE_READY' }
   | { type: 'DATABASE_ERROR'; error: string }
   | { type: 'ERROR'; error: string }

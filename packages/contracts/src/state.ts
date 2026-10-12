@@ -19,6 +19,7 @@ export const WakeEngineStatusSchema = z.enum([
   'not_configured',
   'initializing',
   'ready',
+  'listening',
   'active',
   'error'
 ]);
@@ -55,7 +56,14 @@ export const AssistantStateSnapshotSchema = z.object({
   isMuted: z.boolean(),
   mode: ConversationModeSchema,
   errorMessage: z.string().optional(),
-  lastActiveAt: z.number()
+  lastActiveAt: z.number(),
+  microphoneName: z.string().optional(),
+  microphoneIndex: z.number().optional(),
+  availableDevices: z.array(z.string()).optional(),
+  wakeWord: z.string().optional(),
+  sensitivity: z.number().optional(),
+  lastWakeAt: z.number().optional(),
+  isWakeConfigured: z.boolean().optional()
 });
 
 export type AssistantStateSnapshot = z.infer<typeof AssistantStateSnapshotSchema>;

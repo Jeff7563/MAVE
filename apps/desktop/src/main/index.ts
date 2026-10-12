@@ -5,12 +5,14 @@ import { createMaveService, type MaveService } from '@mave/core';
 import { createMaveDatabase, type MaveDatabase } from '@mave/database';
 import { registerIpcHandlers } from './ipc.js';
 import { createSystemTray } from './tray.js';
+import { WakeManager } from './wake-manager.js';
 
 const logger = createLogger({ name: 'mave:main' });
 
 let mainWindow: BrowserWindow | null = null;
 let maveService: MaveService | null = null;
 let maveDatabase: MaveDatabase | null = null;
+let wakeManager: WakeManager | null = null;
 let tray: ReturnType<typeof createSystemTray> | null = null;
 
 // Enforce single instance lock
@@ -93,14 +95,23 @@ app.whenReady().then(async () => {
     maveService = createMaveService();
     maveService.start();
 
-    // 3. Register IPC
-    registerIpcHandlers(maveService, () => mainWindow);
+    // 3. Initialize Wake Manager
+    wakeManager = new WakeManager({
+      service: maveService,
+      database: maveDatabase,
+      useMockProvider: process.env['NODE_ENV'] === 'test' || process.env['MAVE_MOCK_WAKE'] === '1',
+      rootDir: path.resolve(__dirname, '../../../..')
+    });
+    await wakeManager.initialize();
 
-    // 4. Create Window & Tray
+    // 4. Register IPC
+    registerIpcHandlers(maveService, () => mainWindow, wakeManager);
+
+    // 5. Create Window & Tray
     mainWindow = createWindow();
     tray = createSystemTray(maveService, () => mainWindow);
 
-    // 5. Send APP_READY
+    // 6. Send APP_READY
     maveService.send({ type: 'APP_READY' });
     logger.info('MAVE ready: state set to sleeping');
   } catch (err) {
@@ -125,11 +136,15 @@ app.on('window-all-closed', () => {
   logger.info('all windows closed, continuing in tray');
 });
 
-app.on('before-quit', () => {
+app.on('before-quit', async () => {
   logger.info('graceful shutdown initiated');
   if (tray) {
     tray.destroy();
     tray = null;
+  }
+  if (wakeManager) {
+    await wakeManager.dispose();
+    wakeManager = null;
   }
   if (maveService) {
     maveService.send({ type: 'SHUTDOWN' });

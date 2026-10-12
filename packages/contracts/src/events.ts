@@ -8,7 +8,10 @@ export const MaveCommandSchema = z.enum([
   'simulate-error',
   'open-mave',
   'open-settings',
-  'quit'
+  'quit',
+  'restart-wake-engine',
+  'set-microphone',
+  'set-sensitivity'
 ]);
 export type MaveCommand = z.infer<typeof MaveCommandSchema>;
 
