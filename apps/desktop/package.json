@@ -1,0 +1,45 @@
+{
+  "name": "@mave/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./dist/main/index.js",
+  "scripts": {
+    "dev": "concurrently -k \"vite\" \"cross-env NODE_ENV=development electron .\"",
+    "build:electron": "tsup",
+    "build:renderer": "vite build",
+    "build": "pnpm build:electron && pnpm build:renderer",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "clean": "rimraf dist out .vite"
+  },
+  "dependencies": {
+    "@mave/contracts": "workspace:*",
+    "@mave/core": "workspace:*",
+    "@mave/database": "workspace:*",
+    "@mave/prompts": "workspace:*",
+    "@mave/providers": "workspace:*",
+    "@mave/shared": "workspace:*",
+    "better-sqlite3": "^13.0.3",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "sql.js": "^1.14.2",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.1",
+    "@types/node": "^22.10.1",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@types/sql.js": "^1.4.11",
+    "@vitejs/plugin-react": "^4.3.4",
+    "concurrently": "^9.1.0",
+    "cross-env": "^7.0.3",
+    "electron": "^33.2.1",
+    "rimraf": "^6.0.1",
+    "tsup": "^8.3.6",
+    "typescript": "^5.8.2",
+    "vite": "^5.4.11",
+    "vitest": "^2.1.8"
+  }
+}

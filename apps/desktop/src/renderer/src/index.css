@@ -1,0 +1,130 @@
+:root {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  color: #1e293b;
+  background-color: #f8fafc;
+  line-height: 1.5;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  min-height: 100vh;
+}
+
+.container {
+  width: 100%;
+  max-width: 400px;
+  padding: 24px;
+  box-sizing: border-box;
+}
+
+header h1 {
+  margin: 0 0 16px 0;
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  color: #0f172a;
+}
+
+.card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.status-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+
+.status-row:last-child {
+  margin-bottom: 0;
+}
+
+.status-label {
+  color: #64748b;
+  font-weight: 500;
+}
+
+.status-value {
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.status-value.state-sleeping {
+  color: #64748b;
+}
+
+.status-value.state-waking,
+.status-value.state-listening {
+  color: #0284c7;
+}
+
+.status-value.state-thinking {
+  color: #8b5cf6;
+}
+
+.status-value.state-speaking {
+  color: #16a34a;
+}
+
+.status-value.state-muted {
+  color: #ea580c;
+}
+
+.status-value.state-error {
+  color: #dc2626;
+}
+
+.developer-controls h2 {
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #64748b;
+  margin: 0 0 12px 0;
+}
+
+.button-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+button {
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #334155;
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+}
+
+button:hover {
+  background: #e2e8f0;
+  border-color: #94a3b8;
+}
+
+button:active {
+  background: #cbd5e1;
+}
+
+.error-banner {
+  margin-top: 12px;
+  padding: 10px;
+  background-color: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  color: #b91c1c;
+  font-size: 13px;
+}
