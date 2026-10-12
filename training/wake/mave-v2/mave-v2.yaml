@@ -1,0 +1,109 @@
+# MAVE Wake Model V2 Training Configuration
+# Engine: openWakeWord (0.6.0)
+
+model:
+  name: "mave"
+  version: "v2"
+  architecture: "openwakeword_dnn"
+  export_format: "onnx"
+  target_threshold: 0.50
+
+wake_identity:
+  phrase: "Hey MAVE"
+  canonical_phonemes_ipa: "h eɪ m eɪ v"
+  canonical_phonemes_arpabet: "HH EY1 M EY1 V"
+  training_spellings:
+    - spelling: "hey maeve"
+      phonemes: "h eɪ m eɪ v"
+      weight: 0.6
+    - spelling: "hey mave"
+      phonemes: "h eɪ m eɪ v"
+      weight: 0.4
+
+synthetic_generation:
+  engine: "piper-tts"
+  sample_rate: 16000
+  total_synthetic_clips: 5000
+  piper_voices:
+    - "en_US-lessac-medium"
+    - "en_US-libritts-high"
+    - "en_US-amy-medium"
+    - "en_US-danny-low"
+    - "en_US-ryan-medium"
+    - "en_US-kristin-medium"
+    - "en_GB-alan-medium"
+    - "en_GB-southern_english_female-low"
+  speech_rates: [0.8, 0.9, 1.0, 1.1, 1.25]
+  noise_scales: [0.33, 0.667, 0.8]
+
+real_audio_dataset:
+  path: "data/wake/mave-v2"
+  positive_target_clips: 70
+  categories:
+    - name: "positive/natural"
+      target: 30
+      description: "Normal conversational tone, ~1ft from FIFINE K690"
+    - name: "positive/fast"
+      target: 10
+      description: "Fast / brisk cadence"
+    - name: "positive/soft"
+      target: 10
+      description: "Soft / quiet voice"
+    - name: "positive/far"
+      target: 10
+      description: "2-3 meters away"
+    - name: "positive/difficult-ending"
+      target: 10
+      description: "Natural reduced/softer final consonant voicing"
+  train_val_split:
+    train_ratio: 0.80
+    val_ratio: 0.20
+  augmentation:
+    enabled: true
+    multiplier: 30
+    room_impulse_response: true
+    background_noise_snr_db: [10, 25]
+    pitch_shift_semitones: [-1.5, 1.5]
+    time_stretch: [0.90, 1.10]
+
+negative_dataset:
+  near_miss_phrases:
+    - "Hey maybe"
+    - "Hey Dave"
+    - "Hey wave"
+    - "Hey save"
+    - "Hey cave"
+    - "Hey babe"
+    - "Hey mate"
+    - "Hey May"
+    - "Hey made"
+    - "Hey mail"
+    - "Say MAVE"
+    - "OK MAVE"
+  ambient_datasets:
+    - "audioset_speech"
+    - "fma_music"
+    - "common_voice_ambient"
+  false_positive_target_per_hour: 0.1
+
+training_hyperparameters:
+  batch_size: 128
+  steps: 50000
+  learning_rate: 0.0001
+  warmup_steps: 10000
+  hold_steps: 15000
+  max_negative_weight: 1000
+  val_steps: 250
+  mixed_batch_ratio:
+    synthetic_positive: 0.70
+    augmented_real_positive: 0.20
+    validation_held_out: 0.10
+
+quality_gates:
+  live_recall_first_attempt: ">= 18/20 (90%)"
+  live_recall_target: "19-20/20 (95-100%)"
+  sleep_one_click: "20/20 (100%)"
+  ghost_wakes: "0"
+  real_dataset_benchmark: "Materially outperform V1 (recall > 70%)"
+  near_miss_false_positive_rate: "<= 5%"
+

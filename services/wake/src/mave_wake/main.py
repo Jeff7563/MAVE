@@ -250,6 +250,7 @@ def main() -> None:
     """CLI Entrypoint."""
     parser = argparse.ArgumentParser(description="MAVE openWakeWord Service")
     parser.add_argument("--model", type=str, default="assets/wake/mave.onnx", help="Path to wake ONNX model")
+    parser.add_argument("--model-version", type=str, default=None, help="Version of wake model to load (e.g. v1, v2)")
     parser.add_argument("--threshold", type=float, default=0.5, help="Wake detection threshold [0.0 - 1.0]")
     parser.add_argument("--device", type=int, default=None, help="Audio input device index")
     parser.add_argument("--test-wav", type=str, default=None, help="Run offline WAV file test and output result")
@@ -257,6 +258,7 @@ def main() -> None:
 
     config = WakeConfig(
         model_path=args.model,
+        model_version=args.model_version,
         threshold=args.threshold,
         device_index=args.device,
     )
