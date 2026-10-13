@@ -5,13 +5,15 @@ import { createLogger } from '@mave/shared';
 
 import type { WakeManager } from './wake-manager.js';
 import type { ConversationManager } from './conversation-manager.js';
+import type { VoiceManager } from './voice-manager.js';
 
 const logger = createLogger({ name: 'mave:ipc' });
 
 export async function handleIpcCommand(
   rawPayload: unknown,
   service: MaveService,
-  wakeManager?: WakeManager
+  wakeManager?: WakeManager,
+  voiceManager?: VoiceManager
 ): Promise<{ success: boolean; data?: unknown; error?: string }> {
   const parseResult = SendCommandPayloadSchema.safeParse(rawPayload);
   if (!parseResult.success) {
@@ -25,14 +27,20 @@ export async function handleIpcCommand(
 
   switch (command) {
     case 'simulate-wake':
-      if (wakeManager && 'simulateWake' in wakeManager.getProvider()) {
+      if (voiceManager) {
+        await voiceManager.handleWakeDetected();
+      } else if (wakeManager && 'simulateWake' in wakeManager.getProvider()) {
         (wakeManager.getProvider() as any).simulateWake();
       } else {
         service.send({ type: 'WAKE_DETECTED' });
       }
       break;
     case 'return-to-sleep':
-      service.send({ type: 'SLEEP_REQUESTED' });
+      if (voiceManager && voiceManager.isVoiceActive()) {
+        await voiceManager.cancelActiveVoiceSession('user_sleep_requested');
+      } else {
+        service.send({ type: 'SLEEP_REQUESTED' });
+      }
       break;
     case 'toggle-mute':
       service.send({ type: 'TOGGLE_MUTE' });
@@ -126,14 +134,15 @@ export function registerIpcHandlers(
   service: MaveService,
   getMainWindow: () => BrowserWindow | null,
   wakeManager?: WakeManager,
-  conversationManager?: ConversationManager
+  conversationManager?: ConversationManager,
+  voiceManager?: VoiceManager
 ): () => void {
   ipcMain.handle('mave:get-status', () => {
     return service.getSnapshot();
   });
 
   ipcMain.handle('mave:send-command', (_event, rawPayload: unknown) => {
-    return handleIpcCommand(rawPayload, service, wakeManager);
+    return handleIpcCommand(rawPayload, service, wakeManager, voiceManager);
   });
 
   let cleanupConversation: (() => void) | undefined;

@@ -8,6 +8,7 @@ import { registerIpcHandlers } from './ipc.js';
 import { createSystemTray } from './tray.js';
 import { WakeManager } from './wake-manager.js';
 import { ConversationManager } from './conversation-manager.js';
+import { VoiceManager } from './voice-manager.js';
 
 const logger = createLogger({ name: 'mave:main' });
 
@@ -16,6 +17,7 @@ let maveService: MaveService | null = null;
 let maveDatabase: MaveDatabase | null = null;
 let wakeManager: WakeManager | null = null;
 let conversationManager: ConversationManager | null = null;
+let voiceManager: VoiceManager | null = null;
 let tray: ReturnType<typeof createSystemTray> | null = null;
 
 // Enforce single instance lock
@@ -85,6 +87,20 @@ function createWindow(): BrowserWindow {
   return win;
 }
 
+function getPersistedSetting(database: MaveDatabase, key: string): string | null {
+  try {
+    const result = database.sqlite.exec(
+      `SELECT value FROM settings WHERE key = '${key}' LIMIT 1;`
+    );
+    if (result.length > 0 && result[0]?.values.length && result[0].values[0]?.[0]) {
+      return String(result[0].values[0][0]);
+    }
+  } catch (err) {
+    logger.warn({ key, err }, 'failed to read setting from database');
+  }
+  return null;
+}
+
 app.whenReady().then(async () => {
   logger.info({ nodeEnv: process.env['NODE_ENV'] }, 'app startup: initializing MAVE');
 
@@ -114,14 +130,35 @@ app.whenReady().then(async () => {
       timeoutMs: DefaultMaveConfig.brain.timeoutMs
     });
 
-    // 5. Register IPC
-    registerIpcHandlers(maveService, () => mainWindow, wakeManager, conversationManager);
+    // 5. Initialize Voice Manager (M3.5 Wake <-> Voice Handoff)
+    const voiceEnabled =
+      process.env['MAVE_VOICE_ENABLED'] === '1' ||
+      getPersistedSetting(maveDatabase, 'voice.enabled') === 'true';
 
-    // 6. Create Window & Tray
+    if (voiceEnabled) {
+      voiceManager = new VoiceManager({
+        service: maveService,
+        wakeManager,
+        conversationRuntime: conversationManager.getRuntime()
+      });
+      await voiceManager.start();
+      logger.info('voice manager initialized and started');
+    }
+
+    // 6. Register IPC
+    registerIpcHandlers(
+      maveService,
+      () => mainWindow,
+      wakeManager,
+      conversationManager,
+      voiceManager ?? undefined
+    );
+
+    // 7. Create Window & Tray
     mainWindow = createWindow();
     tray = createSystemTray(maveService, () => mainWindow);
 
-    // 7. Send APP_READY
+    // 8. Send APP_READY
     maveService.send({ type: 'APP_READY' });
     logger.info('MAVE ready: state set to sleeping');
   } catch (err) {
@@ -151,6 +188,10 @@ app.on('before-quit', async () => {
   if (tray) {
     tray.destroy();
     tray = null;
+  }
+  if (voiceManager) {
+    await voiceManager.dispose();
+    voiceManager = null;
   }
   if (wakeManager) {
     await wakeManager.dispose();

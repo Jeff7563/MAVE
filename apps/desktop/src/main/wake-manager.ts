@@ -13,6 +13,8 @@ export interface WakeManagerOptions {
   useMockProvider?: boolean;
   rootDir?: string;
   rearmGuardMs?: number;
+  onWakeDetected?: () => Promise<void> | void;
+  autoManageCapture?: boolean;
 }
 
 export class WakeManager {
@@ -25,11 +27,17 @@ export class WakeManager {
   private unsubscribeWake?: () => void;
   private unsubscribeTelemetry?: () => void;
   private isDisposed = false;
+  private onWakeDetectedHandler?: () => Promise<void> | void;
+  private autoManageCapture: boolean;
+  private activeStartPromise: Promise<void> | null = null;
+  private activeStopPromise: Promise<void> | null = null;
 
   constructor(options: WakeManagerOptions) {
     this.service = options.service;
     this.database = options.database;
     this.rearmGuardMs = options.rearmGuardMs ?? 300;
+    this.onWakeDetectedHandler = options.onWakeDetected;
+    this.autoManageCapture = options.autoManageCapture ?? (options.onWakeDetected ? false : true);
 
     if (options.provider) {
       this.provider = options.provider;
@@ -52,7 +60,7 @@ export class WakeManager {
     logger.info('initializing wake manager lifecycle coordinator');
 
     // 1. Hook wake detection -> state machine transition with guards
-    this.unsubscribeWake = this.provider.onWake(() => {
+    this.unsubscribeWake = this.provider.onWake(async () => {
       const snapshot = this.service.getSnapshot();
       if (snapshot.state !== 'sleeping' || snapshot.isMuted) {
         logger.warn(
@@ -71,8 +79,16 @@ export class WakeManager {
         return;
       }
 
-      logger.info('wake event received from provider -> dispatching WAKE_DETECTED');
-      this.service.send({ type: 'WAKE_DETECTED' });
+      logger.info('wake event received from provider -> dispatching wake event/handoff');
+      if (this.onWakeDetectedHandler) {
+        try {
+          await this.onWakeDetectedHandler();
+        } catch (err) {
+          logger.error({ err }, 'error in custom wake detected handler');
+        }
+      } else {
+        this.service.send({ type: 'WAKE_DETECTED' });
+      }
       this.syncDiagnostics();
     });
 
@@ -106,27 +122,29 @@ export class WakeManager {
       lastState = snapshot.state;
       lastMuted = snapshot.isMuted;
 
-      if (stateChanged || muteChanged) {
-        if (snapshot.state === 'sleeping' && !snapshot.isMuted) {
-          this.sleepingSince = Date.now();
-          logger.info('state is sleeping and unmuted: starting wake capture');
-          try {
-            await this.provider.start();
-          } catch (err) {
-            logger.error({ err }, 'failed to start wake provider');
+      if (this.autoManageCapture) {
+        if (stateChanged || muteChanged) {
+          if (snapshot.state === 'sleeping' && !snapshot.isMuted) {
+            try {
+              await this.start();
+            } catch {
+              // Handled and logged inside start()
+            }
+          } else {
+            try {
+              await this.stop();
+            } catch {
+              // Handled and logged inside stop()
+            }
           }
-          this.syncDiagnostics();
-        } else {
-          logger.info(
-            { state: snapshot.state, isMuted: snapshot.isMuted },
-            'state is not sleeping or muted: stopping wake capture'
-          );
+        }
+      } else {
+        if (muteChanged && snapshot.isMuted) {
           try {
-            await this.provider.stop();
-          } catch (err) {
-            logger.error({ err }, 'failed to stop wake provider');
+            await this.stop();
+          } catch {
+            // Handled and logged inside stop()
           }
-          this.syncDiagnostics();
         }
       }
     });
@@ -135,13 +153,71 @@ export class WakeManager {
     const initialSnapshot = this.service.getSnapshot();
     if (initialSnapshot.state === 'sleeping' && !initialSnapshot.isMuted) {
       try {
-        await this.provider.start();
+        await this.start(false);
       } catch (err) {
         logger.warn({ err }, 'initial wake capture start attempt');
       }
     }
 
     this.syncDiagnostics();
+  }
+
+  async start(isTransitionToSleep = true): Promise<void> {
+    if (this.isDisposed) return;
+    if (this.activeStartPromise) return this.activeStartPromise;
+
+    this.activeStartPromise = (async () => {
+      if (isTransitionToSleep) {
+        this.sleepingSince = Date.now();
+      }
+      logger.info('starting wake capture');
+      try {
+        await this.provider.start();
+      } catch (err) {
+        logger.error({ err }, 'failed to start wake provider');
+        throw err;
+      } finally {
+        this.syncDiagnostics();
+        this.activeStartPromise = null;
+      }
+    })();
+
+    return this.activeStartPromise;
+  }
+
+  async stop(): Promise<void> {
+    if (this.isDisposed) return;
+    if (this.activeStopPromise) return this.activeStopPromise;
+
+    this.activeStopPromise = (async () => {
+      logger.info('stopping wake capture');
+      try {
+        await this.provider.stop();
+      } catch (err) {
+        logger.error({ err }, 'failed to stop wake provider');
+        throw err;
+      } finally {
+        this.syncDiagnostics();
+        this.activeStopPromise = null;
+      }
+    })();
+
+    return this.activeStopPromise;
+  }
+
+  isListening(): boolean {
+    if (this.isDisposed) return false;
+    if ('getStatus' in this.provider && typeof (this.provider as any).getStatus === 'function') {
+      return (this.provider as any).getStatus() === 'listening';
+    }
+    return this.provider.getDiagnostics?.().status === 'listening';
+  }
+
+  setWakeHandler(handler?: () => Promise<void> | void): void {
+    this.onWakeDetectedHandler = handler;
+    if (handler) {
+      this.autoManageCapture = false;
+    }
   }
 
   syncDiagnostics(): void {
@@ -224,6 +300,7 @@ export class WakeManager {
     this.unsubscribeWake?.();
     this.unsubscribeTelemetry?.();
     this.unsubscribeService?.();
+    this.onWakeDetectedHandler = undefined;
 
     try {
       await this.provider.dispose();
