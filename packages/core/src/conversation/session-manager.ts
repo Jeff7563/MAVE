@@ -1,0 +1,398 @@
+import { randomUUID } from 'node:crypto';
+import type { ConversationTurn, ConversationTurnStatus, Session } from '@mave/contracts';
+import { ConversationTurnSchema, SessionSchema } from '@mave/contracts';
+import {
+  SessionManagerError,
+  type AppendTurnOptions,
+  type CreateSessionOptions,
+  type SessionManagerOptions
+} from './types.js';
+
+export class SessionManager {
+  private readonly sessions = new Map<string, Session>();
+  private readonly sessionTurns = new Map<string, ConversationTurn[]>();
+  private readonly registeredTurnIds = new Set<string>();
+
+  private readonly sessionIdFactory: () => string;
+  private readonly turnIdFactory: () => string;
+  private readonly clock: () => number;
+
+  constructor(options?: SessionManagerOptions) {
+    this.sessionIdFactory = options?.sessionIdFactory ?? (() => randomUUID());
+    this.turnIdFactory = options?.turnIdFactory ?? (() => randomUUID());
+    this.clock = options?.clock ?? (() => Date.now());
+  }
+
+  /**
+   * Produces a defensive, detached copy of a session record.
+   */
+  private cloneSession(session: Session): Session {
+    return {
+      ...session,
+      metadata: session.metadata ? { ...session.metadata } : undefined
+    };
+  }
+
+  /**
+   * Produces a defensive, detached copy of a conversation turn record.
+   */
+  private cloneTurn(turn: ConversationTurn): ConversationTurn {
+    return {
+      ...turn,
+      metadata: turn.metadata ? { ...turn.metadata } : undefined
+    };
+  }
+
+  /**
+   * Creates a new conversation session.
+   * Throws SessionManagerError if session id is already taken.
+   */
+  createSession(options?: CreateSessionOptions): Session {
+    const rawId = options?.id?.trim();
+    const id = rawId && rawId.length > 0 ? rawId : this.sessionIdFactory();
+
+    if (!id || !id.trim()) {
+      throw new SessionManagerError('invalid_session', 'Session ID cannot be empty');
+    }
+
+    const trimmedId = id.trim();
+    if (this.sessions.has(trimmedId)) {
+      throw new SessionManagerError(
+        'session_already_exists',
+        `Session with id '${trimmedId}' already exists`,
+        { sessionId: trimmedId }
+      );
+    }
+
+    const now = this.clock();
+    const sessionData: Session = {
+      id: trimmedId,
+      createdAt: now,
+      updatedAt: now,
+      status: 'active',
+      mode: options?.mode ?? 'conversation',
+      activeProviderId: options?.activeProviderId?.trim() || undefined,
+      title: options?.title?.trim() || undefined,
+      metadata: options?.metadata ? { ...options.metadata } : undefined
+    };
+
+    // Validate against canonical contract schema
+    const session = SessionSchema.parse(sessionData);
+
+    this.sessions.set(trimmedId, session);
+    this.sessionTurns.set(trimmedId, []);
+
+    return this.cloneSession(session);
+  }
+
+  /**
+   * Retrieves a session by ID, or undefined if not found.
+   */
+  getSession(sessionId: string): Session | undefined {
+    if (!sessionId || typeof sessionId !== 'string') {
+      return undefined;
+    }
+    const session = this.sessions.get(sessionId.trim());
+    return session ? this.cloneSession(session) : undefined;
+  }
+
+  /**
+   * Retrieves a session by ID, throwing SessionManagerError if not found.
+   */
+  requireSession(sessionId: string): Session {
+    const session = this.getSession(sessionId);
+    if (!session) {
+      const trimmed = sessionId ? sessionId.trim() : '';
+      throw new SessionManagerError(
+        'session_not_found',
+        `Session '${trimmed}' not found`,
+        { sessionId: trimmed }
+      );
+    }
+    return session;
+  }
+
+  /**
+   * Checks whether a session exists.
+   */
+  hasSession(sessionId: string): boolean {
+    if (!sessionId || typeof sessionId !== 'string') {
+      return false;
+    }
+    return this.sessions.has(sessionId.trim());
+  }
+
+  /**
+   * Lists all sessions in deterministic insertion order.
+   */
+  listSessions(): Session[] {
+    return Array.from(this.sessions.values()).map(s => this.cloneSession(s));
+  }
+
+  /**
+   * Ends a session by setting status to 'ended'.
+   * Idempotent: ending an already ended session returns the session cleanly.
+   */
+  endSession(sessionId: string): Session {
+    if (!sessionId || typeof sessionId !== 'string') {
+      throw new SessionManagerError('session_not_found', 'Invalid session ID');
+    }
+    const trimmedId = sessionId.trim();
+    const session = this.sessions.get(trimmedId);
+    if (!session) {
+      throw new SessionManagerError(
+        'session_not_found',
+        `Session '${trimmedId}' not found`,
+        { sessionId: trimmedId }
+      );
+    }
+
+    if (session.status === 'ended') {
+      return this.cloneSession(session);
+    }
+
+    session.status = 'ended';
+    session.updatedAt = this.clock();
+
+    return this.cloneSession(session);
+  }
+
+  /**
+   * Updates the active provider ID for an active session.
+   */
+  updateActiveProviderId(sessionId: string, providerId: string | undefined): Session {
+    if (!sessionId || typeof sessionId !== 'string') {
+      throw new SessionManagerError('session_not_found', 'Invalid session ID');
+    }
+    const trimmedId = sessionId.trim();
+    const session = this.sessions.get(trimmedId);
+    if (!session) {
+      throw new SessionManagerError(
+        'session_not_found',
+        `Session '${trimmedId}' not found`,
+        { sessionId: trimmedId }
+      );
+    }
+
+    if (session.status === 'ended') {
+      throw new SessionManagerError(
+        'session_ended',
+        `Cannot update provider on ended session '${trimmedId}'`,
+        { sessionId: trimmedId }
+      );
+    }
+
+    session.activeProviderId = providerId?.trim() || undefined;
+    session.updatedAt = this.clock();
+
+    return this.cloneSession(session);
+  }
+
+  /**
+   * Appends a conversation turn to an active session.
+   */
+  appendTurn(
+    sessionIdOrTurn: string | AppendTurnOptions,
+    turnInput?: AppendTurnOptions
+  ): ConversationTurn {
+    let targetSessionId: string;
+    let options: AppendTurnOptions;
+
+    if (typeof sessionIdOrTurn === 'string') {
+      targetSessionId = sessionIdOrTurn.trim();
+      if (!turnInput) {
+        throw new SessionManagerError('invalid_turn', 'Missing turn input options', {
+          sessionId: targetSessionId
+        });
+      }
+      options = turnInput;
+    } else {
+      if (!sessionIdOrTurn.sessionId) {
+        throw new SessionManagerError('invalid_session', 'Missing sessionId in turn options');
+      }
+      targetSessionId = sessionIdOrTurn.sessionId.trim();
+      options = sessionIdOrTurn;
+    }
+
+    if (!targetSessionId) {
+      throw new SessionManagerError('invalid_session', 'Session ID cannot be empty');
+    }
+
+    const session = this.sessions.get(targetSessionId);
+    if (!session) {
+      throw new SessionManagerError(
+        'session_not_found',
+        `Session '${targetSessionId}' not found`,
+        { sessionId: targetSessionId }
+      );
+    }
+
+    if (session.status === 'ended') {
+      throw new SessionManagerError(
+        'session_ended',
+        `Cannot append turn to ended session '${targetSessionId}'`,
+        { sessionId: targetSessionId }
+      );
+    }
+
+    if (options.sessionId && options.sessionId.trim() !== targetSessionId) {
+      throw new SessionManagerError(
+        'invalid_turn',
+        `Session ID mismatch: options specified '${options.sessionId.trim()}', but target is '${targetSessionId}'`,
+        { sessionId: targetSessionId }
+      );
+    }
+
+    const rawTurnId = options.id?.trim();
+    const turnId = rawTurnId && rawTurnId.length > 0 ? rawTurnId : this.turnIdFactory();
+
+    if (!turnId || !turnId.trim()) {
+      throw new SessionManagerError('invalid_turn', 'Turn ID cannot be empty', {
+        sessionId: targetSessionId
+      });
+    }
+
+    const trimmedTurnId = turnId.trim();
+    if (this.registeredTurnIds.has(trimmedTurnId)) {
+      throw new SessionManagerError(
+        'duplicate_turn',
+        `Turn with id '${trimmedTurnId}' already exists`,
+        { sessionId: targetSessionId, turnId: trimmedTurnId }
+      );
+    }
+
+    if (!options.requestId || !options.requestId.trim()) {
+      throw new SessionManagerError('invalid_turn', 'Turn requestId cannot be empty', {
+        sessionId: targetSessionId
+      });
+    }
+
+    if (!options.role) {
+      throw new SessionManagerError('invalid_turn', 'Turn role is required', {
+        sessionId: targetSessionId
+      });
+    }
+
+    if (typeof options.content !== 'string') {
+      throw new SessionManagerError('invalid_turn', 'Turn content must be a string', {
+        sessionId: targetSessionId
+      });
+    }
+
+    const now = this.clock();
+    const turnData: ConversationTurn = {
+      id: trimmedTurnId,
+      sessionId: targetSessionId,
+      requestId: options.requestId.trim(),
+      role: options.role,
+      content: options.content,
+      providerId: options.providerId?.trim() || session.activeProviderId,
+      status: options.status ?? 'completed',
+      createdAt: options.createdAt ?? now,
+      updatedAt: now,
+      metadata: options.metadata ? { ...options.metadata } : undefined
+    };
+
+    // Validate turn against canonical contract schema
+    const turn = ConversationTurnSchema.parse(turnData);
+
+    const turns = this.sessionTurns.get(targetSessionId) ?? [];
+    turns.push(turn);
+    this.sessionTurns.set(targetSessionId, turns);
+    this.registeredTurnIds.add(trimmedTurnId);
+
+    session.updatedAt = now;
+
+    return this.cloneTurn(turn);
+  }
+
+  /**
+   * Updates turn status and error message on an active session.
+   */
+  updateTurnStatus(
+    sessionId: string,
+    turnId: string,
+    status: ConversationTurnStatus,
+    error?: string
+  ): ConversationTurn {
+    if (!sessionId || !turnId) {
+      throw new SessionManagerError('invalid_turn', 'Session ID and turn ID are required');
+    }
+    const trimmedSessionId = sessionId.trim();
+    const trimmedTurnId = turnId.trim();
+
+    const session = this.sessions.get(trimmedSessionId);
+    if (!session) {
+      throw new SessionManagerError(
+        'session_not_found',
+        `Session '${trimmedSessionId}' not found`,
+        { sessionId: trimmedSessionId }
+      );
+    }
+
+    const turns = this.sessionTurns.get(trimmedSessionId);
+    const turn = turns?.find(t => t.id === trimmedTurnId);
+    if (!turn) {
+      throw new SessionManagerError(
+        'turn_not_found',
+        `Turn '${trimmedTurnId}' not found in session '${trimmedSessionId}'`,
+        { sessionId: trimmedSessionId, turnId: trimmedTurnId }
+      );
+    }
+
+    const now = this.clock();
+    turn.status = status;
+    turn.updatedAt = now;
+    if (error !== undefined) {
+      turn.error = error;
+    }
+
+    session.updatedAt = now;
+
+    return this.cloneTurn(turn);
+  }
+
+  /**
+   * Retrieves all conversation turns for a session in chronological order.
+   */
+  getTurns(sessionId: string): ConversationTurn[] {
+    if (!sessionId || typeof sessionId !== 'string') {
+      throw new SessionManagerError('session_not_found', 'Invalid session ID');
+    }
+    const trimmedId = sessionId.trim();
+    if (!this.sessions.has(trimmedId)) {
+      throw new SessionManagerError(
+        'session_not_found',
+        `Session '${trimmedId}' not found`,
+        { sessionId: trimmedId }
+      );
+    }
+
+    const turns = this.sessionTurns.get(trimmedId) ?? [];
+    return turns.map(t => this.cloneTurn(t));
+  }
+
+  /**
+   * Retrieves the most recent N conversation turns for a session in chronological order.
+   */
+  getRecentTurns(sessionId: string, count: number): ConversationTurn[] {
+    if (!sessionId || typeof sessionId !== 'string') {
+      throw new SessionManagerError('session_not_found', 'Invalid session ID');
+    }
+    const trimmedId = sessionId.trim();
+    if (!this.sessions.has(trimmedId)) {
+      throw new SessionManagerError(
+        'session_not_found',
+        `Session '${trimmedId}' not found`,
+        { sessionId: trimmedId }
+      );
+    }
+
+    if (count <= 0) {
+      return [];
+    }
+
+    const turns = this.sessionTurns.get(trimmedId) ?? [];
+    return turns.slice(-count).map(t => this.cloneTurn(t));
+  }
+}
