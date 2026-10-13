@@ -114,19 +114,28 @@ Result: Real spoken voice loop with zero mic overlap, bilingual transcription, p
 
 ## Milestone 4 — MAVE Surface ← CURRENT
 
-Goal: Floating UI เป็น visual center
+Goal: Ambient Adaptive Surface — MAVE quietly exists near the user and expands only when visual complexity is useful.
 
-- Orb / Mini state
-- Floating panel
-- chat history
-- transcript
-- streaming messages
-- card renderer
-- always-on-top
-- drag/resize
-- global hotkey
+Detailed Architecture & Implementation Spec:
+- [`MAVE_AMBIENT_SURFACE_RUNTIME.md`](MAVE_AMBIENT_SURFACE_RUNTIME.md)
+- [`MAVE_MILESTONE_4_SPEC.md`](MAVE_MILESTONE_4_SPEC.md)
+- [`MAVE_AMBIENT_ADAPTIVE_SURFACE.md`](MAVE_AMBIENT_ADAPTIVE_SURFACE.md)
+- [`MAVE_UI_SURFACE_ARCHITECTURE.md`](MAVE_UI_SURFACE_ARCHITECTURE.md)
 
-Initial cards: Message, Translation, Vocabulary, Source, Image, File, Code, Task, Progress, Approval, Error
+Phased Implementation Roadmap:
+- **M4.0 — Architecture & Milestone Specification** ✅
+- **M4.1 — Surface Contracts & Presentation Model**
+- **M4.2 — Surface Window Runtime Foundation**
+- **M4.3 — Compact Ambient Surface (Capsule)**
+- **M4.4 — Voice-Reactive States & Visualizers**
+- **M4.5 — Adaptive Envelope & Morph System**
+- **M4.6 — Compact Response Surface (Quick Info)**
+- **M4.7 — Expanded Context Panel (Rich Content)**
+- **M4.8 — Interaction, Focus & Click-Through**
+- **M4.9 — Multi-Monitor, Persistence & Reliability**
+- **M4.10 — End-to-End Surface Closeout**
+
+Initial card types: Message, Translation, Vocabulary, Source, Image, File, Code, Task, Progress, Approval, Error.
 
 ## Milestone 5 — Agent Runtime & Tools
 
