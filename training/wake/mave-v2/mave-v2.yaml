@@ -7,6 +7,8 @@ model:
   architecture: "openwakeword_dnn"
   export_format: "onnx"
   target_threshold: 0.50
+  output_dir: "assets/wake/models/v2"
+  export_filename: "mave.onnx"
 
 wake_identity:
   phrase: "Hey MAVE"
@@ -55,6 +57,13 @@ real_audio_dataset:
     - name: "positive/difficult-ending"
       target: 10
       description: "Natural reduced/softer final consonant voicing"
+  negative_categories:
+    - name: "negative/near-miss"
+      target: 20
+      description: "Phonetically similar phrases that must NOT trigger wake"
+    - name: "negative/normal-speech"
+      target: 20
+      description: "Everyday background conversation, reading sentences, or ambient room audio"
   train_val_split:
     train_ratio: 0.80
     val_ratio: 0.20
