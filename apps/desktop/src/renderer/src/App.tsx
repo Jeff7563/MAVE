@@ -1,5 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import type { AssistantStateSnapshot, MaveCommand } from '@mave/contracts';
+import type {
+  AssistantStateSnapshot,
+  ChatCancelResponse,
+  ChatLoadSessionResponse,
+  ChatSendRequest,
+  ChatSendResponse,
+  ConversationRuntimeEvent,
+  MaveCommand
+} from '@mave/contracts';
 import { StatusCard } from './components/StatusCard';
 import { DeveloperControls } from './components/DeveloperControls';
 
@@ -10,10 +18,16 @@ declare global {
       sendCommand: (
         command: MaveCommand,
         payload?: Record<string, unknown>
-      ) => Promise<{ success: boolean; error?: string }>;
+      ) => Promise<{ success: boolean; data?: unknown; error?: string }>;
       onStateChanged: (
         callback: (snapshot: AssistantStateSnapshot) => void
       ) => () => void;
+      chat?: {
+        send: (request: ChatSendRequest) => Promise<ChatSendResponse>;
+        cancel: (requestId: string) => Promise<ChatCancelResponse>;
+        onEvent: (callback: (event: ConversationRuntimeEvent) => void) => () => void;
+        loadSession?: (sessionId: string) => Promise<ChatLoadSessionResponse>;
+      };
     };
   }
 }

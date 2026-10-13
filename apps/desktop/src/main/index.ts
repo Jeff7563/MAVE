@@ -6,6 +6,7 @@ import { createMaveDatabase, type MaveDatabase } from '@mave/database';
 import { registerIpcHandlers } from './ipc.js';
 import { createSystemTray } from './tray.js';
 import { WakeManager } from './wake-manager.js';
+import { ConversationManager } from './conversation-manager.js';
 
 const logger = createLogger({ name: 'mave:main' });
 
@@ -13,6 +14,7 @@ let mainWindow: BrowserWindow | null = null;
 let maveService: MaveService | null = null;
 let maveDatabase: MaveDatabase | null = null;
 let wakeManager: WakeManager | null = null;
+let conversationManager: ConversationManager | null = null;
 let tray: ReturnType<typeof createSystemTray> | null = null;
 
 // Enforce single instance lock
@@ -104,14 +106,20 @@ app.whenReady().then(async () => {
     });
     await wakeManager.initialize();
 
-    // 4. Register IPC
-    registerIpcHandlers(maveService, () => mainWindow, wakeManager);
+    // 4. Initialize Conversation Manager (M2 Phase 6)
+    conversationManager = new ConversationManager({
+      database: maveDatabase,
+      getMainWindow: () => mainWindow
+    });
 
-    // 5. Create Window & Tray
+    // 5. Register IPC
+    registerIpcHandlers(maveService, () => mainWindow, wakeManager, conversationManager);
+
+    // 6. Create Window & Tray
     mainWindow = createWindow();
     tray = createSystemTray(maveService, () => mainWindow);
 
-    // 6. Send APP_READY
+    // 7. Send APP_READY
     maveService.send({ type: 'APP_READY' });
     logger.info('MAVE ready: state set to sleeping');
   } catch (err) {
@@ -145,6 +153,10 @@ app.on('before-quit', async () => {
   if (wakeManager) {
     await wakeManager.dispose();
     wakeManager = null;
+  }
+  if (conversationManager) {
+    await conversationManager.dispose();
+    conversationManager = null;
   }
   if (maveService) {
     maveService.send({ type: 'SHUTDOWN' });

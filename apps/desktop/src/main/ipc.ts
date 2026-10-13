@@ -1,9 +1,10 @@
 import { ipcMain, type BrowserWindow } from 'electron';
-import { SendCommandPayloadSchema, type AssistantStateSnapshot } from '@mave/contracts';
+import { CHAT_IPC_CHANNELS, SendCommandPayloadSchema, type AssistantStateSnapshot } from '@mave/contracts';
 import type { MaveService } from '@mave/core';
 import { createLogger } from '@mave/shared';
 
 import type { WakeManager } from './wake-manager.js';
+import type { ConversationManager } from './conversation-manager.js';
 
 const logger = createLogger({ name: 'mave:ipc' });
 
@@ -99,10 +100,33 @@ export async function handleIpcCommand(
   return { success: true };
 }
 
+export function registerConversationIpcHandlers(
+  conversationManager: ConversationManager
+): () => void {
+  ipcMain.handle(CHAT_IPC_CHANNELS.SEND, (_event, rawPayload: unknown) => {
+    return conversationManager.handleSend(rawPayload);
+  });
+
+  ipcMain.handle(CHAT_IPC_CHANNELS.CANCEL, (_event, rawPayload: unknown) => {
+    return conversationManager.handleCancel(rawPayload);
+  });
+
+  ipcMain.handle(CHAT_IPC_CHANNELS.LOAD_SESSION, (_event, rawPayload: unknown) => {
+    return conversationManager.handleLoadSession(rawPayload);
+  });
+
+  return () => {
+    ipcMain.removeHandler(CHAT_IPC_CHANNELS.SEND);
+    ipcMain.removeHandler(CHAT_IPC_CHANNELS.CANCEL);
+    ipcMain.removeHandler(CHAT_IPC_CHANNELS.LOAD_SESSION);
+  };
+}
+
 export function registerIpcHandlers(
   service: MaveService,
   getMainWindow: () => BrowserWindow | null,
-  wakeManager?: WakeManager
+  wakeManager?: WakeManager,
+  conversationManager?: ConversationManager
 ): () => void {
   ipcMain.handle('mave:get-status', () => {
     return service.getSnapshot();
@@ -111,6 +135,11 @@ export function registerIpcHandlers(
   ipcMain.handle('mave:send-command', (_event, rawPayload: unknown) => {
     return handleIpcCommand(rawPayload, service, wakeManager);
   });
+
+  let cleanupConversation: (() => void) | undefined;
+  if (conversationManager) {
+    cleanupConversation = registerConversationIpcHandlers(conversationManager);
+  }
 
   const unsubscribe = service.subscribe((snapshot: AssistantStateSnapshot) => {
     const win = getMainWindow();
@@ -122,6 +151,9 @@ export function registerIpcHandlers(
   return () => {
     ipcMain.removeHandler('mave:get-status');
     ipcMain.removeHandler('mave:send-command');
+    if (cleanupConversation) {
+      cleanupConversation();
+    }
     unsubscribe();
   };
 }
