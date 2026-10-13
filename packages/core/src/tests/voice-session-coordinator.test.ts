@@ -7,7 +7,11 @@ import {
 import {
   VoiceRuntimeEventSchema,
   type AudioFrame,
-  type BrainProvider
+  type BrainCapabilities,
+  type BrainProvider,
+  type BrainRequest,
+  type BrainRequestOptions,
+  type BrainEvent
 } from '@mave/contracts';
 import { SessionManager } from '../conversation/index.js';
 import { BrainProviderRegistry, BrainRouter } from '../brain/index.js';
@@ -58,7 +62,7 @@ function createTestHarness(overrides?: TestHarnessOptions) {
   const sessionManager = new SessionManager();
   const registry = new BrainProviderRegistry();
   registry.register(brainProvider);
-  const router = new BrainRouter(registry, { defaultProvider: brainProvider.id });
+  const router = new BrainRouter(registry);
   const conversationRuntime = new ConversationRuntime({
     sessionManager,
     router
@@ -156,32 +160,28 @@ describe('Progressive Speech Integration Test (Section 41 — CRITICAL)', () => 
         reasoning: false,
         coding: false,
         toolUse: false,
-        multimodal: false,
-        vision: false,
-        webResearch: false,
-        longContext: false,
         local: false
       }),
       health: async () => ({ status: 'healthy', checkedAt: Date.now() }),
       async *chat() {
-        yield { type: 'started', requestId: 'g-req', providerId: 'gated-brain', timestamp: 1000 };
+        yield { type: 'started', requestId: 'g-req', timestamp: 1000 };
         // Delta 1: Complete sentence suitable for immediate chunking
-        yield { type: 'delta', requestId: 'g-req', text: 'Hello there.' };
+        yield { type: 'delta', requestId: 'g-req', text: 'Hello there.', timestamp: 1000 };
 
         // Hold Brain completion until gate is unlocked
         await gatePromise;
 
         // Delta 2
-        yield { type: 'delta', requestId: 'g-req', text: ' How are you doing?' };
+        yield { type: 'delta', requestId: 'g-req', text: ' How are you doing?', timestamp: 1000 };
         brainFinished = true;
-        yield { type: 'completed', requestId: 'g-req' };
+        yield { type: 'completed', requestId: 'g-req', timestamp: 1000 };
       }
     };
 
     const sessionManager = new SessionManager();
     const registry = new BrainProviderRegistry();
     registry.register(gatedBrain);
-    const router = new BrainRouter(registry, { defaultProvider: gatedBrain.id });
+    const router = new BrainRouter(registry);
     const conversationRuntime = new ConversationRuntime({ sessionManager, router });
 
     const audioInput = new MockAudioInputProvider();
@@ -457,7 +457,7 @@ describe('Immutability (Section 33)', () => {
   it('getActiveSession() and getLastSession() return immutable copies', () => {
     const { coordinator } = createTestHarness();
 
-    coordinator.startSession();
+    const stream = coordinator.startSession();
     const active = coordinator.getActiveSession();
     expect(active).toBeDefined();
 
