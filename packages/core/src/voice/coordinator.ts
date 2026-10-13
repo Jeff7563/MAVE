@@ -6,6 +6,7 @@ import type {
   STTProvider,
   TTSProvider,
   TranscriptEvent,
+  VoiceLatencyDiagnostics,
   VoiceRuntimeEvent,
   VoiceSession,
   VoiceSessionStatus
@@ -98,7 +99,9 @@ export class VoiceSessionCoordinator {
   private activeSTTRequestId: string | null = null;
   private activeTTSRequestId: string | null = null;
   private terminalEmitted: 'completed' | 'cancelled' | 'failed' | null = null;
+  private inputLevelUnsubscribe: (() => void) | null = null;
   private levelUnsubscribe: (() => void) | null = null;
+  private latencyDiagnostics: VoiceLatencyDiagnostics = {};
   private currentEventQueue: AsyncEventQueue<VoiceRuntimeEvent> | null = null;
 
   private currentTurnIndex = 0;
@@ -161,6 +164,10 @@ export class VoiceSessionCoordinator {
     this.currentTurnIndex = 0;
     this.currentTurnEpoch = 0;
     this.isInterrupting = false;
+    this.latencyDiagnostics = {};
+    if (options?.wakeDetectedAt) {
+      this.latencyDiagnostics.wakeDetectedAt = options.wakeDetectedAt;
+    }
 
     const controller = new AbortController();
     this.activeSessionController = controller;
@@ -174,6 +181,20 @@ export class VoiceSessionCoordinator {
 
     const eventQueue = new AsyncEventQueue<VoiceRuntimeEvent>();
     this.currentEventQueue = eventQueue;
+
+    // Attach input level telemetry listener if available
+    if (this.audioInput.onLevel) {
+      this.inputLevelUnsubscribe = this.audioInput.onLevel((lvl) => {
+        if (!this.terminalEmitted && this.activeSession?.id === sessionId) {
+          eventQueue.push({
+            type: 'audio_level',
+            sessionId,
+            inputLevel: lvl.rms,
+            timestamp: this.clock()
+          });
+        }
+      });
+    }
 
     // Attach level telemetry listener if available
     if (this.audioOutput.onLevel) {
@@ -447,6 +468,10 @@ export class VoiceSessionCoordinator {
 
   private cleanup(): void {
     const sid = this.activeSession?.id;
+    if (this.inputLevelUnsubscribe) {
+      this.inputLevelUnsubscribe();
+      this.inputLevelUnsubscribe = null;
+    }
     if (this.levelUnsubscribe) {
       this.levelUnsubscribe();
       this.levelUnsubscribe = null;
@@ -593,6 +618,14 @@ export class VoiceSessionCoordinator {
     let finalTranscript: TranscriptEvent | null = null;
     this.activeSTTRequestId = `${sessionId}:turn:${turnIndex}:stt`;
 
+    if (turnIndex === 0 && !this.latencyDiagnostics.voiceCaptureStartedAt) {
+      this.latencyDiagnostics.voiceCaptureStartedAt = this.clock();
+      if (this.latencyDiagnostics.wakeDetectedAt) {
+        this.latencyDiagnostics.wakeToCaptureMs =
+          this.latencyDiagnostics.voiceCaptureStartedAt - this.latencyDiagnostics.wakeDetectedAt;
+      }
+    }
+
     try {
       log.info({ sessionId, turnIndex, turnEpoch }, 'audio_capture_started');
       const audioStream = this.audioInput.capture({ signal: turnSignal });
@@ -609,6 +642,9 @@ export class VoiceSessionCoordinator {
         }
 
         if (event.type === 'speech_started') {
+          if (!this.latencyDiagnostics.speechStartedAt) {
+            this.latencyDiagnostics.speechStartedAt = this.clock();
+          }
           eventQueue.push({
             type: 'speech_started',
             sessionId,
@@ -624,6 +660,13 @@ export class VoiceSessionCoordinator {
           });
         } else if (event.type === 'final_transcript') {
           finalTranscript = event;
+          const now = this.clock();
+          this.latencyDiagnostics.sttFinalAt = now;
+          if (this.latencyDiagnostics.speechEndedAt) {
+            this.latencyDiagnostics.speechEndToSttMs = now - this.latencyDiagnostics.speechEndedAt;
+          } else if (this.latencyDiagnostics.speechStartedAt) {
+            this.latencyDiagnostics.speechEndToSttMs = now - this.latencyDiagnostics.speechStartedAt;
+          }
           log.info(
             { sessionId, turnIndex, text: event.text, confidence: event.confidence },
             'final_transcript_received'
@@ -757,6 +800,7 @@ export class VoiceSessionCoordinator {
     // Task A: Brain Ingestion & Chunking
     const brainTask = async () => {
       try {
+        this.latencyDiagnostics.brainStartedAt = this.clock();
         const convStream = this.conversationRuntime.send(
           {
             sessionId: session.conversationSessionId,
@@ -781,6 +825,19 @@ export class VoiceSessionCoordinator {
             if (turnSignal.aborted || turnEpoch !== this.currentTurnEpoch) {
               break;
             }
+            if (!this.latencyDiagnostics.brainFirstTokenAt) {
+              const now = this.clock();
+              this.latencyDiagnostics.brainFirstTokenAt = now;
+              if (this.latencyDiagnostics.sttFinalAt) {
+                this.latencyDiagnostics.sttToBrainTtftMs = now - this.latencyDiagnostics.sttFinalAt;
+              }
+            }
+            eventQueue.push({
+              type: 'assistant_chunk',
+              sessionId,
+              text: convEvent.text,
+              timestamp: this.clock()
+            });
             const chunks = chunker.push(convEvent.text);
             for (const c of chunks) {
               speechQueue.enqueue(c);
@@ -871,6 +928,9 @@ export class VoiceSessionCoordinator {
           language: session.languageHint
         });
         this.activeTTSRequestId = speechReq.requestId;
+        if (!this.latencyDiagnostics.ttsRequestedAt) {
+          this.latencyDiagnostics.ttsRequestedAt = this.clock();
+        }
         log.info(
           { sessionId, turnIndex, requestId: speechReq.requestId, sequence: chunk.sequence },
           'tts_started'
@@ -883,6 +943,13 @@ export class VoiceSessionCoordinator {
               break;
             }
             if (speechEvent.type === 'audio') {
+              if (!this.latencyDiagnostics.ttsFirstAudioAt) {
+                const now = this.clock();
+                this.latencyDiagnostics.ttsFirstAudioAt = now;
+                if (this.latencyDiagnostics.ttsRequestedAt) {
+                  this.latencyDiagnostics.ttsTtfaMs = now - this.latencyDiagnostics.ttsRequestedAt;
+                }
+              }
               audioFrames.push(speechEvent.frame);
             } else if (speechEvent.type === 'error') {
               throw new VoiceCoordinatorError('tts_error', speechEvent.error.message, { sessionId });
@@ -899,6 +966,14 @@ export class VoiceSessionCoordinator {
         }
 
         if (audioFrames.length > 0) {
+          if (!this.latencyDiagnostics.playbackStartedAt) {
+            const now = this.clock();
+            this.latencyDiagnostics.playbackStartedAt = now;
+            const refSpeechEnd = this.latencyDiagnostics.speechEndedAt ?? this.latencyDiagnostics.sttFinalAt;
+            if (refSpeechEnd) {
+              this.latencyDiagnostics.speechEndToSpokenResponseMs = now - refSpeechEnd;
+            }
+          }
           log.info({ sessionId, turnIndex, frameCount: audioFrames.length }, 'audio_output_started');
           async function* frameStream() {
             for (const f of audioFrames) {
@@ -943,6 +1018,13 @@ export class VoiceSessionCoordinator {
     }
 
     if (speakingStartedEmitted) {
+      const now = this.clock();
+      this.latencyDiagnostics.playbackCompletedAt = now;
+      if (this.latencyDiagnostics.speechStartedAt) {
+        this.latencyDiagnostics.turnDurationMs = now - this.latencyDiagnostics.speechStartedAt;
+      } else if (this.latencyDiagnostics.voiceCaptureStartedAt) {
+        this.latencyDiagnostics.turnDurationMs = now - this.latencyDiagnostics.voiceCaptureStartedAt;
+      }
       eventQueue.push({
         type: 'speaking_finished',
         sessionId,
@@ -951,5 +1033,25 @@ export class VoiceSessionCoordinator {
     }
 
     return 'completed';
+  }
+
+  getLatencyDiagnostics(): VoiceLatencyDiagnostics {
+    return { ...this.latencyDiagnostics };
+  }
+
+  getAudioInput(): AudioInputProvider {
+    return this.audioInput;
+  }
+
+  getSTT(): STTProvider {
+    return this.stt;
+  }
+
+  getTTS(): TTSProvider {
+    return this.tts;
+  }
+
+  getAudioOutput(): AudioOutput {
+    return this.audioOutput;
   }
 }

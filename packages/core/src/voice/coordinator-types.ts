@@ -56,6 +56,7 @@ export interface StartVoiceSessionOptions {
   conversationSessionId?: string;
   languageHint?: string;
   signal?: AbortSignal;
+  wakeDetectedAt?: number;
 }
 
 export interface VoiceInterruptOptions {

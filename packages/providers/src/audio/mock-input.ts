@@ -3,6 +3,7 @@ import type {
   AudioFrame,
   AudioInputDevice,
   AudioInputProvider,
+  AudioLevel,
   ProviderHealth,
   ProviderHealthStatus
 } from '@mave/contracts';
@@ -23,6 +24,7 @@ export class MockAudioInputProvider implements AudioInputProvider {
   private readonly devices: AudioInputDevice[];
   private readonly frames: AudioFrame[];
   private readonly frameDelayMs: number;
+  private readonly levelCallbacks = new Set<(level: AudioLevel) => void>();
   private healthStatus: ProviderHealthStatus;
   private healthMessage?: string;
   private healthLatencyMs?: number;
@@ -50,6 +52,22 @@ export class MockAudioInputProvider implements AudioInputProvider {
 
   async listDevices(): Promise<AudioInputDevice[]> {
     return this.devices.map((d) => ({ ...d }));
+  }
+
+  onLevel(callback: (level: AudioLevel) => void): () => void {
+    this.levelCallbacks.add(callback);
+    return () => {
+      this.levelCallbacks.delete(callback);
+    };
+  }
+
+  simulateLevel(rms: number): void {
+    const level: AudioLevel = { timestampMs: Date.now(), rms: Math.min(1.0, Math.max(0.0, rms)) };
+    for (const cb of this.levelCallbacks) {
+      try {
+        cb(level);
+      } catch {}
+    }
   }
 
   async *capture(options?: AudioCaptureOptions): AsyncIterable<AudioFrame> {

@@ -79,6 +79,13 @@ export const FinalTranscriptRuntimeEventSchema = z.object({
   timestamp: z.number().nonnegative()
 });
 
+export const AssistantChunkRuntimeEventSchema = z.object({
+  type: z.literal('assistant_chunk'),
+  sessionId: z.string().min(1),
+  text: z.string(),
+  timestamp: z.number().nonnegative()
+});
+
 export const ThinkingStartedRuntimeEventSchema = z.object({
   type: z.literal('thinking_started'),
   sessionId: z.string().min(1),
@@ -141,6 +148,7 @@ export const VoiceRuntimeEventSchema = z.discriminatedUnion('type', [
   SpeechStartedRuntimeEventSchema,
   PartialTranscriptRuntimeEventSchema,
   FinalTranscriptRuntimeEventSchema,
+  AssistantChunkRuntimeEventSchema,
   ThinkingStartedRuntimeEventSchema,
   SpeakingStartedRuntimeEventSchema,
   SpeakingFinishedRuntimeEventSchema,
@@ -151,3 +159,112 @@ export const VoiceRuntimeEventSchema = z.discriminatedUnion('type', [
   VoiceSessionFailedRuntimeEventSchema
 ]);
 export type VoiceRuntimeEvent = z.infer<typeof VoiceRuntimeEventSchema>;
+
+/**
+ * IPC Channels for Voice Subsystem.
+ */
+export const VOICE_IPC_CHANNELS = {
+  GET_STATUS: 'mave:voice:get-status',
+  EVENT: 'mave:voice:event',
+  INTERRUPT: 'mave:voice:interrupt',
+  CANCEL: 'mave:voice:cancel',
+  START_DIAGNOSTIC: 'mave:voice:start-diagnostic'
+} as const;
+
+/**
+ * Developer latency instrumentation timestamps & derived metrics.
+ * Non-persistent, strictly diagnostic telemetry.
+ */
+export const VoiceLatencyDiagnosticsSchema = z.object({
+  wakeDetectedAt: z.number().nonnegative().optional(),
+  voiceCaptureStartedAt: z.number().nonnegative().optional(),
+  speechStartedAt: z.number().nonnegative().optional(),
+  speechEndedAt: z.number().nonnegative().optional(),
+  sttFinalAt: z.number().nonnegative().optional(),
+  brainStartedAt: z.number().nonnegative().optional(),
+  brainFirstTokenAt: z.number().nonnegative().optional(),
+  ttsRequestedAt: z.number().nonnegative().optional(),
+  ttsFirstAudioAt: z.number().nonnegative().optional(),
+  playbackStartedAt: z.number().nonnegative().optional(),
+  playbackCompletedAt: z.number().nonnegative().optional(),
+
+  // Derived metrics (ms)
+  wakeToCaptureMs: z.number().nonnegative().optional(),
+  speechEndToSttMs: z.number().nonnegative().optional(),
+  sttToBrainTtftMs: z.number().nonnegative().optional(),
+  ttsTtfaMs: z.number().nonnegative().optional(),
+  speechEndToSpokenResponseMs: z.number().nonnegative().optional(),
+  turnDurationMs: z.number().nonnegative().optional()
+});
+export type VoiceLatencyDiagnostics = z.infer<typeof VoiceLatencyDiagnosticsSchema>;
+
+/**
+ * Macro voice diagnostic state shown in developer UI.
+ */
+export const VoiceDiagnosticStateSchema = z.enum([
+  'sleeping',
+  'waking',
+  'listening',
+  'transcribing',
+  'thinking',
+  'speaking',
+  'interrupted',
+  'error'
+]);
+export type VoiceDiagnosticState = z.infer<typeof VoiceDiagnosticStateSchema>;
+
+/**
+ * Full Voice Status Snapshot for IPC hydration and UI state inspection.
+ */
+export const VoiceStatusSnapshotSchema = z.object({
+  enabled: z.boolean(),
+  state: VoiceDiagnosticStateSchema,
+  micOwnership: z.enum(['wake', 'voice', 'none']),
+  sessionId: z.string().optional(),
+  conversationSessionId: z.string().optional(),
+  turnIndex: z.number().nonnegative().optional(),
+  wake: z.object({
+    provider: z.string(),
+    listening: z.boolean(),
+    lastScore: z.number().optional(),
+    threshold: z.number().optional()
+  }),
+  audioInput: z.object({
+    provider: z.string(),
+    deviceLabel: z.string().optional()
+  }),
+  stt: z.object({
+    provider: z.string(),
+    status: z.string(),
+    language: z.string().optional(),
+    model: z.string().optional()
+  }),
+  tts: z.object({
+    provider: z.string(),
+    status: z.string(),
+    voiceId: z.string().optional()
+  }),
+  output: z.object({
+    provider: z.string(),
+    state: z.string()
+  }),
+  inputLevel: z.number().min(0.0).max(1.0).default(0),
+  outputLevel: z.number().min(0.0).max(1.0).default(0),
+  lastTranscript: z
+    .object({
+      text: z.string(),
+      isFinal: z.boolean(),
+      confidence: z.number().min(0.0).max(1.0).optional(),
+      language: z.string().optional()
+    })
+    .optional(),
+  assistantText: z.string().optional(),
+  lastError: z
+    .object({
+      code: z.string(),
+      message: z.string()
+    })
+    .optional(),
+  latency: VoiceLatencyDiagnosticsSchema.optional()
+});
+export type VoiceStatusSnapshot = z.infer<typeof VoiceStatusSnapshotSchema>;

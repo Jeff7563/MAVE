@@ -1,5 +1,10 @@
 import { ipcMain, type BrowserWindow } from 'electron';
-import { CHAT_IPC_CHANNELS, SendCommandPayloadSchema, type AssistantStateSnapshot } from '@mave/contracts';
+import {
+  CHAT_IPC_CHANNELS,
+  VOICE_IPC_CHANNELS,
+  SendCommandPayloadSchema,
+  type AssistantStateSnapshot
+} from '@mave/contracts';
 import type { MaveService } from '@mave/core';
 import { createLogger } from '@mave/shared';
 
@@ -135,6 +140,62 @@ export function registerConversationIpcHandlers(
   };
 }
 
+export function registerVoiceIpcHandlers(
+  voiceManager: VoiceManager,
+  getMainWindow: () => BrowserWindow | null
+): () => void {
+  ipcMain.handle(VOICE_IPC_CHANNELS.GET_STATUS, () => {
+    return voiceManager.getStatusSnapshot();
+  });
+
+  ipcMain.handle(VOICE_IPC_CHANNELS.INTERRUPT, async (_event, rawPayload?: unknown) => {
+    try {
+      const reason =
+        rawPayload && typeof rawPayload === 'object' && 'reason' in rawPayload && typeof (rawPayload as any).reason === 'string'
+          ? (rawPayload as any).reason
+          : 'user_ipc_interrupt';
+      const success = await voiceManager.interrupt({ reason });
+      return { success };
+    } catch (err: any) {
+      logger.error({ err }, 'failed to interrupt voice turn via IPC');
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle(VOICE_IPC_CHANNELS.CANCEL, async (_event, rawPayload?: unknown) => {
+    try {
+      const reason =
+        rawPayload && typeof rawPayload === 'object' && 'reason' in rawPayload && typeof (rawPayload as any).reason === 'string'
+          ? (rawPayload as any).reason
+          : 'user_ipc_cancel';
+      await voiceManager.cancelActiveVoiceSession(reason);
+      return { success: true };
+    } catch (err: any) {
+      logger.error({ err }, 'failed to cancel voice session via IPC');
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle(VOICE_IPC_CHANNELS.START_DIAGNOSTIC, async () => {
+    return voiceManager.startDiagnosticTurn();
+  });
+
+  const unsubscribeVoiceEvents = voiceManager.onVoiceEvent((event) => {
+    const win = getMainWindow();
+    if (win && !win.isDestroyed()) {
+      win.webContents.send(VOICE_IPC_CHANNELS.EVENT, event);
+    }
+  });
+
+  return () => {
+    ipcMain.removeHandler(VOICE_IPC_CHANNELS.GET_STATUS);
+    ipcMain.removeHandler(VOICE_IPC_CHANNELS.INTERRUPT);
+    ipcMain.removeHandler(VOICE_IPC_CHANNELS.CANCEL);
+    ipcMain.removeHandler(VOICE_IPC_CHANNELS.START_DIAGNOSTIC);
+    unsubscribeVoiceEvents();
+  };
+}
+
 export function registerIpcHandlers(
   service: MaveService,
   getMainWindow: () => BrowserWindow | null,
@@ -155,6 +216,11 @@ export function registerIpcHandlers(
     cleanupConversation = registerConversationIpcHandlers(conversationManager);
   }
 
+  let cleanupVoice: (() => void) | undefined;
+  if (voiceManager) {
+    cleanupVoice = registerVoiceIpcHandlers(voiceManager, getMainWindow);
+  }
+
   const unsubscribe = service.subscribe((snapshot: AssistantStateSnapshot) => {
     const win = getMainWindow();
     if (win && !win.isDestroyed()) {
@@ -167,6 +233,9 @@ export function registerIpcHandlers(
     ipcMain.removeHandler('mave:send-command');
     if (cleanupConversation) {
       cleanupConversation();
+    }
+    if (cleanupVoice) {
+      cleanupVoice();
     }
     unsubscribe();
   };

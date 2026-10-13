@@ -6,11 +6,14 @@ import type {
   ChatSendRequest,
   ChatSendResponse,
   ConversationRuntimeEvent,
-  MaveCommand
+  MaveCommand,
+  VoiceRuntimeEvent,
+  VoiceStatusSnapshot
 } from '@mave/contracts';
 import { StatusCard } from './components/StatusCard';
 import { DeveloperControls } from './components/DeveloperControls';
 import { DeveloperChat } from './components/DeveloperChat';
+import { DeveloperVoice } from './components/DeveloperVoice';
 
 declare global {
   interface Window {
@@ -28,6 +31,13 @@ declare global {
         cancel: (requestId: string) => Promise<ChatCancelResponse>;
         onEvent: (callback: (event: ConversationRuntimeEvent) => void) => () => void;
         loadSession?: (sessionId: string) => Promise<ChatLoadSessionResponse>;
+      };
+      voice?: {
+        getStatus: () => Promise<VoiceStatusSnapshot>;
+        subscribe: (callback: (event: VoiceRuntimeEvent) => void) => () => void;
+        interrupt: (reason?: string) => Promise<{ success: boolean; error?: string }>;
+        cancel: (reason?: string) => Promise<{ success: boolean; error?: string }>;
+        startDiagnosticSession: () => Promise<{ success: boolean; error?: string }>;
       };
     };
   }
@@ -149,6 +159,7 @@ export const App: React.FC = () => {
           peakScore={snapshot.peakScore}
           latestScore={snapshot.latestScore}
         />
+        <DeveloperVoice />
         <DeveloperChat />
       </main>
     </div>

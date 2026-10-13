@@ -3,7 +3,9 @@ import type {
   AudioOutput,
   STTProvider,
   TTSProvider,
-  VoiceRuntimeEvent
+  VoiceDiagnosticState,
+  VoiceRuntimeEvent,
+  VoiceStatusSnapshot
 } from '@mave/contracts';
 import {
   VoiceSessionCoordinator,
@@ -42,6 +44,7 @@ export interface VoiceManagerOptions {
   rearmGuardMs?: number;
   settleGuardMs?: number;
   sessionTimeoutMs?: number;
+  telemetryThrottleMs?: number;
   clock?: () => number;
   sleep?: (ms: number) => Promise<void>;
   onOwnershipChange?: (ownership: MicOwnership) => void;
@@ -57,6 +60,7 @@ export class VoiceManager {
   private readonly rearmGuardMs: number;
   private readonly settleGuardMs: number;
   private readonly sessionTimeoutMs: number;
+  private readonly telemetryThrottleMs: number;
   private readonly clock: () => number;
   private readonly sleep: (ms: number) => Promise<void>;
   private readonly options: VoiceManagerOptions;
@@ -71,6 +75,19 @@ export class VoiceManager {
   private isDisposed = false;
   private unsubscribeService?: () => void;
 
+  private lastLevelEmitTime = 0;
+  private pendingLevelEvent: VoiceRuntimeEvent | null = null;
+  private levelThrottleTimer: NodeJS.Timeout | null = null;
+  private readonly voiceEventListeners = new Set<(event: VoiceRuntimeEvent) => void>();
+
+  private currentSessionId?: string;
+  private currentTurnIndex = 0;
+  private lastTranscript?: { text: string; isFinal: boolean; confidence?: number; language?: string };
+  private assistantText?: string;
+  private lastError?: { code: string; message: string };
+  private inputLevel = 0;
+  private outputLevel = 0;
+
   private activeOperationPromise: Promise<void> = Promise.resolve();
 
   constructor(options: VoiceManagerOptions) {
@@ -80,6 +97,7 @@ export class VoiceManager {
     this.rearmGuardMs = options.rearmGuardMs ?? 300;
     this.settleGuardMs = options.settleGuardMs ?? 0;
     this.sessionTimeoutMs = options.sessionTimeoutMs ?? 15000;
+    this.telemetryThrottleMs = options.telemetryThrottleMs ?? 50;
     this.clock = options.clock ?? (() => Date.now());
     this.sleep =
       options.sleep ??
@@ -259,6 +277,13 @@ export class VoiceManager {
       }
 
       // 4. Start VoiceSessionCoordinator
+      const wakeDetectedAt = this.clock();
+      this.lastError = undefined;
+      this.assistantText = undefined;
+      this.lastTranscript = undefined;
+      this.inputLevel = 0;
+      this.outputLevel = 0;
+
       let eventStream: AsyncIterable<VoiceRuntimeEvent>;
       logger.info({ epoch }, 'voice_session_start_begin');
       try {
@@ -266,7 +291,7 @@ export class VoiceManager {
         this.activeVoiceSessionActive = true;
         this.setState('voice_active');
         logger.info({ epoch }, 'voice_session_begin');
-        eventStream = this.voiceCoordinator.startSession();
+        eventStream = this.voiceCoordinator.startSession({ wakeDetectedAt });
       } catch (err) {
         logger.error({ err, epoch }, 'failed to start voice session; recovering to wake');
         this.setOwnership('none');
@@ -297,14 +322,34 @@ export class VoiceManager {
             break;
           }
 
-          this.options.onVoiceRuntimeEvent?.(event);
+          this.dispatchVoiceRuntimeEvent(event);
 
-          if (event.type === 'listening_started') {
+          if (event.type === 'audio_level') {
+            if (event.inputLevel !== undefined) this.inputLevel = event.inputLevel;
+            if (event.outputLevel !== undefined) this.outputLevel = event.outputLevel;
+          } else if (event.type === 'listening_started') {
+            this.currentSessionId = event.sessionId;
+            this.currentTurnIndex = this.voiceCoordinator.getCurrentTurnIndex();
             if (this.service.getSnapshot().state === 'waking') {
               this.service.send({ type: 'START_LISTENING' });
             }
           } else if (event.type === 'speech_started') {
             // User speaking
+          } else if (event.type === 'partial_transcript') {
+            this.lastTranscript = {
+              text: event.text,
+              isFinal: false,
+              confidence: event.confidence
+            };
+          } else if (event.type === 'final_transcript') {
+            this.lastTranscript = {
+              text: event.text,
+              isFinal: true,
+              confidence: event.confidence,
+              language: event.language
+            };
+          } else if (event.type === 'assistant_chunk') {
+            this.assistantText = (this.assistantText ?? '') + event.text;
           } else if (event.type === 'thinking_started') {
             if (this.service.getSnapshot().state === 'listening') {
               this.service.send({ type: 'USER_SPEECH_ENDED' });
@@ -314,6 +359,7 @@ export class VoiceManager {
               this.service.send({ type: 'ASSISTANT_SPEAKING' });
             }
           } else if (event.type === 'interrupted') {
+            this.assistantText = undefined;
             logger.info({ epoch, sessionId: event.sessionId, reason: event.reason }, 'voice_barge_in_event_received');
             const state = this.service.getSnapshot().state;
             if (state === 'speaking' || state === 'thinking') {
@@ -321,9 +367,16 @@ export class VoiceManager {
             }
           } else if (
             event.type === 'voice_session_completed' ||
-            event.type === 'voice_session_cancelled' ||
-            event.type === 'voice_session_failed'
+            event.type === 'voice_session_cancelled'
           ) {
+            this.inputLevel = 0;
+            this.outputLevel = 0;
+            logger.info({ epoch, sessionId: event.sessionId, type: event.type }, 'voice_session_terminal');
+            break;
+          } else if (event.type === 'voice_session_failed') {
+            this.inputLevel = 0;
+            this.outputLevel = 0;
+            this.lastError = { code: event.errorCode, message: event.errorMessage };
             logger.info({ epoch, sessionId: event.sessionId, type: event.type }, 'voice_session_terminal');
             break;
           }
@@ -331,12 +384,15 @@ export class VoiceManager {
       } catch (err) {
         logger.error({ err, epoch }, 'error during voice runtime event streaming');
       } finally {
+        this.flushPendingLevelEvent();
         if (sessionTimeoutTimer) {
           clearTimeout(sessionTimeoutTimer);
           sessionTimeoutTimer = null;
         }
         this.activeVoiceSessionActive = false;
         this.setOwnership('none');
+        this.inputLevel = 0;
+        this.outputLevel = 0;
       }
 
       // 6. Safe rearm after terminal event
@@ -452,6 +508,12 @@ export class VoiceManager {
     this.setOwnership('none');
     this.unsubscribeService?.();
 
+    if (this.levelThrottleTimer) {
+      clearTimeout(this.levelThrottleTimer);
+      this.levelThrottleTimer = null;
+    }
+    this.pendingLevelEvent = null;
+
     if (this.ownsVoiceCoordinator) {
       try {
         await this.voiceCoordinator.dispose();
@@ -467,6 +529,65 @@ export class VoiceManager {
         logger.warn({ err }, 'error disposing voice providers');
       }
     }
+  }
+
+  private dispatchVoiceRuntimeEvent(event: VoiceRuntimeEvent): void {
+    if (event.type === 'audio_level') {
+      if (event.inputLevel !== undefined) {
+        this.inputLevel = event.inputLevel;
+      }
+      if (event.outputLevel !== undefined) {
+        this.outputLevel = event.outputLevel;
+      }
+      const now = this.clock();
+      this.pendingLevelEvent = event;
+      if (this.telemetryThrottleMs <= 0 || now - this.lastLevelEmitTime >= this.telemetryThrottleMs) {
+        this.flushPendingLevelEvent();
+      } else if (!this.levelThrottleTimer) {
+        const delay = Math.max(1, this.telemetryThrottleMs - (now - this.lastLevelEmitTime));
+        this.levelThrottleTimer = setTimeout(() => {
+          this.levelThrottleTimer = null;
+          this.flushPendingLevelEvent();
+        }, delay);
+      }
+      return;
+    }
+
+    // Flush any pending level event first so event order is preserved
+    if (this.pendingLevelEvent) {
+      this.flushPendingLevelEvent();
+    }
+    this.options.onVoiceRuntimeEvent?.(event);
+    for (const listener of this.voiceEventListeners) {
+      try {
+        listener(event);
+      } catch {}
+    }
+  }
+
+  private flushPendingLevelEvent(): void {
+    if (this.levelThrottleTimer) {
+      clearTimeout(this.levelThrottleTimer);
+      this.levelThrottleTimer = null;
+    }
+    if (this.pendingLevelEvent) {
+      const event = this.pendingLevelEvent;
+      this.pendingLevelEvent = null;
+      this.lastLevelEmitTime = this.clock();
+      this.options.onVoiceRuntimeEvent?.(event);
+      for (const listener of this.voiceEventListeners) {
+        try {
+          listener(event);
+        } catch {}
+      }
+    }
+  }
+
+  onVoiceEvent(listener: (event: VoiceRuntimeEvent) => void): () => void {
+    this.voiceEventListeners.add(listener);
+    return () => {
+      this.voiceEventListeners.delete(listener);
+    };
   }
 
   private setOwnership(newOwnership: MicOwnership): void {
@@ -527,5 +648,104 @@ export class VoiceManager {
 
   getVoiceCoordinator(): VoiceSessionCoordinator {
     return this.voiceCoordinator;
+  }
+
+  getStatusSnapshot(): VoiceStatusSnapshot {
+    const macroSnapshot = this.service.getSnapshot();
+    let diagState: VoiceDiagnosticState = 'sleeping';
+
+    if (this.isDisposed) {
+      diagState = 'sleeping';
+    } else if (macroSnapshot.state === 'error' || this.lastError) {
+      diagState = 'error';
+    } else if (this.state === 'handoff_to_voice' || macroSnapshot.state === 'waking') {
+      diagState = 'waking';
+    } else if (this.state === 'voice_active') {
+      const activeSession = this.voiceCoordinator.getActiveSession();
+      if (activeSession) {
+        if (activeSession.status === 'listening') diagState = 'listening';
+        else if (activeSession.status === 'transcribing') diagState = 'transcribing';
+        else if (activeSession.status === 'thinking') diagState = 'thinking';
+        else if (activeSession.status === 'speaking') diagState = 'speaking';
+        else if (activeSession.status === 'interrupted') diagState = 'interrupted';
+        else if (activeSession.status === 'error') diagState = 'error';
+        else diagState = 'listening';
+      } else {
+        if (macroSnapshot.state === 'thinking') diagState = 'thinking';
+        else if (macroSnapshot.state === 'speaking') diagState = 'speaking';
+        else diagState = 'listening';
+      }
+    } else if (this.state === 'handoff_to_wake') {
+      diagState = 'sleeping';
+    } else {
+      diagState = 'sleeping';
+    }
+
+    const wakeProvider = this.wakeManager.getProvider();
+    const wakeDiag = typeof (wakeProvider as any)?.getDiagnostics === 'function'
+      ? (wakeProvider as any).getDiagnostics()
+      : undefined;
+    const wakeProviderId =
+      wakeDiag?.wakeProvider ??
+      ('id' in wakeProvider && typeof (wakeProvider as any).id === 'string'
+        ? (wakeProvider as any).id
+        : 'openwakeword');
+
+    const activeSession = this.voiceCoordinator.getActiveSession() ?? this.voiceCoordinator.getLastSession();
+
+    return {
+      enabled: !this.isDisposed && (macroSnapshot.mode === 'conversation' || (macroSnapshot as any).mode === 'voice'),
+      state: diagState,
+      micOwnership: this.micOwnership,
+      sessionId: this.currentSessionId ?? activeSession?.id,
+      conversationSessionId: activeSession?.conversationSessionId,
+      turnIndex: this.currentTurnIndex,
+      wake: {
+        provider: wakeProviderId,
+        listening: this.wakeManager.isListening(),
+        lastScore: macroSnapshot.lastWakeScore,
+        threshold: macroSnapshot.threshold
+      },
+      audioInput: {
+        provider: this.voiceCoordinator.getAudioInput?.()?.id ?? 'sounddevice-audio-input',
+        deviceLabel: macroSnapshot.microphoneName
+      },
+      stt: {
+        provider: this.voiceCoordinator.getSTT?.()?.id ?? 'faster-whisper-local',
+        status: this.activeVoiceSessionActive ? 'active' : 'idle',
+        language: this.lastTranscript?.language,
+        model: 'large-v3-turbo'
+      },
+      tts: {
+        provider: this.voiceCoordinator.getTTS?.()?.id ?? 'EdgeTTS',
+        status: this.activeVoiceSessionActive && diagState === 'speaking' ? 'active' : 'idle',
+        voiceId: 'th-TH-PremwadeeNeural / en-US-JennyNeural'
+      },
+      output: {
+        provider: this.voiceCoordinator.getAudioOutput?.()?.id ?? 'sounddevice-audio-output',
+        state: this.voiceCoordinator.getAudioOutput?.()?.getPlaybackState?.() ?? 'idle'
+      },
+      inputLevel: this.inputLevel,
+      outputLevel: this.outputLevel,
+      lastTranscript: this.lastTranscript,
+      assistantText: this.assistantText,
+      lastError: this.lastError,
+      latency: this.voiceCoordinator.getLatencyDiagnostics?.()
+    };
+  }
+
+  async startDiagnosticTurn(): Promise<{ success: boolean; error?: string }> {
+    if (this.isDisposed) {
+      return { success: false, error: 'VoiceManager is disposed' };
+    }
+    try {
+      void this.handleWakeDetected().catch((err) => {
+        logger.error({ err }, 'error in diagnostic voice turn');
+      });
+      return { success: true };
+    } catch (err: any) {
+      logger.error({ err }, 'failed to start diagnostic voice turn');
+      return { success: false, error: err.message };
+    }
   }
 }

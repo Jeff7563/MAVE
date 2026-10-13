@@ -6,6 +6,7 @@ import type {
   AudioFrame,
   AudioInputDevice,
   AudioInputProvider,
+  AudioLevel,
   ProviderHealth
 } from '@mave/contracts';
 import {
@@ -18,6 +19,18 @@ import {
   findRepoRoot,
   resolveWakePythonExecutable
 } from '../wake/openwakeword.js';
+
+function computeRms(data: Uint8Array): number {
+  if (data.byteLength < 2) return 0;
+  const int16 = new Int16Array(data.buffer, data.byteOffset, Math.floor(data.byteLength / 2));
+  if (int16.length === 0) return 0;
+  let sum = 0;
+  for (let i = 0; i < int16.length; i++) {
+    const norm = int16[i]! / 32768.0;
+    sum += norm * norm;
+  }
+  return Math.min(1.0, Math.sqrt(sum / int16.length));
+}
 
 export interface SounddeviceAudioInputOptions {
   id?: string;
@@ -38,11 +51,19 @@ export class SounddeviceAudioInputProvider implements AudioInputProvider {
   private readonly options: SounddeviceAudioInputOptions;
   private readonly logger = createLogger({ name: 'mave:providers:sounddevice-input' });
   private readonly activeProcesses = new Set<ChildProcess>();
+  private readonly levelCallbacks = new Set<(level: AudioLevel) => void>();
   private isDisposed = false;
 
   constructor(options: SounddeviceAudioInputOptions = {}) {
     this.options = { ...options };
     this.id = options.id ?? 'sounddevice-audio-input';
+  }
+
+  onLevel(callback: (level: AudioLevel) => void): () => void {
+    this.levelCallbacks.add(callback);
+    return () => {
+      this.levelCallbacks.delete(callback);
+    };
   }
 
   private resolveRootDir(): string {
@@ -239,6 +260,16 @@ export class SounddeviceAudioInputProvider implements AudioInputProvider {
         };
 
         validateAudioFrame(frame);
+
+        if (this.levelCallbacks.size > 0) {
+          const rms = computeRms(frameData);
+          const lvl: AudioLevel = { timestampMs: Date.now(), rms };
+          for (const cb of this.levelCallbacks) {
+            try {
+              cb(lvl);
+            } catch {}
+          }
+        }
 
         if (frameQueue.length >= maxPendingFrames) {
           // Bounded queue: drop oldest frame to maintain real-time low latency

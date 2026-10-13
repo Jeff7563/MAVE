@@ -206,6 +206,7 @@ export interface AudioInputProvider {
   listDevices(): Promise<AudioInputDevice[]>;
   capture(options?: AudioCaptureOptions): AsyncIterable<AudioFrame>;
   health?(): Promise<ProviderHealth>;
+  onLevel?(callback: (level: AudioLevel) => void): () => void;
   dispose?(): Promise<void>;
 }
 
