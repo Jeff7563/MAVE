@@ -38,7 +38,8 @@ export const SpeechRequestSchema = z.object({
   pitch: z.number().min(0.5).max(1.5).optional(),
   metadata: z.record(z.unknown()).optional()
 });
-export type SpeechRequest = z.infer<typeof SpeechRequestSchema>;
+export type SpeechRequest = z.input<typeof SpeechRequestSchema>;
+export type SpeechRequestOutput = z.output<typeof SpeechRequestSchema>;
 
 /**
  * Normalized TTS error codes.

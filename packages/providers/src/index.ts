@@ -10,6 +10,9 @@ export {
   type AntigravityBrainProviderOptions,
   type SpawnFactory
 } from './brain/index.js';
+export * from './audio/index.js';
+export * from './stt/index.js';
+export * from './tts/index.js';
 
 import type { VoiceProvider } from '@mave/contracts';
 import { createLogger } from '@mave/shared';
