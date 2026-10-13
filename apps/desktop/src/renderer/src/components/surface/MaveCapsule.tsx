@@ -1,6 +1,7 @@
 import React from 'react';
 import type { SurfaceSnapshot, SurfaceAction } from '@mave/contracts';
 import { PresenceMark } from './PresenceMark';
+import { MaveCompactResponse } from './MaveCompactResponse';
 
 export interface MaveCapsuleProps {
   snapshot: SurfaceSnapshot;
@@ -195,11 +196,10 @@ export const MaveCapsule: React.FC<MaveCapsuleProps> = ({
           className="mave-surface-body"
           data-testid={snapshot.sizeClass === 'expanded' ? 'mave-expanded-card' : 'mave-response-card'}
         >
-          {snapshot.assistantText && (
-            <div className="mave-surface-body-text" data-testid="mave-response-text">
-              {snapshot.assistantText}
-            </div>
-          )}
+          <MaveCompactResponse
+            snapshot={snapshot}
+            onAction={onAction}
+          />
         </div>
       )}
     </div>

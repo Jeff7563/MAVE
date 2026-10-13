@@ -7,6 +7,7 @@ import {
   computeBarScales
 } from '../src/renderer/src/components/surface/PresenceMark';
 import { MaveCapsule } from '../src/renderer/src/components/surface/MaveCapsule';
+import { MaveCompactResponse } from '../src/renderer/src/components/surface/MaveCompactResponse';
 import { SurfaceView } from '../src/renderer/src/components/surface/SurfaceView';
 
 function createSnapshot(overrides: Partial<SurfaceSnapshot> = {}): SurfaceSnapshot {
@@ -314,6 +315,136 @@ describe('M4.3 Compact Ambient Surface Components', () => {
       expect(expandedHtml).toContain('mave-presence-mark--listening');
       expect(expandedHtml).toContain('data-testid="mave-brand-label"');
       expect(expandedHtml).toContain('MAVE');
+    });
+  });
+
+  describe('Milestone 4.6 Compact Response Presentation', () => {
+    it('renders primary response text with accessible polite live region', () => {
+      const snap = createSnapshot({
+        mode: 'compact_response',
+        sizeClass: 'card',
+        assistantText: "I'm exhausted today."
+      });
+      const html = renderToStaticMarkup(<MaveCompactResponse snapshot={snap} />);
+      expect(html).toContain('data-testid="mave-compact-response"');
+      expect(html).toContain('role="status"');
+      expect(html).toContain('aria-live="polite"');
+      expect(html).toContain("I&#x27;m exhausted today.");
+    });
+
+    it('renders Thai response text cleanly without clipping or encoding issues', () => {
+      const thaiText = "คุณสามารถพูดว่า 'I'm exhausted today.' ได้ครับ";
+      const snap = createSnapshot({
+        mode: 'compact_response',
+        sizeClass: 'card',
+        assistantText: thaiText
+      });
+      const html = renderToStaticMarkup(<MaveCompactResponse snapshot={snap} />);
+      expect(html).toContain('data-testid="mave-response-text"');
+      expect(html).toContain('คุณสามารถพูดว่า');
+      expect(html).toContain('ได้ครับ');
+    });
+
+    it('renders English response text cleanly', () => {
+      const englishText = "We're currently working on MAVE Milestone 4.";
+      const snap = createSnapshot({
+        mode: 'compact_response',
+        sizeClass: 'card',
+        assistantText: englishText
+      });
+      const html = renderToStaticMarkup(<MaveCompactResponse snapshot={snap} />);
+      expect(html).toContain('We&#x27;re currently working on MAVE Milestone 4.');
+    });
+
+    it('renders mixed Thai-English response text cleanly', () => {
+      const mixedText = 'ตอนนี้ MAVE อยู่ใน Milestone 4 — Ambient Adaptive Surface';
+      const snap = createSnapshot({
+        mode: 'compact_response',
+        sizeClass: 'card',
+        assistantText: mixedText
+      });
+      const html = renderToStaticMarkup(<MaveCompactResponse snapshot={snap} />);
+      expect(html).toContain('ตอนนี้ MAVE อยู่ใน Milestone 4 — Ambient Adaptive Surface');
+    });
+
+    it('renders vocabulary card variant with word, phonetic, translation, and example', () => {
+      const snap = createSnapshot({
+        mode: 'compact_response',
+        sizeClass: 'card',
+        content: [
+          {
+            id: 'vocab-1',
+            type: 'vocabulary',
+            word: 'exhausted',
+            phonetic: 'ɪɡˈzɔːstɪd',
+            partOfSpeech: 'adj.',
+            translation: 'เหนื่อยมาก, หมดแรง',
+            examples: ["I'm exhausted today."]
+          }
+        ]
+      });
+      const html = renderToStaticMarkup(<MaveCompactResponse snapshot={snap} />);
+      expect(html).toContain('data-testid="mave-vocabulary-card"');
+      expect(html).toContain('exhausted');
+      expect(html).toContain('/ɪɡˈzɔːstɪd/');
+      expect(html).toContain('adj.');
+      expect(html).toContain('เหนื่อยมาก, หมดแรง');
+      expect(html).toContain("I&#x27;m exhausted today.");
+    });
+
+    it('renders status card variant with status indicator and label', () => {
+      const snap = createSnapshot({
+        mode: 'compact_response',
+        sizeClass: 'card',
+        content: [
+          {
+            id: 'stat-1',
+            type: 'status',
+            label: 'Timer set for 10 minutes',
+            status: 'success'
+          }
+        ]
+      });
+      const html = renderToStaticMarkup(<MaveCompactResponse snapshot={snap} />);
+      expect(html).toContain('data-testid="mave-status-card"');
+      expect(html).toContain('mave-status-card--success');
+      expect(html).toContain('Timer set for 10 minutes');
+    });
+
+    it('renders overflow expand hint when text is long in card mode', () => {
+      const longText =
+        'This is a comprehensive response that contains multiple lines of detailed text explaining the concept in full depth, which easily exceeds four lines of compact preview space.';
+      const snap = createSnapshot({
+        mode: 'compact_response',
+        sizeClass: 'card',
+        assistantText: longText
+      });
+      const html = renderToStaticMarkup(<MaveCompactResponse snapshot={snap} />);
+      expect(html).toContain('data-testid="mave-response-expand-hint"');
+      expect(html).toContain('More');
+    });
+
+    it('does not render expand hint when response text is brief', () => {
+      const snap = createSnapshot({
+        mode: 'compact_response',
+        sizeClass: 'card',
+        assistantText: 'Brief answer.'
+      });
+      const html = renderToStaticMarkup(<MaveCompactResponse snapshot={snap} />);
+      expect(html).not.toContain('data-testid="mave-response-expand-hint"');
+    });
+
+    it('renders MaveCapsule with MaveCompactResponse embedded in card mode', () => {
+      const snap = createSnapshot({
+        mode: 'compact_response',
+        sizeClass: 'card',
+        assistantText: 'Here is your answer.'
+      });
+      const html = renderToStaticMarkup(<MaveCapsule snapshot={snap} />);
+      expect(html).toContain('data-testid="mave-response-card"');
+      expect(html).toContain('data-testid="mave-compact-response"');
+      expect(html).toContain('Here is your answer.');
+      expect(html).toContain('data-testid="mave-brand-label"');
     });
   });
 });

@@ -4,6 +4,7 @@ import {
   type SurfaceAction,
   type SurfaceMode,
   type AutoCollapsePolicy,
+  DEFAULT_AUTO_COLLAPSE_VOICE_MS,
   DEFAULT_AUTO_COLLAPSE_COMPACT_MS,
   DEFAULT_AUTO_COLLAPSE_EXPANDED_MS,
   DEFAULT_AUTO_COLLAPSE_ERROR_MS,
@@ -62,6 +63,9 @@ export class SurfaceStateController {
   private readonly clock: ClockService;
   private readonly enableTimers: boolean;
   private activeTimerId: unknown = null;
+  private activeTimerRevision = 0;
+  private isUserHovering = false;
+  private accumulatedAssistantText = '';
 
   constructor(options: SurfaceStateControllerOptions = {}) {
     this.clock = options.clock ?? defaultClock;
@@ -143,15 +147,22 @@ export class SurfaceStateController {
 
     switch (action.type) {
       case 'expand': {
+        this.clearActiveTimer();
         if (prev.mode === 'compact_response' || prev.sizeClass === 'card') {
+          const autoCollapse: AutoCollapsePolicy | undefined = prev.pinned
+            ? { enabled: false, afterMs: 0, targetMode: 'ambient' }
+            : { enabled: true, afterMs: DEFAULT_AUTO_COLLAPSE_EXPANDED_MS, targetMode: 'ambient' };
+
+          if (autoCollapse.enabled) {
+            this.scheduleCollapse(autoCollapse.afterMs, autoCollapse.targetMode);
+          }
+
           return this.updateSnapshot({
             mode: prev.mode === 'compact_response' ? 'expanded_response' : prev.mode,
             sizeClass: 'expanded',
             interactionMode: 'interactive',
             focusIntent: 'preserve', // expanding container does not steal OS focus
-            autoCollapse: prev.pinned
-              ? { enabled: false, afterMs: 0, targetMode: 'ambient' }
-              : { enabled: true, afterMs: DEFAULT_AUTO_COLLAPSE_EXPANDED_MS, targetMode: 'ambient' },
+            autoCollapse,
             updatedAt: now
           });
         }
@@ -167,15 +178,22 @@ export class SurfaceStateController {
       }
 
       case 'collapse': {
+        this.clearActiveTimer();
         if (prev.mode === 'expanded_response' || prev.sizeClass === 'expanded') {
+          const autoCollapse: AutoCollapsePolicy | undefined = prev.pinned
+            ? { enabled: false, afterMs: 0, targetMode: 'ambient' }
+            : { enabled: true, afterMs: DEFAULT_AUTO_COLLAPSE_COMPACT_MS, targetMode: 'ambient' };
+
+          if (autoCollapse.enabled) {
+            this.scheduleCollapse(autoCollapse.afterMs, autoCollapse.targetMode);
+          }
+
           return this.updateSnapshot({
             mode: prev.mode === 'expanded_response' ? 'compact_response' : prev.mode,
             sizeClass: 'card',
             interactionMode: 'passive',
             focusIntent: 'preserve',
-            autoCollapse: prev.pinned
-              ? { enabled: false, afterMs: 0, targetMode: 'ambient' }
-              : { enabled: true, afterMs: DEFAULT_AUTO_COLLAPSE_COMPACT_MS, targetMode: 'ambient' },
+            autoCollapse,
             updatedAt: now
           });
         }
@@ -220,6 +238,7 @@ export class SurfaceStateController {
       case 'dismiss': {
         this.clearActiveTimer();
         this.streamingClassifier.reset();
+        this.accumulatedAssistantText = '';
         return this.updateSnapshot({
           mode: 'hidden',
           visibility: 'hidden',
@@ -230,6 +249,8 @@ export class SurfaceStateController {
           activity: 'idle',
           inputLevel: 0,
           outputLevel: 0,
+          assistantText: undefined,
+          content: undefined,
           autoCollapse: undefined,
           error: undefined,
           updatedAt: now
@@ -292,8 +313,10 @@ export class SurfaceStateController {
       return prev;
     }
 
-    // Cancel collapse timer when voice activity resumes
-    this.clearActiveTimer();
+    // Cancel collapse timer when active voice interaction resumes (except sleeping during response hold)
+    if (intent.voiceState !== 'sleeping' || (prev.mode !== 'compact_response' && prev.mode !== 'expanded_response')) {
+      this.clearActiveTimer();
+    }
 
     // Pure telemetry update: preserve current mode/activity, only update levels appropriate for active mode
     if (!intent.voiceState) {
@@ -329,7 +352,14 @@ export class SurfaceStateController {
 
     switch (intent.voiceState) {
       case 'sleeping': {
+        if (prev.mode === 'compact_response' || prev.mode === 'expanded_response') {
+          // Response Hold Invariant (M4.6):
+          // Preserve response card until hold timer expires or user dismisses/interacts.
+          return prev;
+        }
+        this.clearActiveTimer();
         this.streamingClassifier.reset();
+        this.accumulatedAssistantText = '';
         return this.updateSnapshot({
           mode: 'ambient',
           sizeClass: prev.pinned ? prev.sizeClass : 'ambient',
@@ -340,13 +370,18 @@ export class SurfaceStateController {
           priority: 'normal',
           inputLevel: 0,
           outputLevel: 0,
+          assistantText: undefined,
+          content: undefined,
+          autoCollapse: undefined,
           sessionId: intent.sessionId,
           updatedAt: now
         });
       }
 
       case 'waking': {
+        this.clearActiveTimer();
         this.streamingClassifier.reset();
+        this.accumulatedAssistantText = '';
         return this.updateSnapshot({
           mode: 'listening',
           visibility: 'visible',
@@ -358,12 +393,16 @@ export class SurfaceStateController {
           priority: 'normal',
           inputLevel: intent.inputLevel ?? 0,
           outputLevel: 0,
+          assistantText: undefined,
+          content: undefined,
+          autoCollapse: undefined,
           sessionId: intent.sessionId,
           updatedAt: now
         });
       }
 
       case 'listening': {
+        this.clearActiveTimer();
         return this.updateSnapshot({
           mode: 'listening',
           visibility: 'visible',
@@ -400,6 +439,7 @@ export class SurfaceStateController {
       }
 
       case 'thinking': {
+        this.clearActiveTimer();
         return this.updateSnapshot({
           mode: 'thinking',
           visibility: 'visible',
@@ -417,17 +457,94 @@ export class SurfaceStateController {
       }
 
       case 'speaking': {
+        this.clearActiveTimer();
+        let currentAssistantText = prev.assistantText;
+        if (intent.assistantText !== undefined) {
+          if (this.accumulatedAssistantText.length > 0 && intent.assistantText.startsWith(this.accumulatedAssistantText)) {
+            this.accumulatedAssistantText = intent.assistantText;
+          } else if (this.accumulatedAssistantText.length > 0 && !intent.assistantText.includes(this.accumulatedAssistantText)) {
+            this.accumulatedAssistantText += intent.assistantText;
+          } else {
+            this.accumulatedAssistantText = intent.assistantText;
+          }
+          currentAssistantText = this.accumulatedAssistantText;
+        }
+
+        let classification: ClassificationResult | undefined;
+        if (currentAssistantText && currentAssistantText.length > 0) {
+          classification = this.streamingClassifier.feedChunk(
+            intent.assistantText && !intent.assistantText.startsWith(this.streamingClassifier.getAccumulatedText())
+              ? intent.assistantText
+              : currentAssistantText
+          );
+        }
+
+        // Determine sizeClass:
+        // Pinned state preserves user footprint
+        // Semantic classifier promotes to expanded if code/table/long
+        // Minimum speakable content (>= 4 chars trimmed) expands capsule to card envelope
+        let targetSizeClass = activeSizeClass;
+        if (!prev.pinned) {
+          if (classification?.isExpanded) {
+            targetSizeClass = 'expanded';
+          } else if (currentAssistantText && currentAssistantText.trim().length >= 4) {
+            targetSizeClass = 'card';
+          }
+        }
+
+        // When assistant speech concludes (isSpeakingFinished: true)
+        const isSpeakingFinished = intent.isSpeakingFinished === true;
+        if (isSpeakingFinished && currentAssistantText && currentAssistantText.trim().length > 0) {
+          const mode: SurfaceMode = classification?.isExpanded ? 'expanded_response' : 'compact_response';
+          const isShortStatus =
+            classification?.blocks.some((b) => b.type === 'status') ||
+            (currentAssistantText.trim().length > 0 && currentAssistantText.trim().length <= 6);
+          const afterMs = prev.pinned
+            ? 0
+            : isShortStatus
+            ? DEFAULT_AUTO_COLLAPSE_VOICE_MS
+            : classification?.isExpanded
+            ? DEFAULT_AUTO_COLLAPSE_EXPANDED_MS
+            : DEFAULT_AUTO_COLLAPSE_COMPACT_MS;
+
+          const autoCollapse: AutoCollapsePolicy | undefined = prev.pinned
+            ? { enabled: false, afterMs: 0, targetMode: 'ambient' }
+            : { enabled: true, afterMs, targetMode: 'ambient' };
+
+          if (autoCollapse.enabled) {
+            this.scheduleCollapse(autoCollapse.afterMs, autoCollapse.targetMode);
+          }
+
+          return this.updateSnapshot({
+            mode,
+            visibility: 'visible',
+            sizeClass: targetSizeClass,
+            interactionMode: classification?.isExpanded ? 'interactive' : 'passive',
+            focusIntent: 'preserve',
+            activity: 'idle',
+            source: 'voice',
+            inputLevel: 0,
+            outputLevel: 0,
+            assistantText: currentAssistantText,
+            content: classification?.blocks,
+            autoCollapse,
+            sessionId: intent.sessionId ?? prev.sessionId,
+            updatedAt: now
+          });
+        }
+
         return this.updateSnapshot({
           mode: 'speaking',
           visibility: 'visible',
-          sizeClass: activeSizeClass,
+          sizeClass: targetSizeClass,
           interactionMode: 'passive',
           focusIntent: 'preserve',
           activity: 'speaking',
           source: 'voice',
           inputLevel: 0,
           outputLevel: intent.outputLevel ?? prev.outputLevel,
-          assistantText: intent.assistantText ?? prev.assistantText,
+          assistantText: currentAssistantText,
+          content: classification?.blocks ?? prev.content,
           sessionId: intent.sessionId ?? prev.sessionId,
           updatedAt: now
         });
@@ -436,7 +553,10 @@ export class SurfaceStateController {
       case 'interrupted': {
         // BARGE-IN VISUAL YIELD:
         // Pivots immediately from speaking waveform to listening waveform in <50ms.
-        // Never displays red error banners.
+        // Never displays warning rings, error banners, or interrupt flashes.
+        this.clearActiveTimer();
+        this.accumulatedAssistantText = '';
+        this.streamingClassifier.reset();
         return this.updateSnapshot({
           mode: 'listening',
           visibility: 'visible',
@@ -447,6 +567,9 @@ export class SurfaceStateController {
           source: 'voice',
           inputLevel: intent.inputLevel ?? 0,
           outputLevel: 0, // Clears assistant audio output level instantly
+          assistantText: undefined,
+          content: undefined,
+          autoCollapse: undefined,
           sessionId: intent.sessionId ?? prev.sessionId,
           updatedAt: now
         });
@@ -516,8 +639,11 @@ export class SurfaceStateController {
     if (prev.pinned) {
       autoCollapse = { enabled: false, afterMs: 0, targetMode: 'ambient' };
     } else {
+      const isShortStatus = classification.blocks.some((b) => b.type === 'status');
       const defaultTimeout = classification.isExpanded
         ? DEFAULT_AUTO_COLLAPSE_EXPANDED_MS
+        : isShortStatus
+        ? DEFAULT_AUTO_COLLAPSE_VOICE_MS
         : DEFAULT_AUTO_COLLAPSE_COMPACT_MS;
       autoCollapse = {
         enabled: true,
@@ -632,6 +758,7 @@ export class SurfaceStateController {
 
     this.clearActiveTimer();
     this.streamingClassifier.reset();
+    this.accumulatedAssistantText = '';
 
     return this.updateSnapshot({
       mode: 'ambient',
@@ -644,6 +771,8 @@ export class SurfaceStateController {
       priority: 'normal',
       inputLevel: 0,
       outputLevel: 0,
+      assistantText: undefined,
+      content: undefined,
       autoCollapse: undefined,
       error: undefined,
       updatedAt: this.clock.now()
@@ -672,7 +801,42 @@ export class SurfaceStateController {
     return immutableCopy;
   }
 
+  /**
+   * Reports pointer enter/leave over the visible surface container.
+   * Pauses auto-collapse while hovering and restarts inactivity timer on unhover.
+   */
+  public setUserHovering(hovering: boolean): void {
+    this.isUserHovering = hovering;
+    if (hovering) {
+      // Pause active collapse timer while user is interacting with visible card
+      this.clearActiveTimer();
+    } else {
+      // Mouse left: restart inactivity timer if in response mode and unpinned
+      const current = this.currentSnapshot;
+      if (!current.pinned && (current.mode === 'compact_response' || current.mode === 'expanded_response')) {
+        const afterMs = current.mode === 'expanded_response'
+          ? DEFAULT_AUTO_COLLAPSE_EXPANDED_MS
+          : DEFAULT_AUTO_COLLAPSE_COMPACT_MS;
+        this.scheduleCollapse(afterMs, 'ambient');
+      }
+    }
+  }
+
+  /**
+   * Resets the canonical response inactivity timer.
+   */
+  public resetInactivityTimer(): void {
+    const current = this.currentSnapshot;
+    if (!current.pinned && (current.mode === 'compact_response' || current.mode === 'expanded_response')) {
+      const afterMs = current.mode === 'expanded_response'
+        ? DEFAULT_AUTO_COLLAPSE_EXPANDED_MS
+        : DEFAULT_AUTO_COLLAPSE_COMPACT_MS;
+      this.scheduleCollapse(afterMs, 'ambient');
+    }
+  }
+
   private clearActiveTimer(): void {
+    this.activeTimerRevision++;
     if (this.activeTimerId !== null) {
       this.clock.clearTimeout(this.activeTimerId);
       this.activeTimerId = null;
@@ -682,9 +846,21 @@ export class SurfaceStateController {
   private scheduleCollapse(afterMs: number, targetMode: SurfaceMode): void {
     if (!this.enableTimers) return;
     this.clearActiveTimer();
+    const scheduledRevision = this.activeTimerRevision;
+
     this.activeTimerId = this.clock.setTimeout(() => {
       this.activeTimerId = null;
+      // Stale protection: reject if another transition or action superseded this timer
+      if (this.activeTimerRevision !== scheduledRevision) {
+        return;
+      }
+      // Hover protection: do not collapse while user is reading / hovering
+      if (this.isUserHovering) {
+        return;
+      }
       if (!this.currentSnapshot.pinned) {
+        this.accumulatedAssistantText = '';
+        this.streamingClassifier.reset();
         this.updateSnapshot({
           mode: targetMode,
           sizeClass: targetMode === 'ambient' ? 'ambient' : 'compact',
@@ -693,6 +869,8 @@ export class SurfaceStateController {
           activity: 'idle',
           inputLevel: 0,
           outputLevel: 0,
+          assistantText: undefined,
+          content: undefined,
           autoCollapse: undefined,
           updatedAt: this.clock.now()
         });

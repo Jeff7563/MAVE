@@ -248,3 +248,4 @@ describe('SurfaceTransitionCoordinator (M4.5 Adaptive Envelope System)', () => {
     expect(coordinator.getDiagnostics().state).toBe('idle');
   });
 });
+

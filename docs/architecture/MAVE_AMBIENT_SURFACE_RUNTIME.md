@@ -624,6 +624,56 @@ Rather than destroying and mounting separate DOM components, `MaveCapsule` serve
 - Pointer events are captured exclusively when the cursor hovers directly over the visible container (`.mave-surface-container`), preventing invisible transparent space from blocking clicks to underlying desktop applications.
 - Zero focus stealing: all passive size transitions preserve `focusable: false` and use `showInactive()`.
 
+---
+
+## 23. M4.6 Compact Response Surface & Auto-Collapse Architecture
+
+Milestone 4.6 transforms MAVE's card envelope ($360 \times 180$ DIP) into a production Quick Response desktop surface, enabling short assistant answers, quick facts, vocabulary entries, and status descriptors to be read directly on the desktop without opening a traditional chat window.
+
+### 23.1 Compact Quick Response Layout & Streaming Presentation
+- **Stable Native Envelope**: All progressive assistant text streaming occurs within the stable card envelope ($360 \times 180$ DIP). The native window is promoted to card bounds upon receiving early assistant tokens ($\ge 4$ characters trimmed) and never resizes per token, preventing window shaking and OS relayout churn.
+- **Continuous Header Anchor**: Header row with `PresenceMark`, `MAVE` brand label, and action buttons (`pin`, `expand`, `dismiss`) remains mounted at the top of the card.
+- **Primary Spoken Text Component (`MaveCompactResponse`)**:
+  - Renders streaming assistant text into `.mave-compact-response`.
+  - Accessible typography with high-contrast text (`color: #f1f5f9`), smooth line clamping (`line-clamp: 5`), and accessible word breaking (`word-break: break-word`, `overflow-wrap: break-word`).
+  - Interactive selection enabled (`user-select: text`) allowing users to copy text directly.
+  - Safe overflow fade mask (`.mave-response-fade-overlay`) and subtle expand button affordance when text exceeds viewable height.
+- **Specialized Visual Blocks**:
+  - **Vocabulary Card (`.mave-vocabulary-card`)**: Renders target word, phonetic notation, part of speech badge, translation, and contextual example.
+  - **Status Card (`.mave-status-card`)**: Renders status icon badge, type indicator (`info`, `success`, `warning`, `error`), and message descriptor.
+
+### 23.2 Semantic Classification Engine (`ResponseClassifier`)
+- **Streaming & Batch Classifier**: Analyzes incoming response text chunk-by-chunk and batchwise to determine optimal presentation mode.
+- **Classification Routing**:
+  - Short prose ($\le 240$ chars), single vocabulary items, and short status updates $\to$ `compact_response` with `sizeClass: 'card'`.
+  - Long prose ($> 240$ chars), markdown code fences (````` ``` `````), structured tables (`| --- |`), or multi-step lists $\to$ `expanded_response` with `sizeClass: 'expanded'`.
+- **Pre-Classification Buffer**: Minimal threshold ($\ge 4$ characters) triggers early promotion to the card envelope so text does not flash inside the tiny ambient capsule.
+
+### 23.3 Main-Authoritative Response Hold & Auto-Collapse Lifecycle
+- **Decoupled Voice Lifecycle & Presentation Hold**: Spoken TTS audio finishing (`speaking_finished` / `isSpeakingFinished: true`) does NOT instantly collapse the card. When the voice engine returns to sleeping, the presentation state machine transitions from `speaking` to `compact_response` (Response Hold), keeping the card visible so the user can read the content.
+- **Hold Duration Matrix**:
+  - **Standard Compact Response**: $30,000\text{ ms}$ ($30\text{ s}$) auto-collapse baseline.
+  - **Short Acknowledgement / Status**: $3,000\text{ ms}$ ($3\text{ s}$) for trivial answers ($\le 6$ characters such as "Done.", "Okay.", "Sure.") or status blocks.
+- **Pin Authority**:
+  - User clicking the Pin button (`toggle_pin`) cancels auto-collapse timers immediately (`autoCollapse.enabled = false`).
+  - The card stays indefinitely until the user unpins, collapses, or dismisses.
+  - Unpinning an active card immediately arms a fresh $30\text{ s}$ collapse timer.
+- **Hover & Inactivity Pause**:
+  - When pointer enters the card (`onMouseEnter` / `setUserHovering(true)`), active collapse timers are cancelled.
+  - While the user is hovering or reading, the card will never auto-collapse.
+  - When pointer leaves the card (`onMouseLeave` / `setUserHovering(false)`), a fresh $30\text{ s}$ inactivity timer is armed.
+- **Ephemeral Privacy Clearing**:
+  - When auto-collapse fires or the user clicks dismiss, `assistantText` and structured `content` blocks are immediately cleared (`undefined`) from state.
+  - Sensitive answers, tokens, or queries never persist in the ambient background state.
+
+### 23.4 Stale Timer Protection (`activeTimerRevision`)
+To guarantee rock-solid timer safety in high-concurrency desktop environments:
+- `SurfaceStateController` maintains a private monotonic integer counter `activeTimerRevision`.
+- Whenever a timer is armed (`scheduleCollapse`), it captures the current revision `timerRev = ++this.activeTimerRevision`.
+- In the `setTimeout` callback, execution verifies `if (this.activeTimerRevision !== timerRev) return;`.
+- Any subsequent user interaction, pin toggle, hover event, new voice intent, or dismiss invalidates older timers by incrementing `activeTimerRevision`, preventing stale collapse races.
+
+
 
 
 

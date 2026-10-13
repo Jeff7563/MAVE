@@ -143,6 +143,19 @@ export function classifyResponseContent(input: {
     };
   }
 
+  // 3b. Check for status block (Short acknowledgement / system status)
+  const statusBlock = blocks.find((b) => b.type === 'status');
+  if (statusBlock) {
+    return {
+      mode: 'compact_response',
+      sizeClass: 'card',
+      priority: input.priority || 'normal',
+      blocks,
+      isExpanded: false,
+      reason: 'contains_status_block'
+    };
+  }
+
   // 4. Check for code blocks
   const hasCodeBlock = blocks.some((b) => b.type === 'code') || text.includes('```');
   if (hasCodeBlock) {

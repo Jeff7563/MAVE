@@ -464,22 +464,179 @@
 }
 
 /* ==========================================================================
-   Response Placeholders (M4.6 & M4.7 Foundations)
+   Compact Response Surface (M4.6 Production Quick Response)
    ========================================================================== */
 
-.mave-response-placeholder {
+.mave-compact-response {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  position: relative;
   box-sizing: border-box;
-  background: var(--mave-surface-bg);
-  backdrop-filter: blur(var(--mave-surface-blur));
-  -webkit-backdrop-filter: blur(var(--mave-surface-blur));
-  border: 1px solid var(--mave-surface-border);
-  box-shadow: var(--mave-surface-shadow);
-  border-radius: var(--mave-card-radius);
-  color: var(--mave-surface-text);
-  padding: 12px 14px;
-  font-size: 12.5px;
-  line-height: 1.45;
-  pointer-events: auto;
-  max-width: 100%;
 }
+
+/* Primary Response Text */
+.mave-response-text {
+  color: var(--mave-surface-text);
+  font-size: 13px;
+  line-height: 1.5;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  user-select: text;
+  white-space: pre-wrap;
+  margin: 0;
+  padding: 0;
+}
+
+/* Card Envelope Preview Clamping (4-5 lines visible, 360x180 envelope) */
+.mave-surface-container[data-size="card"] .mave-response-text {
+  max-height: 100px;
+  overflow: hidden;
+}
+
+/* Overflow Affordance & Gradient Fade */
+.mave-response-overflow-affordance {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  pointer-events: none;
+  height: 28px;
+}
+
+.mave-response-fade-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 28px;
+  background: linear-gradient(to bottom, transparent, var(--mave-surface-bg) 90%);
+  pointer-events: none;
+}
+
+.mave-response-expand-hint {
+  position: relative;
+  z-index: 2;
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--mave-accent-idle);
+  background: rgba(14, 18, 26, 0.85);
+  border: 1px solid var(--mave-surface-border);
+  border-radius: 9999px;
+  padding: 2px 7px;
+  cursor: pointer;
+  transition:
+    background var(--mave-motion-fast),
+    border-color var(--mave-motion-fast),
+    color var(--mave-motion-fast);
+}
+
+.mave-response-expand-hint:hover {
+  background: rgba(30, 41, 59, 0.95);
+  border-color: var(--mave-surface-border-hover);
+  color: var(--mave-surface-text);
+}
+
+/* Vocabulary Card Presentation (Language Learning) */
+.mave-vocabulary-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  user-select: text;
+}
+
+.mave-vocab-header {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.mave-vocab-word {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--mave-surface-text);
+  letter-spacing: 0.01em;
+}
+
+.mave-vocab-phonetic {
+  font-size: 12px;
+  color: var(--mave-surface-text-dim);
+  font-family: monospace;
+}
+
+.mave-vocab-pos {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--mave-accent-idle);
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.2);
+  padding: 1px 5px;
+  border-radius: 4px;
+  line-height: 1.2;
+}
+
+.mave-vocab-translation {
+  font-size: 13.5px;
+  font-weight: 500;
+  color: #38bdf8;
+  line-height: 1.4;
+}
+
+.mave-vocab-example {
+  font-size: 11.5px;
+  color: var(--mave-surface-text-muted);
+  font-style: italic;
+  line-height: 1.4;
+  margin-top: 2px;
+}
+
+/* Status Card Presentation (Short Feedback) */
+.mave-status-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  user-select: none;
+}
+
+.mave-status-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--mave-accent-idle);
+  flex-shrink: 0;
+  box-shadow: 0 0 8px var(--mave-accent-glow);
+}
+
+.mave-status-card--success .mave-status-indicator {
+  background: #4ade80;
+  box-shadow: 0 0 8px rgba(74, 222, 128, 0.35);
+}
+
+.mave-status-card--warning .mave-status-indicator {
+  background: #fbbf24;
+  box-shadow: 0 0 8px rgba(251, 191, 36, 0.35);
+}
+
+.mave-status-card--error .mave-status-indicator {
+  background: #f87171;
+  box-shadow: 0 0 8px rgba(248, 113, 113, 0.35);
+}
+
+.mave-status-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--mave-surface-text);
+  letter-spacing: 0.01em;
+}
+
 

@@ -151,3 +151,4 @@ test('Electron desktop: Ambient surface adaptive envelope and morph system E2E v
     await electronApp.close();
   }
 });
+

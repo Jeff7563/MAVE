@@ -626,5 +626,242 @@ describe('SurfaceStateController', () => {
       expect(snap3.pinned).toBe(true);
     });
   });
+
+  describe('Milestone 4.6 — Compact Response Surface & Auto-Collapse', () => {
+    it('Pre-flight audit: interrupted yields immediately to listening with zero error/flash', () => {
+      const controller = new SurfaceStateController();
+      controller.applyIntent({
+        type: 'voice_activity',
+        voiceState: 'speaking',
+        assistantText: 'I am speaking right now',
+        outputLevel: 0.8
+      });
+      expect(controller.getSnapshot().mode).toBe('speaking');
+
+      // User interrupts
+      const snap = controller.applyIntent({
+        type: 'voice_activity',
+        voiceState: 'interrupted'
+      });
+
+      expect(snap.mode).toBe('listening');
+      expect(snap.activity).toBe('listening');
+      expect(snap.outputLevel).toBe(0);
+      expect(snap.error).toBeUndefined();
+      expect(snap.assistantText).toBeUndefined();
+    });
+
+    it('progressive text expands capsule to card envelope when speakable threshold is reached', () => {
+      const controller = new SurfaceStateController();
+      // Single character or empty text remains compact
+      const snap1 = controller.applyIntent({
+        type: 'voice_activity',
+        voiceState: 'speaking',
+        assistantText: 'I'
+      });
+      expect(snap1.mode).toBe('speaking');
+      expect(snap1.sizeClass).toBe('compact');
+
+      // Speakable phrase (>= 4 chars) morphs envelope to card
+      const snap2 = controller.applyIntent({
+        type: 'voice_activity',
+        voiceState: 'speaking',
+        assistantText: "I'm exhausted today."
+      });
+      expect(snap2.mode).toBe('speaking');
+      expect(snap2.sizeClass).toBe('card');
+      expect(snap2.assistantText).toBe("I'm exhausted today.");
+    });
+
+    it('completing speech transitions to compact_response with 30-second hold timer', () => {
+      const clock = createMockClock();
+      const controller = new SurfaceStateController({ clock, enableTimers: true });
+
+      controller.applyIntent({
+        type: 'voice_activity',
+        voiceState: 'speaking',
+        assistantText: "I'm exhausted today."
+      });
+
+      // TTS audio finishes
+      const snap = controller.applyIntent({
+        type: 'voice_activity',
+        voiceState: 'speaking',
+        isSpeakingFinished: true
+      });
+
+      expect(snap.mode).toBe('compact_response');
+      expect(snap.sizeClass).toBe('card');
+      expect(snap.activity).toBe('idle');
+      expect(snap.autoCollapse).toEqual({
+        enabled: true,
+        afterMs: 30000,
+        targetMode: 'ambient'
+      });
+
+      // Response hold is preserved when voice session terminates to sleeping
+      const sleepSnap = controller.applyIntent({
+        type: 'voice_activity',
+        voiceState: 'sleeping'
+      });
+      expect(sleepSnap.mode).toBe('compact_response');
+      expect(sleepSnap.sizeClass).toBe('card');
+
+      // Advancing clock past 30 seconds triggers auto-collapse to ambient
+      clock.tick(30000);
+      const afterSnap = controller.getSnapshot();
+      expect(afterSnap.mode).toBe('ambient');
+      expect(afterSnap.sizeClass).toBe('ambient');
+      // Privacy invariant: ephemeral text cleared on collapse
+      expect(afterSnap.assistantText).toBeUndefined();
+      expect(afterSnap.content).toBeUndefined();
+    });
+
+    it('hover pauses auto-collapse and unhover restarts 30-second inactivity timer', () => {
+      const clock = createMockClock();
+      const controller = new SurfaceStateController({ clock, enableTimers: true });
+
+      controller.applyIntent({
+        type: 'voice_activity',
+        voiceState: 'speaking',
+        assistantText: 'Response text to read',
+        isSpeakingFinished: true
+      });
+      expect(controller.getSnapshot().mode).toBe('compact_response');
+
+      // User moves mouse over visible response card
+      controller.setUserHovering(true);
+
+      // Advance clock past 35s - card must NOT collapse while reading!
+      clock.tick(35000);
+      expect(controller.getSnapshot().mode).toBe('compact_response');
+
+      // User moves mouse away - restarts 30s timer
+      controller.setUserHovering(false);
+      expect(controller.getSnapshot().mode).toBe('compact_response');
+
+      // Advance clock 20s - still visible
+      clock.tick(20000);
+      expect(controller.getSnapshot().mode).toBe('compact_response');
+
+      // Advance remaining 10s - collapses
+      clock.tick(10000);
+      expect(controller.getSnapshot().mode).toBe('ambient');
+    });
+
+    it('pin cancels auto-collapse timer, unpin restarts it safely', () => {
+      const clock = createMockClock();
+      const controller = new SurfaceStateController({ clock, enableTimers: true });
+
+      controller.applyIntent({
+        type: 'voice_activity',
+        voiceState: 'speaking',
+        assistantText: 'Response text',
+        isSpeakingFinished: true
+      });
+      expect(controller.getSnapshot().mode).toBe('compact_response');
+
+      // User pins the card
+      const pinSnap = controller.dispatchAction({ type: 'toggle_pin', origin: 'user', pinned: true });
+      expect(pinSnap.pinned).toBe(true);
+      expect(pinSnap.autoCollapse?.enabled).toBe(false);
+
+      // Advance time by 2 minutes - card remains visible
+      clock.tick(120000);
+      expect(controller.getSnapshot().mode).toBe('compact_response');
+      expect(controller.getSnapshot().pinned).toBe(true);
+
+      // User unpins
+      const unpinSnap = controller.dispatchAction({ type: 'toggle_pin', origin: 'user', pinned: false });
+      expect(unpinSnap.pinned).toBe(false);
+      expect(unpinSnap.autoCollapse?.enabled).toBe(true);
+
+      // Advance 30s - collapses cleanly
+      clock.tick(30000);
+      expect(controller.getSnapshot().mode).toBe('ambient');
+    });
+
+    it('stale timer protection: expanding supersedes old compact timer', () => {
+      const clock = createMockClock();
+      const controller = new SurfaceStateController({ clock, enableTimers: true });
+
+      controller.applyIntent({
+        type: 'voice_activity',
+        voiceState: 'speaking',
+        assistantText: 'Short response',
+        isSpeakingFinished: true
+      });
+      expect(controller.getSnapshot().mode).toBe('compact_response');
+
+      // User expands card after 10s
+      clock.tick(10000);
+      const expandSnap = controller.dispatchAction({ type: 'expand', origin: 'user' });
+      expect(expandSnap.mode).toBe('expanded_response');
+      expect(expandSnap.sizeClass).toBe('expanded');
+
+      // Advance clock past initial 30s mark (another 25s = total 35s from start)
+      clock.tick(25000);
+      // Stale timer must NOT have collapsed expanded panel
+      expect(controller.getSnapshot().mode).toBe('expanded_response');
+      expect(controller.getSnapshot().sizeClass).toBe('expanded');
+    });
+
+    it('dismiss cancels timer, clears ephemeral response, and hides window', () => {
+      const clock = createMockClock();
+      const controller = new SurfaceStateController({ clock, enableTimers: true });
+
+      controller.applyIntent({
+        type: 'voice_activity',
+        voiceState: 'speaking',
+        assistantText: 'Response text',
+        isSpeakingFinished: true
+      });
+
+      const dismissSnap = controller.dispatchAction({ type: 'dismiss', origin: 'user' });
+      expect(dismissSnap.mode).toBe('hidden');
+      expect(dismissSnap.visibility).toBe('hidden');
+      expect(dismissSnap.assistantText).toBeUndefined();
+
+      // Advancing clock past 30s does not re-awaken or mutate
+      clock.tick(35000);
+      expect(controller.getSnapshot().mode).toBe('hidden');
+    });
+
+    it('short status block uses short 3-second auto-collapse timer', () => {
+      const clock = createMockClock();
+      const controller = new SurfaceStateController({ clock, enableTimers: true });
+
+      controller.applyIntent({
+        type: 'show_response',
+        blocks: [{ id: 'stat-1', type: 'status', label: 'Timer set', status: 'success' }]
+      });
+
+      expect(controller.getSnapshot().mode).toBe('compact_response');
+      expect(controller.getSnapshot().sizeClass).toBe('card');
+
+      // After 3 seconds, short status auto-collapses
+      clock.tick(3000);
+      expect(controller.getSnapshot().mode).toBe('ambient');
+    });
+
+    it('text-only show_response intent displays identical compact card with 30s hold', () => {
+      const clock = createMockClock();
+      const controller = new SurfaceStateController({ clock, enableTimers: true });
+
+      const snap = controller.applyIntent({
+        type: 'show_response',
+        text: 'Milestone 4 — Ambient Adaptive Surface',
+        source: 'conversation'
+      });
+
+      expect(snap.mode).toBe('compact_response');
+      expect(snap.sizeClass).toBe('card');
+      expect(snap.assistantText).toBe('Milestone 4 — Ambient Adaptive Surface');
+      expect(snap.autoCollapse?.afterMs).toBe(30000);
+
+      clock.tick(30000);
+      expect(controller.getSnapshot().mode).toBe('ambient');
+    });
+  });
 });
 

@@ -319,6 +319,7 @@ export const SurfacePresentationIntentSchema = z.discriminatedUnion('type', [
     assistantText: z.string().optional(),
     error: SurfaceErrorSchema.optional(),
     sessionId: z.string().optional(),
+    isSpeakingFinished: z.boolean().optional(),
     timestamp: z.number().nonnegative().optional()
   }),
   z.object({

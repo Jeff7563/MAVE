@@ -66,9 +66,8 @@ test('Electron desktop: Ambient surface voice-reactive states and visualizer E2E
     const btnWake = devWindow.locator('[data-testid="btn-simulate-wake"]');
     await btnWake.click();
 
-    // 4. Wait for full mock voice turn cycle to complete and return to Ready (ambient)
-    await expect(statusText).toHaveText('Ready', { timeout: 15000 });
-    await expect(mark).toHaveAttribute('data-mode', 'ambient');
+    // 4. Wait for full mock voice turn cycle to complete and enter compact_response hold (M4.6) or ambient
+    await expect(mark).toHaveAttribute('data-mode', /compact_response|ambient/, { timeout: 15000 });
     await expect(mark).toHaveAttribute('data-intensity', '0.000');
 
     // Verify that the surface traversed listening/speaking during the turn
@@ -93,10 +92,17 @@ test('Electron desktop: Ambient surface voice-reactive states and visualizer E2E
       }
     } catch {}
 
-    // Finally returns calmly to ambient without error
-    await expect(statusText).not.toHaveText('Something went wrong');
-    await expect(statusText).toHaveText('Ready', { timeout: 15000 });
-    await expect(mark).toHaveAttribute('data-mode', 'ambient');
+    // Finally completes turn cleanly into compact_response or ambient without error
+    await expect(mark).toHaveAttribute('data-mode', /compact_response|ambient/, { timeout: 15000 });
+    await expect(mark).not.toHaveAttribute('data-mode', 'error');
+
+    // Collapse back to ambient to verify clean return to idle state
+    await surfaceWindow.evaluate(() => {
+      (window as any).mave?.surface?.dispatchAction({ type: 'collapse', origin: 'user' });
+    });
+    await expect(mark).toHaveAttribute('data-mode', 'ambient', { timeout: 5000 });
+    await expect(statusText).toBeVisible({ timeout: 5000 });
+    await expect(statusText).toHaveText('Ready');
   } finally {
     await electronApp.close();
   }

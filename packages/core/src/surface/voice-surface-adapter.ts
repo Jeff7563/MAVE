@@ -16,6 +16,7 @@ export function voiceStateToSurfaceIntent(
     outputLevel?: number;
     transcript?: { text: string; isFinal: boolean; confidence?: number; language?: string };
     assistantText?: string;
+    isSpeakingFinished?: boolean;
     errorCode?: string;
     errorMessage?: string;
     timestamp?: number;
@@ -28,6 +29,7 @@ export function voiceStateToSurfaceIntent(
     outputLevel: options.outputLevel,
     transcript: options.transcript,
     assistantText: options.assistantText,
+    isSpeakingFinished: options.isSpeakingFinished,
     error:
       options.errorCode && options.errorMessage
         ? {
@@ -123,6 +125,7 @@ export function voiceEventToSurfaceIntent(
         type: 'voice_activity',
         voiceState: 'speaking',
         outputLevel: 0,
+        isSpeakingFinished: true,
         sessionId: event.sessionId,
         timestamp: event.timestamp
       };

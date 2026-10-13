@@ -337,6 +337,7 @@ export class SurfaceWindowManager {
    */
   public reportInteractiveHover(hovering: boolean): void {
     this.isHovering = hovering;
+    this.controller.setUserHovering(hovering);
     this.updateMouseBehavior(this.controller.getSnapshot());
   }
 
