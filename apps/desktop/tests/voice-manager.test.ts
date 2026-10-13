@@ -30,6 +30,7 @@ interface HarnessOptions {
   audioInputProvider?: MockAudioInputProvider;
   sttProvider?: MockSTTProvider;
   voiceCoordinator?: VoiceSessionCoordinator;
+  sessionTimeoutMs?: number;
   onOwnershipChange?: (ownership: MicOwnership) => void;
   onVoiceRuntimeEvent?: (event: VoiceRuntimeEvent) => void;
 }
@@ -88,6 +89,7 @@ async function createHarness(options?: HarnessOptions) {
     voiceCoordinator,
     rearmGuardMs: options?.rearmGuardMs ?? 300,
     settleGuardMs: options?.settleGuardMs ?? 0,
+    sessionTimeoutMs: options?.sessionTimeoutMs,
     sleep,
     onOwnershipChange: options?.onOwnershipChange,
     onVoiceRuntimeEvent: options?.onVoiceRuntimeEvent
@@ -472,6 +474,87 @@ describe('VoiceManager (M3.5 Wake ↔ Voice Handoff Integration)', () => {
     }
 
     expect(voiceManager.getDuplicateWakeCount()).toBe(0);
+
+    await voiceManager.dispose();
+  });
+
+  it('runs complete live-topology loop using ConversationManager runtime', async () => {
+    const { createMaveDatabase } = await import('@mave/database');
+    const { ConversationManager } = await import('../src/main/conversation-manager.js');
+
+    const db = await createMaveDatabase(':memory:');
+    const service = createMaveService();
+    service.start();
+    service.send({ type: 'APP_READY' });
+
+    const wakeProvider = new MockWakeWordProvider({ status: 'listening' });
+    const wakeManager = new WakeManager({
+      service,
+      database: db,
+      provider: wakeProvider
+    });
+    await wakeManager.initialize();
+
+    const conversationManager = new ConversationManager({
+      database: db,
+      timeoutMs: 5000
+    });
+
+    const voiceManager = new VoiceManager({
+      service,
+      wakeManager,
+      conversationRuntime: conversationManager.getRuntime()
+    });
+    await voiceManager.start();
+
+    expect(service.getSnapshot().state).toBe('sleeping');
+    expect(voiceManager.getMicOwnership()).toBe('wake');
+
+    const statesVisited: string[] = [];
+    service.subscribe((snap) => {
+      statesVisited.push(snap.state);
+    });
+
+    await voiceManager.handleWakeDetected();
+
+    expect(voiceManager.getMicOwnership()).toBe('wake');
+    expect(service.getSnapshot().state).toBe('sleeping');
+    expect(wakeProvider.getStatus()).toBe('listening');
+    expect(statesVisited).toContain('waking');
+    expect(statesVisited).toContain('listening');
+    expect(statesVisited).toContain('thinking');
+    expect(statesVisited).toContain('speaking');
+    expect(statesVisited[statesVisited.length - 1]).toBe('sleeping');
+
+    await voiceManager.dispose();
+    await wakeManager.dispose();
+    await conversationManager.dispose();
+    db.close();
+  });
+
+  it('safely recovers and rearms wake when voice session exceeds sessionTimeoutMs', async () => {
+    // Harness with high delay audio input to trigger session timeout
+    const stalledAudio = new MockAudioInputProvider({
+      frameDelayMs: 500
+    });
+
+    const { voiceManager, service, wakeProvider } = await createHarness({
+      audioInputProvider: stalledAudio,
+      sessionTimeoutMs: 50
+    });
+
+    await voiceManager.start();
+
+    expect(service.getSnapshot().state).toBe('sleeping');
+    expect(voiceManager.getMicOwnership()).toBe('wake');
+
+    // Trigger wake handoff which will exceed 50ms timeout
+    await voiceManager.handleWakeDetected();
+
+    // Must safely abort session and return to sleeping + wake listening
+    expect(voiceManager.getMicOwnership()).toBe('wake');
+    expect(service.getSnapshot().state).toBe('sleeping');
+    expect(wakeProvider.getStatus()).toBe('listening');
 
     await voiceManager.dispose();
   });

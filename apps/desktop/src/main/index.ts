@@ -133,8 +133,8 @@ app.whenReady().then(async () => {
 
     // 5. Initialize Voice Manager (M3.5 Wake <-> Voice Handoff)
     const voiceEnabled =
-      process.env['MAVE_VOICE_ENABLED'] === '1' ||
-      getPersistedSetting(maveDatabase, 'voice.enabled') === 'true';
+      process.env['MAVE_VOICE_ENABLED'] !== '0' &&
+      getPersistedSetting(maveDatabase, 'voice.enabled') !== 'false';
 
     if (voiceEnabled) {
       voiceManager = new VoiceManager({

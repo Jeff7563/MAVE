@@ -6,7 +6,8 @@ test('Electron desktop smoke test: Milestone 1 local wake word, diagnostics, and
   const mainScript = path.resolve(__dirname, '../../dist/main/index.js');
   const env: Record<string, string> = {
     ...(process.env as Record<string, string>),
-    NODE_ENV: 'test'
+    NODE_ENV: 'test',
+    MAVE_VOICE_ENABLED: '0'
   };
   delete env['ELECTRON_RUN_AS_NODE'];
 
@@ -184,6 +185,41 @@ test('Electron desktop smoke test: Milestone 2 developer text chat streaming and
     // 8. Confirm same Session ID remains active
     const secondSessionId = await sessionDiag.innerText();
     expect(secondSessionId).toBe(firstSessionId);
+  } finally {
+    await electronApp.close();
+  }
+});
+
+test('Electron desktop smoke test: Milestone 3 wake to voice handoff end-to-end loop', async () => {
+  const mainScript = path.resolve(__dirname, '../../dist/main/index.js');
+  const env: Record<string, string> = {
+    ...(process.env as Record<string, string>),
+    NODE_ENV: 'test'
+  };
+  delete env['ELECTRON_RUN_AS_NODE'];
+
+  const electronApp = await electron.launch({
+    args: [mainScript],
+    env
+  });
+
+  try {
+    const window = await electronApp.firstWindow();
+    await window.waitForLoadState('domcontentloaded');
+
+    const status = window.locator('[data-testid="assistant-status"]');
+    const wakeStatus = window.locator('[data-testid="wake-status"]');
+
+    await expect(status).toHaveText(/Sleeping/i);
+    await expect(wakeStatus).toHaveText(/Listening/i);
+
+    // Click Simulate Wake
+    const btnWake = window.locator('[data-testid="btn-simulate-wake"]');
+    await btnWake.click();
+
+    // Handoff progresses through voice session and automatically returns to Sleeping
+    await expect(status).toHaveText(/Sleeping/i, { timeout: 10000 });
+    await expect(wakeStatus).toHaveText(/Listening/i, { timeout: 10000 });
   } finally {
     await electronApp.close();
   }

@@ -189,6 +189,7 @@ export class VoiceSessionCoordinator {
     });
 
     log.info({ sessionId }, 'Voice session started');
+    log.info({ sessionId }, 'voice_session_started');
 
     // Run async orchestration worker in background
     void this.runSessionWorker(session, controller.signal, eventQueue);
@@ -302,6 +303,8 @@ export class VoiceSessionCoordinator {
       return;
     }
     this.terminalEmitted = event.type as any;
+    const sid = this.activeSession?.id ?? (event as any).sessionId;
+    log.info({ sessionId: sid, type: event.type }, 'voice_session_terminal');
 
     if (this.activeSession) {
       if (event.type === 'voice_session_completed') {
@@ -321,6 +324,7 @@ export class VoiceSessionCoordinator {
   }
 
   private cleanup(): void {
+    const sid = this.activeSession?.id;
     if (this.levelUnsubscribe) {
       this.levelUnsubscribe();
       this.levelUnsubscribe = null;
@@ -331,6 +335,7 @@ export class VoiceSessionCoordinator {
     this.activeTTSRequestId = null;
     this.activeSession = null;
     this.currentEventQueue = null;
+    log.info({ sessionId: sid }, 'voice_cleanup_complete');
   }
 
   private normalizeError(err: unknown): { code: string; message: string } {
@@ -370,7 +375,9 @@ export class VoiceSessionCoordinator {
       this.activeSTTRequestId = `stt-${sessionId}`;
 
       try {
+        log.info({ sessionId }, 'audio_capture_started');
         const audioStream = this.audioInput.capture({ signal });
+        log.info({ sessionId, requestId: this.activeSTTRequestId }, 'stt_started');
         const sttStream = this.stt.transcribe(audioStream, {
           requestId: this.activeSTTRequestId,
           languageHint: session.languageHint,
@@ -398,6 +405,10 @@ export class VoiceSessionCoordinator {
             });
           } else if (event.type === 'final_transcript') {
             finalTranscript = event;
+            log.info(
+              { sessionId, text: event.text, confidence: event.confidence },
+              'final_transcript_received'
+            );
             eventQueue.push({
               type: 'final_transcript',
               sessionId,
@@ -536,6 +547,7 @@ export class VoiceSessionCoordinator {
 
           if (convEvent.type === 'request_started') {
             this.activeBrainRequestId = convEvent.requestId;
+            log.info({ sessionId, requestId: convEvent.requestId }, 'conversation_started');
           } else if (convEvent.type === 'session_ready') {
             session.conversationSessionId = convEvent.sessionId;
             session.updatedAt = this.clock();
@@ -546,6 +558,7 @@ export class VoiceSessionCoordinator {
               notify();
             }
           } else if (convEvent.type === 'response_completed') {
+            log.info({ sessionId, requestId: this.activeBrainRequestId }, 'conversation_completed');
             const flushed = chunker.flush();
             for (const c of flushed) {
               speechQueue.enqueue(c);
@@ -578,7 +591,19 @@ export class VoiceSessionCoordinator {
             break; // Brain finished and all chunks processed
           }
           await new Promise<void>((resolve) => {
-            chunkNotifier = resolve;
+            if (signal.aborted || brainDone) {
+              resolve();
+              return;
+            }
+            const onAbort = () => {
+              signal.removeEventListener('abort', onAbort);
+              resolve();
+            };
+            signal.addEventListener('abort', onAbort, { once: true });
+            chunkNotifier = () => {
+              signal.removeEventListener('abort', onAbort);
+              resolve();
+            };
           });
           continue;
         }
@@ -606,6 +631,7 @@ export class VoiceSessionCoordinator {
           language: session.languageHint
         });
         this.activeTTSRequestId = speechReq.requestId;
+        log.info({ sessionId, requestId: speechReq.requestId, sequence: chunk.sequence }, 'tts_started');
 
         const audioFrames: AudioFrame[] = [];
         try {
@@ -631,6 +657,7 @@ export class VoiceSessionCoordinator {
 
         // Play audio frames through AudioOutput
         if (audioFrames.length > 0) {
+          log.info({ sessionId, frameCount: audioFrames.length }, 'audio_output_started');
           async function* frameStream() {
             for (const f of audioFrames) {
               yield f;

@@ -41,6 +41,7 @@ export interface VoiceManagerOptions {
   conversationRuntime?: ConversationRuntime;
   rearmGuardMs?: number;
   settleGuardMs?: number;
+  sessionTimeoutMs?: number;
   clock?: () => number;
   sleep?: (ms: number) => Promise<void>;
   onOwnershipChange?: (ownership: MicOwnership) => void;
@@ -55,6 +56,7 @@ export class VoiceManager {
   private readonly ownsVoiceCoordinator: boolean;
   private readonly rearmGuardMs: number;
   private readonly settleGuardMs: number;
+  private readonly sessionTimeoutMs: number;
   private readonly clock: () => number;
   private readonly sleep: (ms: number) => Promise<void>;
   private readonly options: VoiceManagerOptions;
@@ -77,6 +79,7 @@ export class VoiceManager {
     this.wakeManager = options.wakeManager;
     this.rearmGuardMs = options.rearmGuardMs ?? 300;
     this.settleGuardMs = options.settleGuardMs ?? 0;
+    this.sessionTimeoutMs = options.sessionTimeoutMs ?? 15000;
     this.clock = options.clock ?? (() => Date.now());
     this.sleep =
       options.sleep ??
@@ -222,8 +225,14 @@ export class VoiceManager {
       }
 
       // 2. Stop wake provider & await complete stop resolution (Barrier)
+      logger.info({ epoch }, 'wake_stop_begin');
       try {
-        await this.wakeManager.stop();
+        await Promise.race([
+          this.wakeManager.stop(),
+          new Promise<void>((_, reject) =>
+            setTimeout(() => reject(new Error('Timeout awaiting wakeManager.stop()')), 5000)
+          )
+        ]);
       } catch (err) {
         logger.error({ err, epoch }, 'failed to stop wake engine; aborting voice session start');
         this.isHandlingHandoff = false;
@@ -231,6 +240,7 @@ export class VoiceManager {
         this.service.send({ type: 'SLEEP_REQUESTED' });
         return;
       }
+      logger.info({ epoch }, 'wake_stop_complete');
 
       this.setOwnership('none');
       logger.info({ epoch }, 'wake_release_complete');
@@ -250,6 +260,7 @@ export class VoiceManager {
 
       // 4. Start VoiceSessionCoordinator
       let eventStream: AsyncIterable<VoiceRuntimeEvent>;
+      logger.info({ epoch }, 'voice_session_start_begin');
       try {
         this.setOwnership('voice');
         this.activeVoiceSessionActive = true;
@@ -269,6 +280,17 @@ export class VoiceManager {
       }
 
       // 5. Stream voice runtime events until terminal event
+      let sessionTimeoutTimer: NodeJS.Timeout | null = null;
+      if (this.sessionTimeoutMs > 0) {
+        sessionTimeoutTimer = setTimeout(() => {
+          logger.warn(
+            { epoch, sessionTimeoutMs: this.sessionTimeoutMs },
+            'voice session timed out; aborting active session'
+          );
+          void this.cancelActiveVoiceSession('voice_session_timeout');
+        }, this.sessionTimeoutMs);
+      }
+
       try {
         for await (const event of eventStream) {
           if (this.isDisposed) {
@@ -296,13 +318,17 @@ export class VoiceManager {
             event.type === 'voice_session_cancelled' ||
             event.type === 'voice_session_failed'
           ) {
-            logger.info({ epoch, type: event.type }, 'voice_session_terminal');
+            logger.info({ epoch, sessionId: event.sessionId, type: event.type }, 'voice_session_terminal');
             break;
           }
         }
       } catch (err) {
         logger.error({ err, epoch }, 'error during voice runtime event streaming');
       } finally {
+        if (sessionTimeoutTimer) {
+          clearTimeout(sessionTimeoutTimer);
+          sessionTimeoutTimer = null;
+        }
         this.activeVoiceSessionActive = false;
         this.setOwnership('none');
       }
