@@ -1,6 +1,13 @@
 import { z } from 'zod';
 import { ConversationModeSchema } from './state.js';
 
+export const BrainConfigSchema = z.object({
+  defaultProvider: z.string().min(1).default('mock'),
+  fallbackChain: z.array(z.string()).default([]),
+  timeoutMs: z.number().positive().default(30000)
+});
+export type BrainConfig = z.infer<typeof BrainConfigSchema>;
+
 export const MaveConfigSchema = z.object({
   wake: z.object({
     enabled: z.boolean(),
@@ -15,11 +22,22 @@ export const MaveConfigSchema = z.object({
     companionTimeoutMs: z.number().positive(),
     defaultMode: ConversationModeSchema
   }),
-  realtime: z.object({
-    model: z.string(),
-    vad: z.enum(['semantic_vad', 'server_vad']),
-    vadEagerness: z.enum(['low', 'medium', 'high', 'auto'])
+  brain: BrainConfigSchema.default({
+    defaultProvider: 'mock',
+    fallbackChain: [],
+    timeoutMs: 30000
   }),
+  /**
+   * @deprecated Retained temporarily for backward compatibility with existing persisted settings.
+   * Use `brain` configuration for generic MAVE AI conversation runtime settings.
+   */
+  realtime: z
+    .object({
+      model: z.string(),
+      vad: z.enum(['semantic_vad', 'server_vad']),
+      vadEagerness: z.enum(['low', 'medium', 'high', 'auto'])
+    })
+    .optional(),
   memory: z.object({
     storeTranscripts: z.boolean(),
     storeAudio: z.literal(false)
@@ -41,6 +59,11 @@ export const DefaultMaveConfig: MaveConfig = {
     idleTimeoutMs: 75000,
     companionTimeoutMs: 1800000,
     defaultMode: 'conversation'
+  },
+  brain: {
+    defaultProvider: 'mock',
+    fallbackChain: [],
+    timeoutMs: 30000
   },
   realtime: {
     model: 'gpt-4o-realtime-preview',
