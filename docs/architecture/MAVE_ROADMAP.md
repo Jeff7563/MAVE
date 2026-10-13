@@ -63,35 +63,40 @@ Next:
 5. Benchmark V2
 6. Promote only if gate passes
 
-## Milestone 2 — Conversation Runtime
+## Milestone 2 — Conversation Runtime ✅
 
-Goal: provider-independent brain runtime
+Goal: provider-independent brain runtime (COMPLETED in Phases 0–10)
 
 Deliverables:
-- `BrainProvider`
-- `BrainRouter`
-- capability model
-- provider health/fallback
-- streaming
-- session manager
-- context manager
-- intent router
-- cancellation
-- provider diagnostics
+- `BrainProvider` vendor-neutral contract & registry ✅
+- `BrainRouter` with deterministic capability matching & fallback ✅
+- `BrainProfilePolicy` with canonical profiles (`fast_conversation`, `agent_work`, etc.) ✅
+- `SessionManager` & multi-turn `ContextManager` ✅
+- `ConversationRuntime` streaming orchestration ✅
+- `SQLiteConversationStore` turn persistence (zero per-delta writes) ✅
+- Typed Electron IPC streaming with race & acknowledgement safety ✅
+- Developer Text Chat UI test harness ✅
+- Request timeout & cancellation propagation ✅
+- First real subscription brain: official Google Antigravity CLI (`agy`) ✅
+- Architecture freeze & verification across all M2 boundaries ✅
 
-Done when text chat can create a session, route provider, stream response, fail over safely และเก็บ metadata
+Result: Text chat creates sessions, routes providers, streams responses, persists turns, cancels cleanly, and works with both deterministic Mock and real subscription AI.
 
-## Milestone 3 — Voice Loop
+## Milestone 3 — Voice Loop ← NEXT
 
 Goal: natural wake-to-conversation flow
 
-- STT abstraction
-- TTS abstraction
-- partial transcript
-- interruption/barge-in
-- silence handling
+Key deliverables:
+- STT abstraction & streaming speech recognition
+- TTS abstraction & low-latency speech synthesis
+- partial transcript streaming
+- interruption / barge-in handling
+- silence detection & turn arbitration
 - conversation timeout
-- wake → listen → think → speak → continue
+- complete loop: wake → listen → think → speak → continue
+
+> [!IMPORTANT]
+> **Parallel Fast Brain Evaluation**: While M3 voice loop abstractions and pipeline engineering proceed, an active Fast Brain evaluation must run in parallel. Antigravity CLI provides strong real AI capability for complex work (`agent_work`), but its measured TTFT (~9–10s) is too slow for fluid voice turn-taking (target TTFT $\le 1\text{--}3$s). Natural JARVIS-like voice conversation requires a dedicated Fast Brain provider.
 
 ## Milestone 4 — MAVE Surface
 

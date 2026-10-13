@@ -1,5 +1,6 @@
 import type { BrainCapabilities, BrainProvider } from '@mave/contracts';
 import type { BrainProviderRegistry } from './provider-registry.js';
+import { BrainProfilePolicy } from './profile-policy.js';
 import {
   BrainRoutingError,
   type BrainRouteDecision,
@@ -9,6 +10,7 @@ import {
 
 export interface BrainRouterOptions {
   registry: BrainProviderRegistry;
+  profilePolicy?: BrainProfilePolicy;
   defaultProvider?: string;
   fallbackChain?: string[];
   /** Accepted for configuration compatibility; not used during provider selection. */
@@ -23,22 +25,34 @@ function isRouterOptions(
 
 export class BrainRouter {
   private readonly registry: BrainProviderRegistry;
+  private readonly profilePolicy: BrainProfilePolicy;
   private readonly defaultProvider?: string;
   private readonly fallbackChain: string[];
 
   constructor(
     registryOrOptions: BrainProviderRegistry | BrainRouterOptions,
-    defaultOptions?: { defaultProvider?: string; fallbackChain?: string[]; timeoutMs?: number }
+    defaultOptions?: {
+      defaultProvider?: string;
+      fallbackChain?: string[];
+      timeoutMs?: number;
+      profilePolicy?: BrainProfilePolicy;
+    }
   ) {
     if (isRouterOptions(registryOrOptions)) {
       this.registry = registryOrOptions.registry;
+      this.profilePolicy = registryOrOptions.profilePolicy ?? new BrainProfilePolicy();
       this.defaultProvider = registryOrOptions.defaultProvider;
       this.fallbackChain = registryOrOptions.fallbackChain ?? [];
     } else {
       this.registry = registryOrOptions;
+      this.profilePolicy = defaultOptions?.profilePolicy ?? new BrainProfilePolicy();
       this.defaultProvider = defaultOptions?.defaultProvider;
       this.fallbackChain = defaultOptions?.fallbackChain ?? [];
     }
+  }
+
+  getProfilePolicy(): BrainProfilePolicy {
+    return this.profilePolicy;
   }
 
   /**
@@ -77,19 +91,40 @@ export class BrainRouter {
    * This method NEVER calls provider.chat().
    */
   async route(request: BrainRouteRequest = {}): Promise<BrainRouteDecision> {
+    let preferred = request.preferredProviderId?.trim();
+    let defaultId = request.defaultProviderId?.trim() || this.defaultProvider?.trim();
+    let fallbacks = request.fallbackChain ?? this.fallbackChain;
+    let requiredCapabilities = request.requiredCapabilities;
+
+    if (request.profileId) {
+      const resolution = this.profilePolicy.resolve(request.profileId, {
+        preferredProviderId: preferred,
+        fallbackChain: request.fallbackChain,
+        requiredCapabilities: request.requiredCapabilities
+      });
+
+      requiredCapabilities = resolution.requiredCapabilities;
+      if (resolution.preferredProviderId) {
+        preferred = resolution.preferredProviderId;
+      }
+      if (!resolution.allowFallback) {
+        fallbacks = [];
+        defaultId = preferred || undefined;
+      } else if (resolution.fallbackChain && resolution.fallbackChain.length > 0) {
+        fallbacks = resolution.fallbackChain;
+      }
+    }
+
     const rawCandidates: string[] = [];
 
-    const preferred = request.preferredProviderId?.trim();
     if (preferred) {
       rawCandidates.push(preferred);
     }
 
-    const defaultId = request.defaultProviderId?.trim() || this.defaultProvider?.trim();
     if (defaultId) {
       rawCandidates.push(defaultId);
     }
 
-    const fallbacks = request.fallbackChain ?? this.fallbackChain;
     if (fallbacks) {
       for (const fb of fallbacks) {
         if (typeof fb === 'string' && fb.trim()) {
@@ -140,7 +175,7 @@ export class BrainRouter {
 
       anyCandidateRegistered = true;
       const capabilities = provider.getCapabilities();
-      if (!this.matchesRequiredCapabilities(capabilities, request.requiredCapabilities)) {
+      if (!this.matchesRequiredCapabilities(capabilities, requiredCapabilities)) {
         continue;
       }
 

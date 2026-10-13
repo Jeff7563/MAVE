@@ -1,10 +1,11 @@
-import type { BrainCapabilities } from '@mave/contracts';
+import type { BrainCapabilities, BrainProfileId } from '@mave/contracts';
 
 export interface ConversationRequest {
   requestId?: string;
   sessionId?: string;
   message: string;
   preferredProviderId?: string;
+  profileId?: BrainProfileId;
   requiredCapabilities?: Partial<BrainCapabilities>;
 }
 

@@ -15,6 +15,80 @@ export const BrainCapabilitiesSchema = z.object({
 });
 export type BrainCapabilities = z.infer<typeof BrainCapabilitiesSchema>;
 
+export const BrainProfileIdSchema = z.enum([
+  'fast_conversation',
+  'deep_reasoning',
+  'agent_work',
+  'research',
+  'local_offline'
+]);
+export type BrainProfileId = z.infer<typeof BrainProfileIdSchema>;
+
+export const BrainLatencyClassSchema = z.enum([
+  'interactive',
+  'normal',
+  'long_running'
+]);
+export type BrainLatencyClass = z.infer<typeof BrainLatencyClassSchema>;
+
+export const BrainProfileDefinitionSchema = z.object({
+  id: BrainProfileIdSchema,
+  description: z.string(),
+  requiredCapabilities: BrainCapabilitiesSchema.partial().default({}),
+  latencyClass: BrainLatencyClassSchema,
+  allowFallback: z.boolean().default(true)
+});
+export type BrainProfileDefinition = z.infer<typeof BrainProfileDefinitionSchema>;
+
+export const DEFAULT_BRAIN_PROFILES: Record<BrainProfileId, BrainProfileDefinition> = {
+  fast_conversation: {
+    id: 'fast_conversation',
+    description: 'Low-latency conversational interactions, language tutoring, and quick Q&A',
+    requiredCapabilities: {
+      streaming: true,
+      fastChat: true
+    },
+    latencyClass: 'interactive',
+    allowFallback: true
+  },
+  deep_reasoning: {
+    id: 'deep_reasoning',
+    description: 'Complex analytical decisions, architecture evaluation, and long-form reasoning',
+    requiredCapabilities: {
+      reasoning: true
+    },
+    latencyClass: 'normal',
+    allowFallback: true
+  },
+  agent_work: {
+    id: 'agent_work',
+    description: 'Coding workflows, multi-step tasks, and workspace operations (conversation-only in M2)',
+    requiredCapabilities: {
+      coding: true
+    },
+    latencyClass: 'long_running',
+    allowFallback: false
+  },
+  research: {
+    id: 'research',
+    description: 'Current information, source-grounded answers, and web research',
+    requiredCapabilities: {
+      webResearch: true
+    },
+    latencyClass: 'normal',
+    allowFallback: false
+  },
+  local_offline: {
+    id: 'local_offline',
+    description: 'Private, offline-capable fallback and utility tasks',
+    requiredCapabilities: {
+      local: true
+    },
+    latencyClass: 'interactive',
+    allowFallback: false
+  }
+};
+
 export const ProviderHealthStatusSchema = z.enum([
   'healthy',
   'degraded',

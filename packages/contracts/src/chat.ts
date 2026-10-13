@@ -1,5 +1,9 @@
 import { z } from 'zod';
-import { BrainCapabilitiesSchema, BrainUsageSchema } from './brain.js';
+import {
+  BrainCapabilitiesSchema,
+  BrainProfileIdSchema,
+  BrainUsageSchema
+} from './brain.js';
 import { SessionSchema } from './session.js';
 
 export const ChatSendRequestSchema = z
@@ -20,6 +24,7 @@ export const ChatSendRequestSchema = z
       .string()
       .refine((val) => val.trim().length > 0, 'PreferredProviderId cannot be empty')
       .optional(),
+    profileId: BrainProfileIdSchema.optional(),
     requiredCapabilities: BrainCapabilitiesSchema.partial().strict().optional()
   })
   .strict();

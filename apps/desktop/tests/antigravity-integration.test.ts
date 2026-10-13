@@ -312,3 +312,4 @@ describe('Antigravity Integration Pipeline', () => {
     expect(assistantTurn?.status).toBe('cancelled');
   });
 });
+

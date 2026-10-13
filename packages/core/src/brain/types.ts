@@ -1,10 +1,39 @@
-import type { BrainCapabilities, BrainProvider } from '@mave/contracts';
+import type {
+  BrainCapabilities,
+  BrainProfileDefinition,
+  BrainProfileId,
+  BrainProvider
+} from '@mave/contracts';
 
 export interface BrainRouteRequest {
+  profileId?: BrainProfileId;
   preferredProviderId?: string;
   defaultProviderId?: string;
   fallbackChain?: string[];
   requiredCapabilities?: Partial<BrainCapabilities>;
+}
+
+export interface BrainProfileResolution {
+  profileId: BrainProfileId;
+  definition: BrainProfileDefinition;
+  requiredCapabilities: Partial<BrainCapabilities>;
+  preferredProviderId?: string;
+  fallbackChain?: string[];
+  allowFallback: boolean;
+}
+
+export type BrainProfilePolicyErrorCode =
+  | 'unknown_profile'
+  | 'invalid_profile_configuration';
+
+export class BrainProfilePolicyError extends Error {
+  readonly code: BrainProfilePolicyErrorCode;
+
+  constructor(code: BrainProfilePolicyErrorCode, message: string) {
+    super(message);
+    this.name = 'BrainProfilePolicyError';
+    this.code = code;
+  }
 }
 
 export interface BrainRouteDecision {

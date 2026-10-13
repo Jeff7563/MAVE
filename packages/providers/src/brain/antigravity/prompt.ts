@@ -45,3 +45,4 @@ export function buildAntigravityPrompt(request: BrainRequest): string {
 
   return sections.join('\n\n');
 }
+

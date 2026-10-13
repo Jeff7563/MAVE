@@ -398,6 +398,7 @@ export class ConversationRuntime {
       try {
         routeDecision = await this.router.route({
           preferredProviderId: request.preferredProviderId,
+          profileId: request.profileId,
           requiredCapabilities
         });
       } catch (err) {
