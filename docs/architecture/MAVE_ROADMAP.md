@@ -82,18 +82,26 @@ Deliverables:
 
 Result: Text chat creates sessions, routes providers, streams responses, persists turns, cancels cleanly, and works with both deterministic Mock and real subscription AI.
 
-## Milestone 3 — Voice Loop ← NEXT
+## Milestone 3 — Voice Loop ← CURRENT
 
-Goal: natural wake-to-conversation flow
+Goal: natural wake-to-conversation flow (Spoken Voice Assistant)
 
-Key deliverables:
-- STT abstraction & streaming speech recognition
-- TTS abstraction & low-latency speech synthesis
-- partial transcript streaming
-- interruption / barge-in handling
-- silence detection & turn arbitration
-- conversation timeout
-- complete loop: wake → listen → think → speak → continue
+Detailed Architecture & Implementation Spec:
+- [`MAVE_VOICE_ARCHITECTURE.md`](MAVE_VOICE_ARCHITECTURE.md)
+- [`MAVE_MILESTONE_3_SPEC.md`](MAVE_MILESTONE_3_SPEC.md)
+
+Phased Implementation Roadmap:
+- **M3.0 — Voice Architecture & Milestone 3 Specification** ✅
+- **M3.1 — Voice Contracts & Audio Format Baseline**
+- **M3.2 — Deterministic Mock Voice Providers**
+- **M3.3 — Streaming Text Chunker & Progressive Speech**
+- **M3.4 — VoiceSessionCoordinator Core Runtime**
+- **M3.5 — Wake $\longleftrightarrow$ Voice Handoff Integration**
+- **M3.6 — Barge-In & Interruption Pipeline**
+- **M3.7 — First Real STT Provider**
+- **M3.8 — First Real TTS Provider**
+- **M3.9 — Voice IPC Streaming & Developer Diagnostics UI**
+- **M3.10 — End-to-End Voice Loop Closeout**
 
 > [!IMPORTANT]
 > **Parallel Fast Brain Evaluation**: While M3 voice loop abstractions and pipeline engineering proceed, an active Fast Brain evaluation must run in parallel. Antigravity CLI provides strong real AI capability for complex work (`agent_work`), but its measured TTFT (~9–10s) is too slow for fluid voice turn-taking (target TTFT $\le 1\text{--}3$s). Natural JARVIS-like voice conversation requires a dedicated Fast Brain provider.

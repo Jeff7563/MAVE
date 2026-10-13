@@ -9,10 +9,13 @@
 3. `MAVE_SYSTEM_ARCHITECTURE.md`
 4. `MAVE_ROADMAP.md`
 5. `MAVE_AI_BRAIN_ARCHITECTURE.md`
-6. `MAVE_TOOL_AND_PERMISSION_MODEL.md`
-7. `MAVE_MEMORY_ARCHITECTURE.md`
-8. `MAVE_UI_SURFACE_ARCHITECTURE.md`
-9. `MAVE_LEARNING_ENGINE.md`
+6. `MAVE_VOICE_ARCHITECTURE.md`
+7. `MAVE_MILESTONE_3_SPEC.md`
+8. `MAVE_TOOL_AND_PERMISSION_MODEL.md`
+9. `MAVE_MEMORY_ARCHITECTURE.md`
+10. `MAVE_UI_SURFACE_ARCHITECTURE.md`
+11. `MAVE_AMBIENT_ADAPTIVE_SURFACE.md`
+12. `MAVE_LEARNING_ENGINE.md`
 
 ## Current Project State
 
@@ -20,10 +23,9 @@
 - Core: TypeScript + XState
 - Monorepo: pnpm + Turborepo
 - Local DB: SQLite / Drizzle
-- Wake service: Python + openWakeWord
-- Active wake model: `assets/wake/mave.onnx`
-- Current focus: personalized MAVE V2 wake model / dataset / benchmark pipeline
-- Next major architecture phase: Conversation Runtime / Brain Provider abstraction
+- Wake service: Python + openWakeWord (`assets/wake/mave.onnx`)
+- Milestone 2 Complete: Provider-independent Conversation Runtime, sessions, persistence, typed IPC streaming, official Antigravity CLI adapter
+- Current focus: Milestone 3 — Voice Loop (Audio Input, STT, TTS, progressive synthesis, barge-in) + parallel Fast Brain evaluation
 
 ## Core Direction
 

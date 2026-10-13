@@ -65,6 +65,28 @@ Stack: pnpm, Turborepo, TypeScript, Electron, React, XState, SQLite, Drizzle, Py
 
 Interaction layer ส่ง event เข้า Runtime เท่านั้น ห้ามเรียก AI provider/tool โดยตรง
 
+### 3.1 Voice Subsystem (Milestone 3)
+
+Spoken voice interaction connects wake detection, speech recognition, reasoning, and speech synthesis:
+```text
+WakeWord (openWakeWord in Python service)
+      ↓
+VoiceSessionCoordinator (Electron Main)
+      ↓
+AudioInputProvider (16 kHz Linear PCM, 16-bit mono)
+      ↓
+STTProvider (partial & final transcripts)
+      ↓
+ConversationRuntime (@mave/core)
+      ↓
+StreamingTextChunker (progressive sentence boundaries)
+      ↓
+TTSProvider (speech synthesis)
+      ↓
+AudioOutput (speaker playback + 50Hz amplitude telemetry)
+```
+Complete specification: [`MAVE_VOICE_ARCHITECTURE.md`](MAVE_VOICE_ARCHITECTURE.md) and [`MAVE_MILESTONE_3_SPEC.md`](MAVE_MILESTONE_3_SPEC.md).
+
 ## 4. Assistant Runtime
 
 Responsibilities:
@@ -235,7 +257,9 @@ interface MaveResponse {
 
 ```text
 Electron Main
-├── Runtime
+├── Runtime (ConversationRuntime)
+├── VoiceSessionCoordinator
+├── AudioInputProvider & AudioOutput
 ├── Provider Manager
 ├── Tool Manager
 ├── DB
