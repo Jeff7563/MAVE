@@ -18,6 +18,7 @@
     "zod": "^3.24.2"
   },
   "devDependencies": {
+    "@mave/providers": "workspace:*",
     "rimraf": "^6.0.1",
     "typescript": "^5.8.2",
     "vitest": "^2.1.8"
