@@ -21,6 +21,7 @@ import {
   VoiceManager,
   type MicOwnership
 } from '../src/main/voice-manager.js';
+import { handleIpcCommand } from '../src/main/ipc.js';
 
 interface HarnessOptions {
   rearmGuardMs?: number;
@@ -31,6 +32,7 @@ interface HarnessOptions {
   sttProvider?: MockSTTProvider;
   voiceCoordinator?: VoiceSessionCoordinator;
   sessionTimeoutMs?: number;
+  audioOutput?: MockAudioOutput;
   onOwnershipChange?: (ownership: MicOwnership) => void;
   onVoiceRuntimeEvent?: (event: VoiceRuntimeEvent) => void;
 }
@@ -69,7 +71,7 @@ async function createHarness(options?: HarnessOptions) {
   const audioInput = options?.audioInputProvider ?? new MockAudioInputProvider();
   const stt = options?.sttProvider ?? new MockSTTProvider();
   const tts = new MockTTSProvider();
-  const audioOutput = new MockAudioOutput();
+  const audioOutput = options?.audioOutput ?? new MockAudioOutput();
 
   const voiceCoordinator =
     options?.voiceCoordinator ??
@@ -555,6 +557,97 @@ describe('VoiceManager (M3.5 Wake ↔ Voice Handoff Integration)', () => {
     expect(voiceManager.getMicOwnership()).toBe('wake');
     expect(service.getSnapshot().state).toBe('sleeping');
     expect(wakeProvider.getStatus()).toBe('listening');
+
+    await voiceManager.dispose();
+  });
+
+  it('handles barge-in interruption while speaking: yields immediately, transitions to listening, does not rearm wake mid-session', async () => {
+    const sttProvider = new MockSTTProvider({
+      finalTexts: ['First query before barge-in', 'Second query after barge-in']
+    });
+    const audioOutput = new MockAudioOutput({
+      frameDelayMs: 25
+    });
+
+    let interruptedTriggered = false;
+    let ownershipDuringInterruption: MicOwnership | null = null;
+    let wakeStatusDuringInterruption: string | null = null;
+    let wakeListeningDuringInterruption: boolean | null = null;
+    let macroStateDuringInterruption: string | null = null;
+
+    const { voiceManager, service, wakeManager, wakeProvider } = await createHarness({
+      sttProvider,
+      audioOutput,
+      onVoiceRuntimeEvent: (event) => {
+        if (event.type === 'speaking_started' && !interruptedTriggered) {
+          interruptedTriggered = true;
+          setTimeout(async () => {
+            const ok = await voiceManager.interrupt({ reason: 'user_spoke_during_playback' });
+            expect(ok).toBe(true);
+
+            ownershipDuringInterruption = voiceManager.getMicOwnership();
+            wakeStatusDuringInterruption = wakeProvider.getStatus();
+            wakeListeningDuringInterruption = wakeManager.isListening();
+            macroStateDuringInterruption = service.getSnapshot().state;
+          }, 5);
+        }
+      }
+    });
+
+    await voiceManager.start();
+    expect(voiceManager.getMicOwnership()).toBe('wake');
+
+    // Trigger wake handoff
+    await voiceManager.handleWakeDetected();
+
+    // Verify barge-in occurred
+    expect(interruptedTriggered).toBe(true);
+
+    // Verify invariant: during barge-in, mic ownership was still 'voice' and wake engine was NOT rearmed!
+    expect(ownershipDuringInterruption).toBe('voice');
+    expect(wakeStatusDuringInterruption).toBe('ready');
+    expect(wakeListeningDuringInterruption).toBe(false);
+    expect(macroStateDuringInterruption).toBe('listening');
+
+    // After session finished normally, wake was safely rearmed and macro state returned to sleeping
+    expect(voiceManager.getMicOwnership()).toBe('wake');
+    expect(service.getSnapshot().state).toBe('sleeping');
+    expect(wakeProvider.getStatus()).toBe('listening');
+
+    await voiceManager.dispose();
+  });
+
+  it('triggers barge-in interruption via IPC interrupt command', async () => {
+    const sttProvider = new MockSTTProvider({
+      finalTexts: ['Command one', 'Command two']
+    });
+    const audioOutput = new MockAudioOutput({
+      frameDelayMs: 25
+    });
+
+    let ipcTriggered = false;
+
+    const { voiceManager, service, wakeManager, wakeProvider } = await createHarness({
+      sttProvider,
+      audioOutput,
+      onVoiceRuntimeEvent: (event) => {
+        if (event.type === 'speaking_started' && !ipcTriggered) {
+          ipcTriggered = true;
+          setTimeout(async () => {
+            const res = await handleIpcCommand({ command: 'interrupt' }, service, wakeManager, voiceManager);
+            expect(res.success).toBe(true);
+            expect(service.getSnapshot().state).toBe('listening');
+          }, 5);
+        }
+      }
+    });
+
+    await voiceManager.start();
+    await voiceManager.handleWakeDetected();
+
+    expect(ipcTriggered).toBe(true);
+    expect(voiceManager.getMicOwnership()).toBe('wake');
+    expect(service.getSnapshot().state).toBe('sleeping');
 
     await voiceManager.dispose();
   });

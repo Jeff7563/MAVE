@@ -15,6 +15,7 @@ import type { ConversationRuntime } from '../conversation/runtime.js';
 import {
   VoiceCoordinatorError,
   type StartVoiceSessionOptions,
+  type VoiceInterruptOptions,
   type VoiceSessionCoordinatorOptions
 } from './coordinator-types.js';
 import { createSpeechRequestFromChunk, ProgressiveSpeechQueue } from './speech-planner.js';
@@ -100,6 +101,15 @@ export class VoiceSessionCoordinator {
   private levelUnsubscribe: (() => void) | null = null;
   private currentEventQueue: AsyncEventQueue<VoiceRuntimeEvent> | null = null;
 
+  private currentTurnIndex = 0;
+  private currentTurnEpoch = 0;
+  private currentTurnController: AbortController | null = null;
+  private isBrainCompletedForCurrentTurn = false;
+  private isInterrupting = false;
+  private chunkNotifier: (() => void) | null = null;
+  private currentSpeechQueue: ProgressiveSpeechQueue | null = null;
+  private currentTextChunker: StreamingTextChunker | null = null;
+
   constructor(options: VoiceSessionCoordinatorOptions) {
     this.audioInput = options.audioInput;
     this.stt = options.stt;
@@ -148,6 +158,9 @@ export class VoiceSessionCoordinator {
 
     this.activeSession = session;
     this.terminalEmitted = null;
+    this.currentTurnIndex = 0;
+    this.currentTurnEpoch = 0;
+    this.isInterrupting = false;
 
     const controller = new AbortController();
     this.activeSessionController = controller;
@@ -210,9 +223,12 @@ export class VoiceSessionCoordinator {
 
     log.info({ sessionId, reason: cancelReason }, 'Stopping voice session');
 
-    // 1. Abort local controller
+    // 1. Abort controllers
     if (this.activeSessionController) {
       this.activeSessionController.abort(cancelReason);
+    }
+    if (this.currentTurnController) {
+      this.currentTurnController.abort(cancelReason);
     }
 
     // 2. Cancel STT if active
@@ -260,6 +276,112 @@ export class VoiceSessionCoordinator {
         timestamp: this.clock()
       });
     }
+  }
+
+  /**
+   * Interrupts an active turn (thinking or speaking) immediately.
+   * Halts AudioOutput, clears speech queue, cancels active TTS and Brain requests,
+   * invalidates turn epoch, and transitions session status to 'listening' for the next utterance.
+   *
+   * Returns true if an active turn was interrupted; false if idle, listening, or terminal.
+   */
+  async interrupt(options?: VoiceInterruptOptions): Promise<boolean> {
+    if (this.isDisposed || this.isInterrupting) {
+      return false;
+    }
+    if (!this.activeSession || this.isTerminalStatus(this.activeSession.status) || this.terminalEmitted) {
+      return false;
+    }
+    if (this.activeSession.status !== 'thinking' && this.activeSession.status !== 'speaking') {
+      return false;
+    }
+
+    this.isInterrupting = true;
+    const sessionId = this.activeSession.id;
+    const reason = options?.reason ?? 'user_speech_barge_in';
+
+    log.info({ sessionId, reason, status: this.activeSession.status }, 'voice_barge_in');
+
+    // 1. AudioOutput.stop() halt speakers immediately (first priority, provable ordering in tests)
+    try {
+      log.info({ sessionId }, 'voice_output_stop');
+      await this.audioOutput.stop();
+    } catch (err) {
+      log.warn({ err, sessionId }, 'Failed to stop audio output during interrupt');
+    }
+
+    // 2. Invalidate turn generation / epoch & abort turn controller
+    const previousEpoch = this.currentTurnEpoch;
+    this.currentTurnEpoch++;
+    log.info({ sessionId, previousEpoch, turnEpoch: this.currentTurnEpoch }, 'voice_turn_invalidated');
+    if (this.currentTurnController) {
+      this.currentTurnController.abort('barge_in_interrupted');
+    }
+
+    // 3. Cancel active TTS if active
+    if (this.activeTTSRequestId && this.tts.cancel) {
+      try {
+        log.info({ sessionId, requestId: this.activeTTSRequestId }, 'voice_tts_cancel');
+        await this.tts.cancel(this.activeTTSRequestId);
+      } catch (err) {
+        log.warn({ err, sessionId }, 'Failed to cancel TTS during interrupt');
+      }
+    }
+
+    // 4. Clear speech queue & reset text chunker
+    if (this.currentSpeechQueue) {
+      this.currentSpeechQueue.clear();
+    }
+    if (this.currentTextChunker) {
+      this.currentTextChunker.reset();
+    }
+
+    // 5. Cancel Brain if active AND NOT already completed for current turn
+    if (this.activeBrainRequestId && !this.isBrainCompletedForCurrentTurn) {
+      try {
+        log.info({ sessionId, requestId: this.activeBrainRequestId }, 'voice_brain_cancel');
+        await this.conversationRuntime.cancel(this.activeBrainRequestId);
+      } catch (err) {
+        log.warn({ err, sessionId }, 'Failed to cancel brain during interrupt');
+      }
+    }
+
+    // 6. Notify any pending workers
+    if (this.chunkNotifier) {
+      const cb = this.chunkNotifier;
+      this.chunkNotifier = null;
+      cb();
+    }
+
+    // 7. Transition session status to listening and emit interrupted
+    this.activeSession.status = 'listening';
+    this.activeSession.updatedAt = this.clock();
+
+    if (this.currentEventQueue && !this.terminalEmitted) {
+      this.currentEventQueue.push({
+        type: 'interrupted',
+        sessionId,
+        reason,
+        timestamp: this.clock()
+      });
+    }
+
+    this.isInterrupting = false;
+    return true;
+  }
+
+  /**
+   * Returns current 0-based turn index within the active voice session.
+   */
+  getCurrentTurnIndex(): number {
+    return this.currentTurnIndex;
+  }
+
+  /**
+   * Returns current monotonic turn epoch for stale event detection.
+   */
+  getCurrentTurnEpoch(): number {
+    return this.currentTurnEpoch;
   }
 
   /**
@@ -330,9 +452,14 @@ export class VoiceSessionCoordinator {
       this.levelUnsubscribe = null;
     }
     this.activeSessionController = null;
+    this.currentTurnController = null;
     this.activeBrainRequestId = null;
     this.activeSTTRequestId = null;
     this.activeTTSRequestId = null;
+    this.currentSpeechQueue = null;
+    this.currentTextChunker = null;
+    this.chunkNotifier = null;
+    this.isInterrupting = false;
     this.activeSession = null;
     this.currentEventQueue = null;
     log.info({ sessionId: sid }, 'voice_cleanup_complete');
@@ -354,138 +481,71 @@ export class VoiceSessionCoordinator {
 
   private async runSessionWorker(
     session: VoiceSession,
-    signal: AbortSignal,
+    sessionSignal: AbortSignal,
     eventQueue: AsyncEventQueue<VoiceRuntimeEvent>
   ): Promise<void> {
     const sessionId = session.id;
 
     try {
-      if (signal.aborted) {
-        this.emitTerminal(eventQueue, {
-          type: 'voice_session_cancelled',
-          sessionId,
-          reason: 'Session aborted before audio capture',
-          timestamp: this.clock()
-        });
-        return;
-      }
+      while (!sessionSignal.aborted && !this.terminalEmitted) {
+        const turnIndex = this.currentTurnIndex;
+        const turnEpoch = ++this.currentTurnEpoch;
+        const turnController = new AbortController();
+        this.currentTurnController = turnController;
+        this.isBrainCompletedForCurrentTurn = false;
 
-      // 1. Audio Input -> STT Pipeline
-      let finalTranscript: TranscriptEvent | null = null;
-      this.activeSTTRequestId = `stt-${sessionId}`;
+        const onSessionAbort = () => {
+          turnController.abort(sessionSignal.reason);
+        };
+        sessionSignal.addEventListener('abort', onSessionAbort, { once: true });
 
-      try {
-        log.info({ sessionId }, 'audio_capture_started');
-        const audioStream = this.audioInput.capture({ signal });
-        log.info({ sessionId, requestId: this.activeSTTRequestId }, 'stt_started');
-        const sttStream = this.stt.transcribe(audioStream, {
-          requestId: this.activeSTTRequestId,
-          languageHint: session.languageHint,
-          signal
-        });
+        try {
+          if (turnIndex > 0) {
+            session.status = 'listening';
+            session.updatedAt = this.clock();
+            log.info({ sessionId, turnIndex, turnEpoch }, 'voice_relisten_begin');
+            eventQueue.push({
+              type: 'listening_started',
+              sessionId,
+              timestamp: this.clock()
+            });
+          }
 
-        for await (const event of sttStream) {
-          if (signal.aborted) {
+          const turnResult = await this.runTurn(
+            session,
+            turnIndex,
+            turnEpoch,
+            turnController.signal,
+            sessionSignal,
+            eventQueue
+          );
+
+          if (turnResult === 'completed') {
+            session.status = 'completed';
+            session.updatedAt = this.clock();
+            this.emitTerminal(eventQueue, {
+              type: 'voice_session_completed',
+              sessionId,
+              timestamp: this.clock()
+            });
+            break;
+          } else if (turnResult === 'interrupted') {
+            log.info({ sessionId, turnIndex, turnEpoch }, 'voice_turn_interrupted');
+            this.currentTurnIndex++;
+            continue;
+          } else {
+            // 'cancelled' or 'failed' (terminal already emitted)
             break;
           }
-
-          if (event.type === 'speech_started') {
-            eventQueue.push({
-              type: 'speech_started',
-              sessionId,
-              timestamp: this.clock()
-            });
-          } else if (event.type === 'partial_transcript') {
-            eventQueue.push({
-              type: 'partial_transcript',
-              sessionId,
-              text: event.text,
-              confidence: event.confidence,
-              timestamp: this.clock()
-            });
-          } else if (event.type === 'final_transcript') {
-            finalTranscript = event;
-            log.info(
-              { sessionId, text: event.text, confidence: event.confidence },
-              'final_transcript_received'
-            );
-            eventQueue.push({
-              type: 'final_transcript',
-              sessionId,
-              text: event.text,
-              confidence: event.confidence,
-              language: event.language,
-              timestamp: this.clock()
-            });
-          } else if (event.type === 'error') {
-            throw new VoiceCoordinatorError('stt_error', event.error.message, { sessionId });
-          } else if (event.type === 'cancelled') {
-            this.emitTerminal(eventQueue, {
-              type: 'voice_session_cancelled',
-              sessionId,
-              reason: event.reason,
-              timestamp: this.clock()
-            });
-            return;
+        } finally {
+          sessionSignal.removeEventListener('abort', onSessionAbort);
+          if (this.currentTurnController === turnController) {
+            this.currentTurnController = null;
           }
         }
-      } catch (err) {
-        if (signal.aborted) {
-          this.emitTerminal(eventQueue, {
-            type: 'voice_session_cancelled',
-            sessionId,
-            reason: 'Audio capture / STT was cancelled',
-            timestamp: this.clock()
-          });
-          return;
-        }
-        if (err instanceof VoiceCoordinatorError) {
-          throw err;
-        }
-        throw new VoiceCoordinatorError(
-          'audio_input_error',
-          err instanceof Error ? err.message : 'Audio capture or STT failed',
-          { sessionId, cause: err }
-        );
-      } finally {
-        this.activeSTTRequestId = null;
       }
-
-      if (signal.aborted) {
-        this.emitTerminal(eventQueue, {
-          type: 'voice_session_cancelled',
-          sessionId,
-          reason: 'Session cancelled after STT',
-          timestamp: this.clock()
-        });
-        return;
-      }
-
-      // 2. Validate Final Transcript
-      if (!finalTranscript || !finalTranscript.text || !finalTranscript.text.trim()) {
-        this.emitTerminal(eventQueue, {
-          type: 'voice_session_failed',
-          sessionId,
-          errorCode: 'no_speech_detected',
-          errorMessage: 'No speech was recognized during the turn',
-          timestamp: this.clock()
-        });
-        return;
-      }
-
-      // 3. Transition to Thinking State
-      session.status = 'thinking';
-      session.updatedAt = this.clock();
-      eventQueue.push({
-        type: 'thinking_started',
-        sessionId,
-        timestamp: this.clock()
-      });
-
-      // 4. ConversationRuntime & Progressive Speech Pipeline
-      await this.runConversationAndProgressiveSpeech(session, finalTranscript.text, signal, eventQueue);
     } catch (err) {
-      if (signal.aborted) {
+      if (sessionSignal.aborted) {
         this.emitTerminal(eventQueue, {
           type: 'voice_session_cancelled',
           sessionId,
@@ -505,25 +565,191 @@ export class VoiceSessionCoordinator {
     }
   }
 
+  private async runTurn(
+    session: VoiceSession,
+    turnIndex: number,
+    turnEpoch: number,
+    turnSignal: AbortSignal,
+    sessionSignal: AbortSignal,
+    eventQueue: AsyncEventQueue<VoiceRuntimeEvent>
+  ): Promise<'completed' | 'interrupted' | 'cancelled' | 'failed'> {
+    const sessionId = session.id;
+
+    if (sessionSignal.aborted) {
+      this.emitTerminal(eventQueue, {
+        type: 'voice_session_cancelled',
+        sessionId,
+        reason: 'Session aborted before audio capture',
+        timestamp: this.clock()
+      });
+      return 'cancelled';
+    }
+
+    if (turnSignal.aborted || turnEpoch !== this.currentTurnEpoch) {
+      return 'interrupted';
+    }
+
+    // 1. Audio Input -> STT Pipeline
+    let finalTranscript: TranscriptEvent | null = null;
+    this.activeSTTRequestId = `${sessionId}:turn:${turnIndex}:stt`;
+
+    try {
+      log.info({ sessionId, turnIndex, turnEpoch }, 'audio_capture_started');
+      const audioStream = this.audioInput.capture({ signal: turnSignal });
+      log.info({ sessionId, requestId: this.activeSTTRequestId, turnIndex }, 'stt_started');
+      const sttStream = this.stt.transcribe(audioStream, {
+        requestId: this.activeSTTRequestId,
+        languageHint: session.languageHint,
+        signal: turnSignal
+      });
+
+      for await (const event of sttStream) {
+        if (sessionSignal.aborted || turnSignal.aborted || turnEpoch !== this.currentTurnEpoch) {
+          break;
+        }
+
+        if (event.type === 'speech_started') {
+          eventQueue.push({
+            type: 'speech_started',
+            sessionId,
+            timestamp: this.clock()
+          });
+        } else if (event.type === 'partial_transcript') {
+          eventQueue.push({
+            type: 'partial_transcript',
+            sessionId,
+            text: event.text,
+            confidence: event.confidence,
+            timestamp: this.clock()
+          });
+        } else if (event.type === 'final_transcript') {
+          finalTranscript = event;
+          log.info(
+            { sessionId, turnIndex, text: event.text, confidence: event.confidence },
+            'final_transcript_received'
+          );
+          eventQueue.push({
+            type: 'final_transcript',
+            sessionId,
+            text: event.text,
+            confidence: event.confidence,
+            language: event.language,
+            timestamp: this.clock()
+          });
+        } else if (event.type === 'error') {
+          throw new VoiceCoordinatorError('stt_error', event.error.message, { sessionId });
+        } else if (event.type === 'cancelled') {
+          if (sessionSignal.aborted) {
+            this.emitTerminal(eventQueue, {
+              type: 'voice_session_cancelled',
+              sessionId,
+              reason: event.reason,
+              timestamp: this.clock()
+            });
+            return 'cancelled';
+          }
+          if (turnSignal.aborted || turnEpoch !== this.currentTurnEpoch) {
+            return 'interrupted';
+          }
+        }
+      }
+    } catch (err) {
+      if (sessionSignal.aborted) {
+        this.emitTerminal(eventQueue, {
+          type: 'voice_session_cancelled',
+          sessionId,
+          reason: 'Audio capture / STT was cancelled',
+          timestamp: this.clock()
+        });
+        return 'cancelled';
+      }
+      if (turnSignal.aborted || turnEpoch !== this.currentTurnEpoch) {
+        return 'interrupted';
+      }
+      if (err instanceof VoiceCoordinatorError) {
+        throw err;
+      }
+      throw new VoiceCoordinatorError(
+        'audio_input_error',
+        err instanceof Error ? err.message : 'Audio capture or STT failed',
+        { sessionId, cause: err }
+      );
+    } finally {
+      this.activeSTTRequestId = null;
+    }
+
+    if (sessionSignal.aborted) {
+      this.emitTerminal(eventQueue, {
+        type: 'voice_session_cancelled',
+        sessionId,
+        reason: 'Session cancelled after STT',
+        timestamp: this.clock()
+      });
+      return 'cancelled';
+    }
+
+    if (turnSignal.aborted || turnEpoch !== this.currentTurnEpoch) {
+      return 'interrupted';
+    }
+
+    // 2. Validate Final Transcript
+    if (!finalTranscript || !finalTranscript.text || !finalTranscript.text.trim()) {
+      this.emitTerminal(eventQueue, {
+        type: 'voice_session_failed',
+        sessionId,
+        errorCode: 'no_speech_detected',
+        errorMessage: 'No speech was recognized during the turn',
+        timestamp: this.clock()
+      });
+      return 'failed';
+    }
+
+    // 3. Transition to Thinking State
+    session.status = 'thinking';
+    session.updatedAt = this.clock();
+    eventQueue.push({
+      type: 'thinking_started',
+      sessionId,
+      timestamp: this.clock()
+    });
+
+    // 4. ConversationRuntime & Progressive Speech Pipeline
+    return await this.runConversationAndProgressiveSpeech(
+      session,
+      turnIndex,
+      turnEpoch,
+      finalTranscript.text,
+      turnSignal,
+      sessionSignal,
+      eventQueue
+    );
+  }
+
   private async runConversationAndProgressiveSpeech(
     session: VoiceSession,
+    turnIndex: number,
+    turnEpoch: number,
     message: string,
-    signal: AbortSignal,
+    turnSignal: AbortSignal,
+    sessionSignal: AbortSignal,
     eventQueue: AsyncEventQueue<VoiceRuntimeEvent>
-  ): Promise<void> {
+  ): Promise<'completed' | 'interrupted' | 'cancelled'> {
     const sessionId = session.id;
     const chunker = new StreamingTextChunker(this.textChunkerOptions);
     const speechQueue = new ProgressiveSpeechQueue({ maxPendingChunks: 8 });
 
+    this.currentTextChunker = chunker;
+    this.currentSpeechQueue = speechQueue;
+    this.isBrainCompletedForCurrentTurn = false;
+
     let speakingStartedEmitted = false;
     let brainDone = false;
     let brainError: Error | null = null;
-    let chunkNotifier: (() => void) | null = null;
 
     const notify = () => {
-      if (chunkNotifier) {
-        const cb = chunkNotifier;
-        chunkNotifier = null;
+      if (this.chunkNotifier) {
+        const cb = this.chunkNotifier;
+        this.chunkNotifier = null;
         cb();
       }
     };
@@ -537,41 +763,53 @@ export class VoiceSessionCoordinator {
             message,
             profileId: 'fast_conversation'
           },
-          { signal }
+          { signal: turnSignal }
         );
 
         for await (const convEvent of convStream) {
-          if (signal.aborted) {
+          if (sessionSignal.aborted || turnSignal.aborted || turnEpoch !== this.currentTurnEpoch) {
             break;
           }
 
           if (convEvent.type === 'request_started') {
             this.activeBrainRequestId = convEvent.requestId;
-            log.info({ sessionId, requestId: convEvent.requestId }, 'conversation_started');
+            log.info({ sessionId, requestId: convEvent.requestId, turnIndex }, 'conversation_started');
           } else if (convEvent.type === 'session_ready') {
             session.conversationSessionId = convEvent.sessionId;
             session.updatedAt = this.clock();
           } else if (convEvent.type === 'response_delta') {
+            if (turnSignal.aborted || turnEpoch !== this.currentTurnEpoch) {
+              break;
+            }
             const chunks = chunker.push(convEvent.text);
             for (const c of chunks) {
               speechQueue.enqueue(c);
               notify();
             }
           } else if (convEvent.type === 'response_completed') {
-            log.info({ sessionId, requestId: this.activeBrainRequestId }, 'conversation_completed');
+            this.isBrainCompletedForCurrentTurn = true;
+            log.info({ sessionId, requestId: this.activeBrainRequestId, turnIndex }, 'conversation_completed');
+            if (turnSignal.aborted || turnEpoch !== this.currentTurnEpoch) {
+              break;
+            }
             const flushed = chunker.flush();
             for (const c of flushed) {
               speechQueue.enqueue(c);
               notify();
             }
           } else if (convEvent.type === 'request_failed') {
+            if (turnSignal.aborted || turnEpoch !== this.currentTurnEpoch) {
+              return;
+            }
             throw new VoiceCoordinatorError('conversation_error', convEvent.error.message, { sessionId });
           } else if (convEvent.type === 'request_cancelled') {
             return;
           }
         }
       } catch (err) {
-        brainError = err instanceof Error ? err : new Error(String(err));
+        if (!turnSignal.aborted && !sessionSignal.aborted && turnEpoch === this.currentTurnEpoch) {
+          brainError = err instanceof Error ? err : new Error(String(err));
+        }
       } finally {
         brainDone = true;
         this.activeBrainRequestId = null;
@@ -581,27 +819,30 @@ export class VoiceSessionCoordinator {
 
     // Task B: Progressive TTS Synthesis & Audio Playback
     const speechTask = async () => {
-      while (!signal.aborted) {
+      while (!sessionSignal.aborted && !turnSignal.aborted && turnEpoch === this.currentTurnEpoch) {
         if (brainError) {
           throw brainError;
         }
 
         if (speechQueue.isEmpty()) {
           if (brainDone) {
-            break; // Brain finished and all chunks processed
+            break;
           }
           await new Promise<void>((resolve) => {
-            if (signal.aborted || brainDone) {
+            if (sessionSignal.aborted || turnSignal.aborted || turnEpoch !== this.currentTurnEpoch || brainDone) {
               resolve();
               return;
             }
             const onAbort = () => {
-              signal.removeEventListener('abort', onAbort);
+              turnSignal.removeEventListener('abort', onAbort);
+              sessionSignal.removeEventListener('abort', onAbort);
               resolve();
             };
-            signal.addEventListener('abort', onAbort, { once: true });
-            chunkNotifier = () => {
-              signal.removeEventListener('abort', onAbort);
+            turnSignal.addEventListener('abort', onAbort, { once: true });
+            sessionSignal.addEventListener('abort', onAbort, { once: true });
+            this.chunkNotifier = () => {
+              turnSignal.removeEventListener('abort', onAbort);
+              sessionSignal.removeEventListener('abort', onAbort);
               resolve();
             };
           });
@@ -609,11 +850,10 @@ export class VoiceSessionCoordinator {
         }
 
         const chunk = speechQueue.dequeue();
-        if (!chunk) {
+        if (!chunk || turnSignal.aborted || turnEpoch !== this.currentTurnEpoch) {
           continue;
         }
 
-        // Emit speaking_started on the first chunk
         if (!speakingStartedEmitted) {
           speakingStartedEmitted = true;
           session.status = 'speaking';
@@ -627,16 +867,19 @@ export class VoiceSessionCoordinator {
         }
 
         const speechReq = createSpeechRequestFromChunk(chunk, {
-          voiceTurnId: sessionId,
+          voiceTurnId: `${sessionId}:turn:${turnIndex}`,
           language: session.languageHint
         });
         this.activeTTSRequestId = speechReq.requestId;
-        log.info({ sessionId, requestId: speechReq.requestId, sequence: chunk.sequence }, 'tts_started');
+        log.info(
+          { sessionId, turnIndex, requestId: speechReq.requestId, sequence: chunk.sequence },
+          'tts_started'
+        );
 
         const audioFrames: AudioFrame[] = [];
         try {
-          for await (const speechEvent of this.tts.synthesize(speechReq, { signal })) {
-            if (signal.aborted) {
+          for await (const speechEvent of this.tts.synthesize(speechReq, { signal: turnSignal })) {
+            if (turnSignal.aborted || sessionSignal.aborted || turnEpoch !== this.currentTurnEpoch) {
               break;
             }
             if (speechEvent.type === 'audio') {
@@ -651,21 +894,23 @@ export class VoiceSessionCoordinator {
           this.activeTTSRequestId = null;
         }
 
-        if (signal.aborted) {
+        if (turnSignal.aborted || sessionSignal.aborted || turnEpoch !== this.currentTurnEpoch) {
           break;
         }
 
-        // Play audio frames through AudioOutput
         if (audioFrames.length > 0) {
-          log.info({ sessionId, frameCount: audioFrames.length }, 'audio_output_started');
+          log.info({ sessionId, turnIndex, frameCount: audioFrames.length }, 'audio_output_started');
           async function* frameStream() {
             for (const f of audioFrames) {
               yield f;
             }
           }
           try {
-            await this.audioOutput.playStream(frameStream(), { signal });
+            await this.audioOutput.playStream(frameStream(), { signal: turnSignal });
           } catch (err) {
+            if (turnSignal.aborted || sessionSignal.aborted || turnEpoch !== this.currentTurnEpoch) {
+              return;
+            }
             throw new VoiceCoordinatorError(
               'audio_output_error',
               err instanceof Error ? err.message : 'Audio playback failed',
@@ -676,17 +921,25 @@ export class VoiceSessionCoordinator {
       }
     };
 
-    // Run Brain generation and progressive speech worker concurrently
-    await Promise.all([brainTask(), speechTask()]);
+    try {
+      await Promise.all([brainTask(), speechTask()]);
+    } finally {
+      this.currentTextChunker = null;
+      this.currentSpeechQueue = null;
+    }
 
-    if (signal.aborted) {
+    if (sessionSignal.aborted) {
       this.emitTerminal(eventQueue, {
         type: 'voice_session_cancelled',
         sessionId,
         reason: 'Session cancelled during playback',
         timestamp: this.clock()
       });
-      return;
+      return 'cancelled';
+    }
+
+    if (turnSignal.aborted || turnEpoch !== this.currentTurnEpoch) {
+      return 'interrupted';
     }
 
     if (speakingStartedEmitted) {
@@ -697,12 +950,6 @@ export class VoiceSessionCoordinator {
       });
     }
 
-    session.status = 'completed';
-    session.updatedAt = this.clock();
-    this.emitTerminal(eventQueue, {
-      type: 'voice_session_completed',
-      sessionId,
-      timestamp: this.clock()
-    });
+    return 'completed';
   }
 }

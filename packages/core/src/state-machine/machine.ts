@@ -162,6 +162,10 @@ export const maveMachine = setup({
     },
     thinking: {
       on: {
+        USER_SPEECH_STARTED: {
+          target: 'listening',
+          actions: ['updateActiveTime']
+        },
         ASSISTANT_SPEAKING: {
           target: 'speaking',
           actions: ['updateActiveTime']

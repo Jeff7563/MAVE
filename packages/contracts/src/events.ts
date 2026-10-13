@@ -13,7 +13,8 @@ export const MaveCommandSchema = z.enum([
   'set-microphone',
   'set-sensitivity',
   'set-threshold',
-  'test-audio-file'
+  'test-audio-file',
+  'interrupt'
 ]);
 export type MaveCommand = z.infer<typeof MaveCommandSchema>;
 

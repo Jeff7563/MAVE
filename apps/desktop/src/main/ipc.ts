@@ -42,6 +42,11 @@ export async function handleIpcCommand(
         service.send({ type: 'SLEEP_REQUESTED' });
       }
       break;
+    case 'interrupt':
+      if (voiceManager && voiceManager.isVoiceActive()) {
+        await voiceManager.interrupt({ reason: 'user_ipc_interrupt' });
+      }
+      break;
     case 'toggle-mute':
       service.send({ type: 'TOGGLE_MUTE' });
       break;

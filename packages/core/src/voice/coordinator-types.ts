@@ -57,3 +57,7 @@ export interface StartVoiceSessionOptions {
   languageHint?: string;
   signal?: AbortSignal;
 }
+
+export interface VoiceInterruptOptions {
+  reason?: string;
+}

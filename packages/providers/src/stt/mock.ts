@@ -19,6 +19,7 @@ export interface MockSTTOptions {
   healthLatencyMs?: number;
   partials?: string[];
   finalText?: string;
+  finalTexts?: string[];
   language?: string;
   confidence?: number;
   words?: TranscriptWord[];
@@ -84,6 +85,14 @@ export class MockSTTProvider implements STTProvider {
   setHealthStatus(status: ProviderHealthStatus, message?: string): void {
     this.healthStatus = status;
     this.healthMessage = message;
+  }
+
+  setFinalText(text: string): void {
+    this.options.finalText = text;
+  }
+
+  setFinalTexts(texts: string[]): void {
+    this.options.finalTexts = [...texts];
   }
 
   async cancel(requestId: string): Promise<void> {
@@ -255,7 +264,12 @@ export class MockSTTProvider implements STTProvider {
       }
 
       // 7. Emit final_transcript
-      const finalText = this.options.finalText ?? (partials[partials.length - 1] || 'Hello MAVE');
+      let finalText = this.options.finalText;
+      if (this.options.finalTexts && this.options.finalTexts.length > 0) {
+        finalText = this.options.finalTexts.shift()!;
+      } else {
+        finalText = this.options.finalText ?? (partials[partials.length - 1] || 'Hello MAVE');
+      }
       yield {
         type: 'final_transcript',
         requestId,

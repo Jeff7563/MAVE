@@ -313,6 +313,12 @@ export class VoiceManager {
             if (this.service.getSnapshot().state === 'thinking') {
               this.service.send({ type: 'ASSISTANT_SPEAKING' });
             }
+          } else if (event.type === 'interrupted') {
+            logger.info({ epoch, sessionId: event.sessionId, reason: event.reason }, 'voice_barge_in_event_received');
+            const state = this.service.getSnapshot().state;
+            if (state === 'speaking' || state === 'thinking') {
+              this.service.send({ type: 'USER_SPEECH_STARTED' });
+            }
           } else if (
             event.type === 'voice_session_completed' ||
             event.type === 'voice_session_cancelled' ||
@@ -381,6 +387,24 @@ export class VoiceManager {
     } finally {
       this.isRearming = false;
     }
+  }
+
+  /**
+   * Triggers barge-in interruption of the active voice session turn.
+   * Returns true if an active turn was interrupted, false otherwise.
+   */
+  async interrupt(options?: { reason?: string }): Promise<boolean> {
+    if (this.isDisposed || !this.activeVoiceSessionActive) {
+      return false;
+    }
+    const result = await this.voiceCoordinator.interrupt(options);
+    if (result) {
+      const state = this.service.getSnapshot().state;
+      if (state === 'speaking' || state === 'thinking') {
+        this.service.send({ type: 'USER_SPEECH_STARTED' });
+      }
+    }
+    return result;
   }
 
   async cancelActiveVoiceSession(reason?: string): Promise<void> {
