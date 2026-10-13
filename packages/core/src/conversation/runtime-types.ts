@@ -107,7 +107,8 @@ export type ConversationRuntimeErrorCode =
   | 'session_busy'
   | 'duplicate_request'
   | 'routing_error'
-  | 'provider_error';
+  | 'provider_error'
+  | 'persistence_error';
 
 export class ConversationRuntimeError extends Error {
   readonly code: ConversationRuntimeErrorCode;

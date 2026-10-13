@@ -3,3 +3,5 @@ export * from './session-manager.js';
 export * from './context-manager.js';
 export * from './runtime-types.js';
 export * from './runtime.js';
+export * from './in-memory-store.js';
+

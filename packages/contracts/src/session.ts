@@ -58,3 +58,15 @@ export const StreamingChunkSchema = z.object({
   error: z.string().optional()
 });
 export type StreamingChunk = z.infer<typeof StreamingChunkSchema>;
+
+export interface ConversationStore {
+  createSession(session: Session): Promise<void>;
+  updateSession(session: Session): Promise<void>;
+  getSession(sessionId: string): Promise<Session | undefined>;
+  listSessions?(): Promise<Session[]>;
+
+  createTurn(turn: ConversationTurn): Promise<void>;
+  updateTurn(turn: ConversationTurn): Promise<void>;
+  getTurns(sessionId: string): Promise<ConversationTurn[]>;
+}
+

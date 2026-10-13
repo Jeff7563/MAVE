@@ -2,7 +2,9 @@ import { randomUUID } from 'node:crypto';
 import type {
   BrainCapabilities,
   BrainProvider,
-  BrainRequest
+  BrainRequest,
+  ConversationStore,
+  Session
 } from '@mave/contracts';
 import type { BrainRouter } from '../brain/router.js';
 import { ContextManager } from './context-manager.js';
@@ -18,6 +20,7 @@ export interface ConversationRuntimeOptions {
   sessionManager: SessionManager;
   contextManager?: ContextManager;
   router: BrainRouter;
+  store?: ConversationStore;
   requestIdFactory?: () => string;
   clock?: () => number;
 }
@@ -39,6 +42,7 @@ export class ConversationRuntime {
   private readonly sessionManager: SessionManager;
   private readonly contextManager: ContextManager;
   private readonly router: BrainRouter;
+  private readonly store?: ConversationStore;
   private readonly requestIdFactory: () => string;
   private readonly clock: () => number;
 
@@ -48,8 +52,32 @@ export class ConversationRuntime {
     this.sessionManager = options.sessionManager;
     this.contextManager = options.contextManager ?? new ContextManager();
     this.router = options.router;
+    this.store = options.store;
     this.requestIdFactory = options.requestIdFactory ?? (() => randomUUID());
     this.clock = options.clock ?? (() => Date.now());
+  }
+
+  /**
+   * Loads an existing session by ID. If not already in-memory, attempts to
+   * load and hydrate from the persistent ConversationStore if available.
+   */
+  async loadSession(sessionId: string): Promise<Session | undefined> {
+    if (!sessionId || typeof sessionId !== 'string') {
+      return undefined;
+    }
+    const trimmed = sessionId.trim();
+    if (this.sessionManager.hasSession(trimmed)) {
+      return this.sessionManager.getSession(trimmed);
+    }
+    if (!this.store) {
+      return undefined;
+    }
+    const storedSession = await this.store.getSession(trimmed);
+    if (!storedSession) {
+      return undefined;
+    }
+    const storedTurns = await this.store.getTurns(trimmed);
+    return this.sessionManager.hydrateSession(storedSession, storedTurns);
   }
 
   /**
@@ -82,43 +110,7 @@ export class ConversationRuntime {
       );
     }
 
-    // 4. Resolve / Create Session
-    let sessionId: string;
-    if (request.sessionId !== undefined) {
-      const trimmedSessionId = request.sessionId.trim();
-      if (!this.sessionManager.hasSession(trimmedSessionId)) {
-        throw new ConversationRuntimeError(
-          'session_not_found',
-          `Session '${trimmedSessionId}' not found`,
-          { requestId, sessionId: trimmedSessionId }
-        );
-      }
-      const existingSession = this.sessionManager.requireSession(trimmedSessionId);
-      if (existingSession.status === 'ended') {
-        throw new ConversationRuntimeError(
-          'session_ended',
-          `Session '${trimmedSessionId}' has already ended`,
-          { requestId, sessionId: trimmedSessionId }
-        );
-      }
-      sessionId = trimmedSessionId;
-    } else {
-      const createdSession = this.sessionManager.createSession();
-      sessionId = createdSession.id;
-    }
-
-    // 5. Check same-session concurrency policy: reject concurrent request for same session
-    for (const active of this.activeRequests.values()) {
-      if (active.sessionId === sessionId) {
-        throw new ConversationRuntimeError(
-          'session_busy',
-          `Session '${sessionId}' already has an active request in progress`,
-          { requestId, sessionId }
-        );
-      }
-    }
-
-    // 6. Setup AbortController and active tracking
+    // Setup AbortController and active tracking early so cleanup always executes
     const abortController = new AbortController();
     if (options?.signal) {
       if (options.signal.aborted) {
@@ -130,19 +122,117 @@ export class ConversationRuntime {
 
     const record: ActiveRequestRecord = {
       requestId,
-      sessionId,
+      sessionId: request.sessionId ? request.sessionId.trim() : '',
       abortController
     };
     this.activeRequests.set(requestId, record);
 
     try {
-      // 7. Emit request_started and session_ready
+      // 4. Resolve / Create Session
+      let sessionId: string;
+      let isNewSession = false;
+
+      if (request.sessionId !== undefined) {
+        const trimmedSessionId = request.sessionId.trim();
+        if (!this.sessionManager.hasSession(trimmedSessionId)) {
+          // Attempt on-demand load and hydration from persistent store
+          if (this.store) {
+            try {
+              const storedSession = await this.store.getSession(trimmedSessionId);
+              if (storedSession) {
+                const storedTurns = await this.store.getTurns(trimmedSessionId);
+                this.sessionManager.hydrateSession(storedSession, storedTurns);
+              }
+            } catch (err) {
+              const errorMsg = err instanceof Error ? err.message : 'Persistence error loading session';
+              yield {
+                type: 'request_failed',
+                requestId,
+                sessionId: trimmedSessionId,
+                error: {
+                  code: 'persistence_error',
+                  message: errorMsg
+                },
+                timestamp: this.clock()
+              };
+              if (options?.throwOnError) {
+                throw new ConversationRuntimeError('persistence_error', errorMsg, {
+                  requestId,
+                  sessionId: trimmedSessionId
+                });
+              }
+              return;
+            }
+          }
+        }
+
+        if (!this.sessionManager.hasSession(trimmedSessionId)) {
+          throw new ConversationRuntimeError(
+            'session_not_found',
+            `Session '${trimmedSessionId}' not found`,
+            { requestId, sessionId: trimmedSessionId }
+          );
+        }
+
+        const existingSession = this.sessionManager.requireSession(trimmedSessionId);
+        if (existingSession.status === 'ended') {
+          throw new ConversationRuntimeError(
+            'session_ended',
+            `Session '${trimmedSessionId}' has already ended`,
+            { requestId, sessionId: trimmedSessionId }
+          );
+        }
+        sessionId = trimmedSessionId;
+      } else {
+        const createdSession = this.sessionManager.createSession();
+        sessionId = createdSession.id;
+        isNewSession = true;
+      }
+
+      record.sessionId = sessionId;
+
+      // 5. Check same-session concurrency policy: reject concurrent request for same session
+      for (const [activeReqId, active] of this.activeRequests.entries()) {
+        if (activeReqId !== requestId && active.sessionId === sessionId) {
+          throw new ConversationRuntimeError(
+            'session_busy',
+            `Session '${sessionId}' already has an active request in progress`,
+            { requestId, sessionId }
+          );
+        }
+      }
+
+      // 6. Emit request_started and session_ready
       yield {
         type: 'request_started',
         requestId,
         sessionId,
         timestamp: this.clock()
       };
+
+      // Persist newly created session to store
+      if (isNewSession && this.store) {
+        try {
+          const session = this.sessionManager.requireSession(sessionId);
+          await this.store.createSession(session);
+        } catch (err) {
+          const errorMsg = err instanceof Error ? err.message : 'Failed to persist created session';
+          yield {
+            type: 'request_failed',
+            requestId,
+            sessionId,
+            error: {
+              code: 'persistence_error',
+              message: errorMsg
+            },
+            timestamp: this.clock()
+          };
+          if (options?.throwOnError) {
+            throw new ConversationRuntimeError('persistence_error', errorMsg, { requestId, sessionId });
+          }
+          return;
+        }
+      }
 
       yield {
         type: 'session_ready',
@@ -163,20 +253,42 @@ export class ConversationRuntime {
         return;
       }
 
-      // 8. Append user turn as completed
-      this.sessionManager.appendTurn(sessionId, {
+      // 7. Append user turn as completed
+      const userTurn = this.sessionManager.appendTurn(sessionId, {
         requestId,
         role: 'user',
         content: request.message.trim(),
         status: 'completed'
       });
 
-      // 9. Build conversation context
+      if (this.store) {
+        try {
+          await this.store.createTurn(userTurn);
+        } catch (err) {
+          const errorMsg = err instanceof Error ? err.message : 'Failed to persist user turn';
+          yield {
+            type: 'request_failed',
+            requestId,
+            sessionId,
+            error: {
+              code: 'persistence_error',
+              message: errorMsg
+            },
+            timestamp: this.clock()
+          };
+          if (options?.throwOnError) {
+            throw new ConversationRuntimeError('persistence_error', errorMsg, { requestId, sessionId });
+          }
+          return;
+        }
+      }
+
+      // 8. Build conversation context
       const turns = this.sessionManager.getTurns(sessionId);
       const session = this.sessionManager.requireSession(sessionId);
       const contextBundle = this.contextManager.build(session, turns);
 
-      // 10. Route to BrainProvider
+      // 9. Route to BrainProvider
       const requiredCapabilities: Partial<BrainCapabilities> = {
         ...DEFAULT_REQUIRED_CAPABILITIES,
         ...request.requiredCapabilities
@@ -214,7 +326,29 @@ export class ConversationRuntime {
 
       const { provider, providerId, fallbackUsed, reason } = routeDecision;
       record.provider = provider;
-      this.sessionManager.updateActiveProviderId(sessionId, providerId);
+      const updatedSession = this.sessionManager.updateActiveProviderId(sessionId, providerId);
+
+      if (this.store) {
+        try {
+          await this.store.updateSession(updatedSession);
+        } catch (err) {
+          const errorMsg = err instanceof Error ? err.message : 'Failed to persist session provider update';
+          yield {
+            type: 'request_failed',
+            requestId,
+            sessionId,
+            error: {
+              code: 'persistence_error',
+              message: errorMsg
+            },
+            timestamp: this.clock()
+          };
+          if (options?.throwOnError) {
+            throw new ConversationRuntimeError('persistence_error', errorMsg, { requestId, sessionId });
+          }
+          return;
+        }
+      }
 
       yield {
         type: 'provider_selected',
@@ -237,7 +371,7 @@ export class ConversationRuntime {
         return;
       }
 
-      // 11. Create assistant pending turn
+      // 10. Create assistant pending turn
       const assistantTurn = this.sessionManager.appendTurn(sessionId, {
         requestId,
         role: 'assistant',
@@ -247,7 +381,30 @@ export class ConversationRuntime {
       });
       record.assistantTurnId = assistantTurn.id;
 
-      // 12. Construct canonical BrainRequest
+      if (this.store) {
+        try {
+          await this.store.createTurn(assistantTurn);
+        } catch (err) {
+          const errorMsg = err instanceof Error ? err.message : 'Failed to persist assistant turn';
+          yield {
+            type: 'request_failed',
+            requestId,
+            sessionId,
+            turnId: assistantTurn.id,
+            error: {
+              code: 'persistence_error',
+              message: errorMsg
+            },
+            timestamp: this.clock()
+          };
+          if (options?.throwOnError) {
+            throw new ConversationRuntimeError('persistence_error', errorMsg, { requestId, sessionId });
+          }
+          return;
+        }
+      }
+
+      // 11. Construct canonical BrainRequest
       const brainRequest: BrainRequest = {
         requestId,
         sessionId,
@@ -256,7 +413,7 @@ export class ConversationRuntime {
         context: contextBundle.context
       };
 
-      // 13. Consume BrainEvent stream from provider
+      // 12. Consume BrainEvent stream from provider
       let accumulatedText = '';
       let hasStarted = false;
 
@@ -311,10 +468,36 @@ export class ConversationRuntime {
             };
           } else if (event.type === 'completed') {
             const finalText = accumulatedText.length > 0 ? accumulatedText : (event.text ?? '');
-            this.sessionManager.updateTurn(sessionId, assistantTurn.id, {
+            const finalCompletedTurn = this.sessionManager.updateTurn(sessionId, assistantTurn.id, {
               status: 'completed',
               content: finalText
             });
+
+            if (this.store) {
+              try {
+                await this.store.updateTurn(finalCompletedTurn);
+              } catch (err) {
+                const errorMsg = err instanceof Error ? err.message : 'Failed to persist completed assistant turn';
+                yield {
+                  type: 'request_failed',
+                  requestId,
+                  sessionId,
+                  turnId: assistantTurn.id,
+                  error: {
+                    code: 'persistence_error',
+                    message: errorMsg
+                  },
+                  timestamp: this.clock()
+                };
+                if (options?.throwOnError) {
+                  throw new ConversationRuntimeError('persistence_error', errorMsg, {
+                    requestId,
+                    sessionId
+                  });
+                }
+                return;
+              }
+            }
 
             yield {
               type: 'response_completed',
@@ -328,10 +511,18 @@ export class ConversationRuntime {
             };
             return;
           } else if (event.type === 'cancelled') {
-            this.sessionManager.updateTurn(sessionId, assistantTurn.id, {
+            const finalCancelledTurn = this.sessionManager.updateTurn(sessionId, assistantTurn.id, {
               status: 'cancelled',
               content: accumulatedText
             });
+
+            if (this.store) {
+              try {
+                await this.store.updateTurn(finalCancelledTurn);
+              } catch {
+                // Safe cancellation handling
+              }
+            }
 
             yield {
               type: 'request_cancelled',
@@ -343,11 +534,19 @@ export class ConversationRuntime {
             };
             return;
           } else if (event.type === 'error') {
-            this.sessionManager.updateTurn(sessionId, assistantTurn.id, {
+            const finalFailedTurn = this.sessionManager.updateTurn(sessionId, assistantTurn.id, {
               status: 'failed',
               content: accumulatedText,
               error: event.error.message
             });
+
+            if (this.store) {
+              try {
+                await this.store.updateTurn(finalFailedTurn);
+              } catch {
+                // Safe error handling
+              }
+            }
 
             yield {
               type: 'request_failed',
@@ -375,10 +574,18 @@ export class ConversationRuntime {
 
         // Post-loop check: if aborted during stream
         if (abortController.signal.aborted) {
-          this.sessionManager.updateTurn(sessionId, assistantTurn.id, {
+          const finalCancelledTurn = this.sessionManager.updateTurn(sessionId, assistantTurn.id, {
             status: 'cancelled',
             content: accumulatedText
           });
+
+          if (this.store) {
+            try {
+              await this.store.updateTurn(finalCancelledTurn);
+            } catch {
+              // Safe cancellation handling
+            }
+          }
 
           yield {
             type: 'request_cancelled',
@@ -391,10 +598,18 @@ export class ConversationRuntime {
         }
       } catch (err) {
         if (abortController.signal.aborted) {
-          this.sessionManager.updateTurn(sessionId, assistantTurn.id, {
+          const finalCancelledTurn = this.sessionManager.updateTurn(sessionId, assistantTurn.id, {
             status: 'cancelled',
             content: accumulatedText
           });
+
+          if (this.store) {
+            try {
+              await this.store.updateTurn(finalCancelledTurn);
+            } catch {
+              // Safe cancellation handling
+            }
+          }
 
           yield {
             type: 'request_cancelled',
@@ -406,11 +621,19 @@ export class ConversationRuntime {
           };
         } else {
           const errorMsg = err instanceof Error ? err.message : String(err);
-          this.sessionManager.updateTurn(sessionId, assistantTurn.id, {
+          const finalFailedTurn = this.sessionManager.updateTurn(sessionId, assistantTurn.id, {
             status: 'failed',
             content: accumulatedText,
             error: errorMsg
           });
+
+          if (this.store) {
+            try {
+              await this.store.updateTurn(finalFailedTurn);
+            } catch {
+              // Safe error handling
+            }
+          }
 
           yield {
             type: 'request_failed',
@@ -435,6 +658,25 @@ export class ConversationRuntime {
     } finally {
       this.activeRequests.delete(requestId);
     }
+  }
+
+  /**
+   * Ends an active session and persists the terminal session status if store is configured.
+   */
+  async endSession(sessionId: string): Promise<Session> {
+    const session = this.sessionManager.endSession(sessionId);
+    if (this.store) {
+      try {
+        await this.store.updateSession(session);
+      } catch (err) {
+        throw new ConversationRuntimeError(
+          'persistence_error',
+          err instanceof Error ? err.message : 'Failed to persist ended session state',
+          { sessionId }
+        );
+      }
+    }
+    return session;
   }
 
   /**

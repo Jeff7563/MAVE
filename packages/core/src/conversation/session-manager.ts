@@ -440,4 +440,100 @@ export class SessionManager {
     const turns = this.sessionTurns.get(trimmedId) ?? [];
     return turns.slice(-count).map(t => this.cloneTurn(t));
   }
+
+  /**
+   * Hydrates an existing persisted session and its turns into the SessionManager.
+   *
+   * Enforces:
+   * 1. Validates session against canonical SessionSchema.
+   * 2. Rejects if session already exists in memory.
+   * 3. Validates each turn against canonical ConversationTurnSchema and session ID linkage.
+   * 4. Rejects duplicate turn IDs (either existing in memory or within the input array).
+   * 5. Preserves canonical IDs (does not generate new ones).
+   * 6. Preserves timestamps and input ordering.
+   * 7. Non-terminal turn recovery: any assistant turn with status 'pending' or 'streaming'
+   *    from a prior terminated process is normalized to 'failed' (interrupted).
+   * 8. Does not expose internal collections.
+   */
+  hydrateSession(session: Session, turns: ConversationTurn[]): Session {
+    if (!session || typeof session !== 'object') {
+      throw new SessionManagerError('invalid_session', 'Invalid session provided for hydration');
+    }
+
+    const validatedSession = SessionSchema.parse(session);
+    const trimmedSessionId = validatedSession.id.trim();
+
+    if (this.sessions.has(trimmedSessionId)) {
+      throw new SessionManagerError(
+        'session_already_exists',
+        `Session with id '${trimmedSessionId}' is already loaded in SessionManager`,
+        { sessionId: trimmedSessionId }
+      );
+    }
+
+    if (!Array.isArray(turns)) {
+      throw new SessionManagerError('invalid_turn', 'Turns must be an array', {
+        sessionId: trimmedSessionId
+      });
+    }
+
+    // Pre-validate all turns before mutating any internal state
+    const hydratedTurns: ConversationTurn[] = [];
+    const localTurnIds = new Set<string>();
+
+    for (const rawTurn of turns) {
+      if (!rawTurn || typeof rawTurn !== 'object') {
+        throw new SessionManagerError('invalid_turn', 'Invalid turn provided in hydration array', {
+          sessionId: trimmedSessionId
+        });
+      }
+
+      const turn = ConversationTurnSchema.parse(rawTurn);
+      const trimmedTurnId = turn.id.trim();
+
+      if (turn.sessionId.trim() !== trimmedSessionId) {
+        throw new SessionManagerError(
+          'invalid_turn',
+          `Turn '${trimmedTurnId}' belongs to session '${turn.sessionId}', expected '${trimmedSessionId}'`,
+          { sessionId: trimmedSessionId, turnId: trimmedTurnId }
+        );
+      }
+
+      if (this.registeredTurnIds.has(trimmedTurnId) || localTurnIds.has(trimmedTurnId)) {
+        throw new SessionManagerError(
+          'duplicate_turn',
+          `Turn with id '${trimmedTurnId}' already exists or is duplicated in hydration input`,
+          { sessionId: trimmedSessionId, turnId: trimmedTurnId }
+        );
+      }
+
+      localTurnIds.add(trimmedTurnId);
+
+      // Recovery policy for non-terminal turns from prior crashed/terminated process:
+      // Normalize 'pending' or 'streaming' assistant turns to 'failed' (interrupted)
+      let finalStatus = turn.status;
+      let finalError = turn.error;
+      if (turn.role === 'assistant' && (turn.status === 'pending' || turn.status === 'streaming')) {
+        finalStatus = 'failed';
+        finalError = finalError ?? 'Turn interrupted before completion';
+      }
+
+      hydratedTurns.push({
+        ...turn,
+        status: finalStatus,
+        error: finalError,
+        metadata: turn.metadata ? { ...turn.metadata } : undefined
+      });
+    }
+
+    // Commit hydrated state
+    this.sessions.set(trimmedSessionId, this.cloneSession(validatedSession));
+    this.sessionTurns.set(trimmedSessionId, hydratedTurns);
+    for (const turnId of localTurnIds) {
+      this.registeredTurnIds.add(turnId);
+    }
+
+    return this.cloneSession(validatedSession);
+  }
 }
+

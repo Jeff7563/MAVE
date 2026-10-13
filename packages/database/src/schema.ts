@@ -9,11 +9,16 @@ export const settings = sqliteTable('settings', {
 
 export const conversations = sqliteTable('conversations', {
   id: text('id').primaryKey(),
-  startedAt: integer('started_at', { mode: 'timestamp' }).notNull(),
-  endedAt: integer('ended_at', { mode: 'timestamp' }),
+  startedAt: integer('started_at', { mode: 'timestamp_ms' }).notNull(),
+  endedAt: integer('ended_at', { mode: 'timestamp_ms' }),
   mode: text('mode').notNull(),
   summary: text('summary'),
-  durationSeconds: integer('duration_seconds')
+  durationSeconds: integer('duration_seconds'),
+  status: text('status').notNull().default('active'),
+  activeProviderId: text('active_provider_id'),
+  title: text('title'),
+  metadata: text('metadata'),
+  updatedAt: integer('updated_at', { mode: 'timestamp_ms' })
 });
 
 export const conversationTurns = sqliteTable('conversation_turns', {
@@ -21,10 +26,16 @@ export const conversationTurns = sqliteTable('conversation_turns', {
   conversationId: text('conversation_id')
     .notNull()
     .references(() => conversations.id, { onDelete: 'cascade' }),
-  speaker: text('speaker').notNull(), // 'user' | 'assistant'
+  speaker: text('speaker').notNull(), // 'user' | 'assistant' | 'system'
   text: text('text').notNull(),
-  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
-  interrupted: integer('interrupted', { mode: 'boolean' }).notNull().default(false)
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+  interrupted: integer('interrupted', { mode: 'boolean' }).notNull().default(false),
+  requestId: text('request_id'),
+  providerId: text('provider_id'),
+  status: text('status').notNull().default('completed'),
+  updatedAt: integer('updated_at', { mode: 'timestamp_ms' }),
+  error: text('error'),
+  metadata: text('metadata')
 });
 
 export const vocabulary = sqliteTable('vocabulary', {
