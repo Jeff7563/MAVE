@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron';
 import {
   CHAT_IPC_CHANNELS,
   VOICE_IPC_CHANNELS,
+  SURFACE_IPC_CHANNELS,
   type AssistantStateSnapshot,
   type ChatCancelResponse,
   type ChatLoadSessionResponse,
@@ -10,7 +11,10 @@ import {
   type ConversationRuntimeEvent,
   type MaveCommand,
   type VoiceRuntimeEvent,
-  type VoiceStatusSnapshot
+  type VoiceStatusSnapshot,
+  type SurfaceSnapshot,
+  type SurfaceEvent,
+  type SurfaceAction
 } from '@mave/contracts';
 
 export interface MaveChatApi {
@@ -28,6 +32,14 @@ export interface MaveVoiceApi {
   startDiagnosticSession: () => Promise<{ success: boolean; error?: string }>;
 }
 
+export interface MaveSurfaceApi {
+  getSnapshot: () => Promise<SurfaceSnapshot>;
+  subscribe: (callback: (event: SurfaceEvent) => void) => () => void;
+  dispatchAction: (action: SurfaceAction) => Promise<{ success: boolean; error?: string }>;
+  reportInteractiveHover: (isHovering: boolean) => Promise<void>;
+  getDiagnostics?: () => Promise<unknown>;
+}
+
 export interface MaveApi {
   getStatus: () => Promise<AssistantStateSnapshot>;
   sendCommand: (
@@ -37,6 +49,7 @@ export interface MaveApi {
   onStateChanged: (callback: (snapshot: AssistantStateSnapshot) => void) => () => void;
   chat: MaveChatApi;
   voice: MaveVoiceApi;
+  surface: MaveSurfaceApi;
 }
 
 const api: MaveApi = {
@@ -108,6 +121,32 @@ const api: MaveApi = {
         success: boolean;
         error?: string;
       };
+    }
+  },
+  surface: {
+    getSnapshot: async () => {
+      return (await ipcRenderer.invoke(SURFACE_IPC_CHANNELS.GET_SNAPSHOT)) as SurfaceSnapshot;
+    },
+    subscribe: (callback: (event: SurfaceEvent) => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, surfaceEvent: SurfaceEvent) => {
+        callback(surfaceEvent);
+      };
+      ipcRenderer.on(SURFACE_IPC_CHANNELS.EVENT, listener);
+      return () => {
+        ipcRenderer.removeListener(SURFACE_IPC_CHANNELS.EVENT, listener);
+      };
+    },
+    dispatchAction: async (action: SurfaceAction) => {
+      return (await ipcRenderer.invoke(SURFACE_IPC_CHANNELS.DISPATCH_ACTION, action)) as {
+        success: boolean;
+        error?: string;
+      };
+    },
+    reportInteractiveHover: async (isHovering: boolean) => {
+      await ipcRenderer.invoke('mave:surface:report-hover', isHovering);
+    },
+    getDiagnostics: async () => {
+      return await ipcRenderer.invoke('mave:surface:get-diagnostics');
     }
   }
 };

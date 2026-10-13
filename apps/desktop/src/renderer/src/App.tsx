@@ -8,7 +8,10 @@ import type {
   ConversationRuntimeEvent,
   MaveCommand,
   VoiceRuntimeEvent,
-  VoiceStatusSnapshot
+  VoiceStatusSnapshot,
+  SurfaceSnapshot,
+  SurfaceEvent,
+  SurfaceAction
 } from '@mave/contracts';
 import { StatusCard } from './components/StatusCard';
 import { DeveloperControls } from './components/DeveloperControls';
@@ -38,6 +41,13 @@ declare global {
         interrupt: (reason?: string) => Promise<{ success: boolean; error?: string }>;
         cancel: (reason?: string) => Promise<{ success: boolean; error?: string }>;
         startDiagnosticSession: () => Promise<{ success: boolean; error?: string }>;
+      };
+      surface?: {
+        getSnapshot: () => Promise<SurfaceSnapshot>;
+        subscribe: (callback: (event: SurfaceEvent) => void) => () => void;
+        dispatchAction: (action: SurfaceAction) => Promise<{ success: boolean; error?: string }>;
+        reportInteractiveHover: (isHovering: boolean) => Promise<void>;
+        getDiagnostics?: () => Promise<unknown>;
       };
     };
   }

@@ -2,13 +2,19 @@ import { app, BrowserWindow } from 'electron';
 import path from 'node:path';
 import { DefaultMaveConfig } from '@mave/contracts';
 import { createLogger } from '@mave/shared';
-import { createMaveService, type MaveService } from '@mave/core';
+import {
+  createMaveService,
+  type MaveService,
+  SurfaceStateController,
+  voiceEventToSurfaceIntent
+} from '@mave/core';
 import { createMaveDatabase, type MaveDatabase } from '@mave/database';
 import { registerIpcHandlers } from './ipc.js';
 import { createSystemTray } from './tray.js';
 import { WakeManager } from './wake-manager.js';
 import { ConversationManager } from './conversation-manager.js';
 import { VoiceManager } from './voice-manager.js';
+import { SurfaceWindowManager, registerSurfaceIpcHandlers } from './surface/index.js';
 import {
   SounddeviceAudioInputProvider,
   MockAudioInputProvider,
@@ -28,6 +34,8 @@ let maveDatabase: MaveDatabase | null = null;
 let wakeManager: WakeManager | null = null;
 let conversationManager: ConversationManager | null = null;
 let voiceManager: VoiceManager | null = null;
+let surfaceController: SurfaceStateController | null = null;
+let surfaceWindowManager: SurfaceWindowManager | null = null;
 let tray: ReturnType<typeof createSystemTray> | null = null;
 
 // Enforce single instance lock
@@ -202,11 +210,35 @@ app.whenReady().then(async () => {
       voiceManager ?? undefined
     );
 
-    // 7. Create Window & Tray
+    // 7. Initialize Ambient Surface Runtime (M4.2)
+    surfaceController = new SurfaceStateController({ enableTimers: true });
+
+    if (voiceManager) {
+      voiceManager.onVoiceEvent((event) => {
+        const intent = voiceEventToSurfaceIntent(event);
+        surfaceController?.applyIntent(intent);
+      });
+    }
+
+    const surfacePreloadPath = path.join(__dirname, '../preload/index.js');
+    const surfaceUrl = process.env['VITE_DEV_SERVER_URL']
+      ? `${process.env['VITE_DEV_SERVER_URL']}?view=surface`
+      : path.join(__dirname, '../renderer/index.html');
+
+    surfaceWindowManager = new SurfaceWindowManager({
+      controller: surfaceController,
+      surfaceUrl,
+      preloadPath: surfacePreloadPath
+    });
+    await surfaceWindowManager.initialize();
+    registerSurfaceIpcHandlers(surfaceController, surfaceWindowManager);
+    logger.info('ambient surface window manager initialized');
+
+    // 8. Create Developer Window & Tray
     mainWindow = createWindow();
     tray = createSystemTray(maveService, () => mainWindow);
 
-    // 8. Send APP_READY
+    // 9. Send APP_READY
     maveService.send({ type: 'APP_READY' });
     logger.info('MAVE ready: state set to sleeping');
   } catch (err) {
@@ -237,6 +269,11 @@ app.on('before-quit', async () => {
     tray.destroy();
     tray = null;
   }
+  if (surfaceWindowManager) {
+    surfaceWindowManager.dispose();
+    surfaceWindowManager = null;
+  }
+  surfaceController = null;
   if (voiceManager) {
     await voiceManager.dispose();
     voiceManager = null;

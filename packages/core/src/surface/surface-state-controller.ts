@@ -203,7 +203,8 @@ export class SurfaceStateController {
         this.clearActiveTimer();
         this.streamingClassifier.reset();
         return this.updateSnapshot({
-          mode: 'ambient',
+          mode: 'hidden',
+          visibility: 'hidden',
           sizeClass: 'ambient',
           interactionMode: 'passive',
           focusIntent: 'release', // Release focus back to OS on dismissal
@@ -298,6 +299,7 @@ export class SurfaceStateController {
         this.streamingClassifier.reset();
         return this.updateSnapshot({
           mode: 'listening',
+          visibility: 'visible',
           sizeClass: 'compact',
           interactionMode: 'passive',
           focusIntent: 'preserve',
@@ -314,6 +316,7 @@ export class SurfaceStateController {
       case 'listening': {
         return this.updateSnapshot({
           mode: 'listening',
+          visibility: 'visible',
           sizeClass: 'compact',
           interactionMode: 'passive',
           focusIntent: 'preserve',
@@ -332,6 +335,7 @@ export class SurfaceStateController {
         // Visually folded into 'listening' to eliminate high-frequency visual flicker (<600ms)
         return this.updateSnapshot({
           mode: 'listening',
+          visibility: 'visible',
           sizeClass: 'compact',
           interactionMode: 'passive',
           focusIntent: 'preserve',
@@ -348,6 +352,7 @@ export class SurfaceStateController {
       case 'thinking': {
         return this.updateSnapshot({
           mode: 'thinking',
+          visibility: 'visible',
           sizeClass: 'compact',
           interactionMode: 'passive',
           focusIntent: 'preserve',
@@ -364,6 +369,7 @@ export class SurfaceStateController {
       case 'speaking': {
         return this.updateSnapshot({
           mode: 'speaking',
+          visibility: 'visible',
           sizeClass: 'compact',
           interactionMode: 'passive',
           focusIntent: 'preserve',
@@ -383,6 +389,7 @@ export class SurfaceStateController {
         // Never displays red error banners.
         return this.updateSnapshot({
           mode: 'listening',
+          visibility: 'visible',
           sizeClass: 'compact',
           interactionMode: 'passive',
           focusIntent: 'preserve',

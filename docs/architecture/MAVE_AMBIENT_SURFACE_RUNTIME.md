@@ -443,3 +443,66 @@ The following 10 invariants are permanent and must never be violated in Mileston
 2. *User Drag-and-Snap*: Allow user to freely drag the capsule across screen edges, or lock firmly to bottom-right (evaluate in M4.8).
 3. *Global Hotkey Summon*: Register global shortcut (e.g. `Ctrl+Space` or `Win+Shift+M`) to summon MAVE without voice (evaluate in M4.8).
 
+---
+
+## 19. M4.2 Surface Window Runtime Implementation & Findings
+
+Milestone 4.2 establishes the native Electron window runtime (`SurfaceWindowManager`) hosting the MAVE Ambient Surface alongside the Developer Diagnostics Window.
+
+### 19.1 Native Window Flags & Construction
+The surface window is instantiated with strict security, transparency, and non-intrusive presentation flags:
+```typescript
+new BrowserWindow({
+  width: initialBounds.width,
+  height: initialBounds.height,
+  x: initialBounds.x,
+  y: initialBounds.y,
+  show: false,
+  frame: false,
+  transparent: true,
+  hasShadow: false,
+  skipTaskbar: true,
+  focusable: false,
+  alwaysOnTop: true,
+  webPreferences: {
+    preload: this.preloadPath,
+    contextIsolation: true,
+    nodeIntegration: false,
+    sandbox: false
+  }
+});
+```
+- **Always-on-top level**: Initialized with `win.setAlwaysOnTop(true, 'status')`. The `'status'` level keeps the corner capsule above regular application windows while respecting fullscreen applications.
+- **Web security**: Blocked pop-ups via `webContents.setWindowOpenHandler(() => ({ action: 'deny' }))` and external navigations via `webContents.on('will-navigate')`.
+
+### 19.2 White Flash & Flicker Prevention (`ready-to-show` Gating)
+- On Windows DWM, calling `win.show()` or `win.showInactive()` on a frameless transparent window before Chromium's initial frame paint causes a noticeable white flash or transparent rectangle flicker.
+- **Resolution**: The window starts strictly with `show: false`. Visibility is gated behind `win.once('ready-to-show', ...)`. `win.showInactive()` is only dispatched once the renderer paint pipeline has completed its initial frame.
+
+### 19.3 Strict Focus Invariant & Intent Promotion
+- **Passive Voice Events**: When MAVE is waking, listening, thinking, speaking, or presenting compact responses, the window is displayed strictly via `win.showInactive()`. `win.focus()` is never called, and `win.isFocusable()` remains `false`.
+- **Explicit User Interaction**: Only when an explicit user keyboard text entry action is dispatched (`focusIntent === 'request'`) does the runtime elevate the window via `win.setFocusable(true)` and `win.focus()`.
+- **Demotion on Dismiss**: When dismissed, focus intent drops to `'release'` and the window returns to `setFocusable(false)`.
+
+### 19.4 Hit Testing & Click-Through Behavior
+- Frameless transparent windows have empty transparent padding surrounding the compact visual capsule.
+- **Transparent Pad Click-Through**: In passive/ambient modes, `win.setIgnoreMouseEvents(true, { forward: true })` ensures all mouse clicks pass straight through to desktop icons or applications below.
+- **Interactive Container Capture**: When the mouse cursor enters the visual UI container, the renderer dispatches `mave:surface:report-hover` via IPC. The main process immediately executes `win.setIgnoreMouseEvents(false)` to enable clicking buttons, controls, and expansion handles.
+
+### 19.5 Discrete Envelope Sizing & Positioning Math
+- Native bounds step between discrete DIP envelopes:
+  - `ambient`: $280 \times 80$ DIP
+  - `compact`: $280 \times 80$ DIP
+  - `card`: $360 \times 180$ DIP
+  - `expanded`: $440 \times 580$ DIP
+- Anchored to bottom-right of `display.workArea` with $16$ DIP margin:
+  - $X = \text{workArea.x} + \text{workArea.width} - \text{width} - 16$
+  - $Y = \text{workArea.y} + \text{workArea.height} - \text{height} - 16$
+- Automatically compensates for taskbar location on any edge and supports multi-monitor virtual screen topologies with negative coordinates.
+- **DisplayLockManager**: Locks surface anchoring to the display containing the cursor during active voice interactions; unlocks on idle/ambient; safely re-anchors to primary display if an external monitor is disconnected.
+
+### 19.6 Coexistence & Single Route Architecture
+- The existing Developer Diagnostics Window ($440 \times 580$) remains fully operational for engineering diagnostics.
+- The single Vite renderer bundle multiplexes views via query string: `?view=surface` routes to `<SurfaceView />`, while default route preserves the Developer Diagnostics view `<App />`.
+
+

@@ -216,7 +216,8 @@ describe('SurfaceStateController', () => {
 
       // Dismiss
       const snapshot = controller.dispatchAction({ type: 'dismiss', origin: 'user' });
-      expect(snapshot.mode).toBe('ambient');
+      expect(snapshot.mode).toBe('hidden');
+      expect(snapshot.visibility).toBe('hidden');
       expect(snapshot.focusIntent).toBe('release');
     });
   });
@@ -311,7 +312,8 @@ describe('SurfaceStateController', () => {
         origin: 'user'
       });
 
-      expect(s.mode).toBe('ambient');
+      expect(s.mode).toBe('hidden');
+      expect(s.visibility).toBe('hidden');
       expect(s.focusIntent).toBe('release');
     });
   });
