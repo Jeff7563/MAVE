@@ -312,6 +312,11 @@ describe('FasterWhisperSTTProvider', () => {
     });
 
     it('transcribes real WAV audio file end-to-end with real python subprocess when available', async () => {
+      // Explicit opt-in gate so CI / standard test runs do not require local GPU, models, or virtual environments
+      if (process.env['MAVE_RUN_LIVE_STT_TEST'] !== '1') {
+        return;
+      }
+
       const candidates = [
         path.resolve(process.cwd(), 'test_audio/thai_tired.wav'),
         path.resolve(process.cwd(), '../../test_audio/thai_tired.wav')

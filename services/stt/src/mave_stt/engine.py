@@ -134,13 +134,19 @@ class STTEngine:
 
         full_text = "".join(full_text_parts).strip()
 
-        # Compute overall confidence from average logprob
-        if logprobs:
+        # Derive overall confidence strictly from model probabilities
+        word_probs = [
+            w["confidence"] for w in words_out if isinstance(w.get("confidence"), (int, float))
+        ]
+        if word_probs:
+            overall_confidence = max(0.0, min(1.0, round(float(sum(word_probs) / len(word_probs)), 3)))
+        elif logprobs:
             mean_logprob = sum(logprobs) / len(logprobs)
-            # Probability = e^(logprob), clamped between 0.0 and 1.0
             overall_confidence = max(0.0, min(1.0, round(float(math.exp(mean_logprob)), 3)))
+        elif info and hasattr(info, "language_probability") and info.language_probability is not None:
+            overall_confidence = max(0.0, min(1.0, round(float(info.language_probability), 3)))
         else:
-            overall_confidence = 0.95 if full_text else 0.0
+            overall_confidence = 0.0
 
         return {
             "text": full_text,
@@ -148,3 +154,4 @@ class STTEngine:
             "language": info.language if info and hasattr(info, "language") else target_lang,
             "words": words_out,
         }
+

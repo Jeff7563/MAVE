@@ -42,3 +42,4 @@ class STTConfig:
                 resolved_compute = "int8"
 
         return resolved_device, resolved_compute
+

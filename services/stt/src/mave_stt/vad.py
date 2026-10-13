@@ -100,3 +100,4 @@ class UtteranceVADTracker:
         self.speech_duration = 0.0
         self.silence_duration = 0.0
         self.audio_chunks.clear()
+

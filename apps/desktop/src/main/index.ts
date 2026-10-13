@@ -13,7 +13,11 @@ import {
   SounddeviceAudioInputProvider,
   MockAudioInputProvider,
   FasterWhisperSTTProvider,
-  MockSTTProvider
+  MockSTTProvider,
+  EdgeTTSProvider,
+  MockTTSProvider,
+  SounddeviceAudioOutput,
+  MockAudioOutput
 } from '@mave/providers';
 
 const logger = createLogger({ name: 'mave:main' });
@@ -160,12 +164,30 @@ app.whenReady().then(async () => {
               model: process.env['MAVE_STT_MODEL'] ?? 'large-v3-turbo'
             });
 
+      const tts =
+        process.env['NODE_ENV'] === 'test' || process.env['MAVE_MOCK_TTS'] === '1'
+          ? new MockTTSProvider()
+          : new EdgeTTSProvider({
+              rootDir: path.resolve(__dirname, '../../../..'),
+              pythonExecutable: process.env['MAVE_TTS_PYTHON']
+            });
+
+      const audioOutput =
+        process.env['NODE_ENV'] === 'test' || process.env['MAVE_MOCK_AUDIO_OUTPUT'] === '1'
+          ? new MockAudioOutput()
+          : new SounddeviceAudioOutput({
+              rootDir: path.resolve(__dirname, '../../../..'),
+              pythonExecutable: process.env['MAVE_TTS_PYTHON']
+            });
+
       voiceManager = new VoiceManager({
         service: maveService,
         wakeManager,
         conversationRuntime: conversationManager.getRuntime(),
         audioInput,
-        stt
+        stt,
+        tts,
+        audioOutput
       });
       await voiceManager.start();
       logger.info('voice manager initialized and started');

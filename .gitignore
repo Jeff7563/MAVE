@@ -55,8 +55,9 @@ venv/
 *.onnx
 *.onnx.data
 
-# Audio recordings & testing fixtures
+# Generated test audio & temporary recordings
 test_audio/
-*.wav
-*.mp3
+scratch/
+test_*.wav
+test_*.mp3
 

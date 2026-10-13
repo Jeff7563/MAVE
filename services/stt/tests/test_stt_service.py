@@ -127,3 +127,4 @@ def test_server_protocol_commands(monkeypatch):
     # 5. Health command
     server._handle_command({"action": "health"})
     assert any(e["type"] == "health" for e in events)
+

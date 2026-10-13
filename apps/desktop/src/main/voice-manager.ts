@@ -458,6 +458,14 @@ export class VoiceManager {
       } catch (err) {
         logger.warn({ err }, 'error disposing voiceCoordinator');
       }
+      try {
+        await (this.options.audioInput as any)?.dispose?.();
+        await (this.options.stt as any)?.dispose?.();
+        await (this.options.tts as any)?.dispose?.();
+        await (this.options.audioOutput as any)?.dispose?.();
+      } catch (err) {
+        logger.warn({ err }, 'error disposing voice providers');
+      }
     }
   }
 
