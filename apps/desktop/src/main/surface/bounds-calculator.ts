@@ -148,3 +148,4 @@ export class DisplayLockManager {
     return displays[0] ?? fallbackDisplay;
   }
 }
+

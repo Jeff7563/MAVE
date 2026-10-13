@@ -55,3 +55,4 @@ export function registerSurfaceIpcHandlers(
     ipcMain.removeHandler('mave:surface:get-diagnostics');
   };
 }
+

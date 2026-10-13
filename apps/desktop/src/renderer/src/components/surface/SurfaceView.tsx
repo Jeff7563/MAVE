@@ -1,25 +1,42 @@
-import React, { useEffect, useState } from 'react';
-import type { SurfaceSnapshot, SurfaceEvent } from '@mave/contracts';
+import React, { useEffect, useState, useCallback } from 'react';
+import type { SurfaceSnapshot, SurfaceEvent, SurfaceAction } from '@mave/contracts';
+import { MaveCapsule } from './MaveCapsule';
+import './surface.css';
 
-export const SurfaceView: React.FC = () => {
-  const [snapshot, setSnapshot] = useState<SurfaceSnapshot | null>(null);
+export interface SurfaceViewProps {
+  /**
+   * Optional initial snapshot (e.g. for testing without Electron IPC).
+   */
+  initialSnapshot?: SurfaceSnapshot | null;
+}
+
+/**
+ * SurfaceView
+ *
+ * Root React container for the MAVE Ambient Surface window.
+ * Ensures the native transparent background is preserved, hydrates snapshot,
+ * tracks interactive hover bounds, and delegates to production surface components.
+ */
+export const SurfaceView: React.FC<SurfaceViewProps> = ({ initialSnapshot = null }) => {
+  const [snapshot, setSnapshot] = useState<SurfaceSnapshot | null>(initialSnapshot);
+  const [showDevDiagnostics, setShowDevDiagnostics] = useState(false);
 
   useEffect(() => {
-    // Ensure parent document and body are completely transparent
+    // Ensure document and body roots remain strictly transparent
     document.documentElement.style.background = 'transparent';
     document.body.style.background = 'transparent';
     document.body.style.margin = '0';
     document.body.style.overflow = 'hidden';
 
-    // Hydrate initial snapshot
+    // 1. Hydrate snapshot once on mount (no polling)
     if (window.mave?.surface?.getSnapshot) {
       window.mave.surface
         .getSnapshot()
-        .then((s: SurfaceSnapshot) => setSnapshot(s))
-        .catch((err: any) => console.error('Failed to get surface snapshot:', err));
+        .then((s) => setSnapshot(s))
+        .catch((err) => console.error('Failed to hydrate initial surface snapshot:', err));
     }
 
-    // Subscribe to surface snapshot events
+    // 2. Subscribe to push updates
     let unsubscribe: (() => void) | undefined;
     if (window.mave?.surface?.subscribe) {
       unsubscribe = window.mave.surface.subscribe((event: SurfaceEvent) => {
@@ -29,171 +46,107 @@ export const SurfaceView: React.FC = () => {
       });
     }
 
+    // 3. Global developer shortcut (Alt+D) to toggle diagnostics overlay
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.altKey && e.key.toLowerCase() === 'd') {
+        setShowDevDiagnostics((prev) => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+
     return () => {
       unsubscribe?.();
+      window.removeEventListener('keydown', handleKeyDown);
     };
   }, []);
 
-  const handleMouseEnter = () => {
+  const handleHoverChange = useCallback((isHovering: boolean) => {
     if (window.mave?.surface?.reportInteractiveHover) {
-      window.mave.surface.reportInteractiveHover(true);
+      window.mave.surface.reportInteractiveHover(isHovering);
     }
-  };
+  }, []);
 
-  const handleMouseLeave = () => {
-    if (window.mave?.surface?.reportInteractiveHover) {
-      window.mave.surface.reportInteractiveHover(false);
-    }
-  };
-
-  const dispatchAction = (action: any) => {
+  const handleAction = useCallback((action: SurfaceAction) => {
     if (window.mave?.surface?.dispatchAction) {
       window.mave.surface.dispatchAction(action);
     }
-  };
+  }, []);
 
-  if (!snapshot) {
+  if (!snapshot || snapshot.mode === 'hidden') {
     return null;
   }
 
-  // Minimal M4.2 native validation debug container
+  // Response modes (M4.6 & M4.7 foundation placeholders)
+  const isResponseMode =
+    snapshot.mode === 'compact_response' || snapshot.mode === 'expanded_response';
+
   return (
     <div
-      style={{
-        width: '100vw',
-        height: '100vh',
-        display: 'flex',
-        alignItems: 'flex-end',
-        justifyContent: 'flex-end',
-        padding: '0px',
-        boxSizing: 'border-box',
-        pointerEvents: 'none' // outer transparent area passes clicks through
-      }}
+      className="mave-surface-viewport"
+      data-testid="mave-surface-viewport"
     >
-      <div
-        onMouseEnter={handleMouseEnter}
-        onMouseLeave={handleMouseLeave}
-        style={{
-          width: '100%',
-          height: '100%',
-          boxSizing: 'border-box',
-          backgroundColor: 'rgba(18, 18, 22, 0.95)',
-          border: '1px solid rgba(255, 255, 255, 0.12)',
-          borderRadius: '12px',
-          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.45)',
-          color: '#f0f0f4',
-          fontFamily: 'system-ui, -apple-system, sans-serif',
-          fontSize: '12px',
-          padding: '10px 14px',
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'space-between',
-          pointerEvents: 'auto', // visual card intercepts clicks
-          userSelect: 'none'
-        }}
-      >
-        <div>
+      <div className="mave-surface-anchor">
+        {isResponseMode ? (
+          <div
+            className="mave-response-placeholder"
+            onMouseEnter={() => handleHoverChange(true)}
+            onMouseLeave={() => handleHoverChange(false)}
+            data-testid="mave-response-card"
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+              <MaveCapsule
+                snapshot={snapshot}
+                onAction={handleAction}
+                onHoverChange={handleHoverChange}
+              />
+            </div>
+            {snapshot.assistantText && (
+              <div
+                style={{
+                  color: 'var(--mave-surface-text)',
+                  fontSize: '13px',
+                  lineHeight: '1.4',
+                  marginTop: '8px'
+                }}
+                data-testid="mave-response-text"
+              >
+                {snapshot.assistantText}
+              </div>
+            )}
+          </div>
+        ) : (
+          <MaveCapsule
+            snapshot={snapshot}
+            onAction={handleAction}
+            onHoverChange={handleHoverChange}
+          />
+        )}
+
+        {/* Optional Developer Diagnostic Overlay (Alt+D) */}
+        {showDevDiagnostics && (
           <div
             style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              marginBottom: '4px'
+              position: 'fixed',
+              top: '8px',
+              left: '8px',
+              background: 'rgba(0, 0, 0, 0.85)',
+              border: '1px solid rgba(255, 255, 255, 0.2)',
+              borderRadius: '6px',
+              padding: '6px 10px',
+              color: '#38bdf8',
+              fontSize: '11px',
+              fontFamily: 'monospace',
+              pointerEvents: 'auto',
+              zIndex: 9999
             }}
+            data-testid="mave-dev-diagnostics-overlay"
           >
-            <span style={{ fontWeight: 700, color: '#60a5fa', letterSpacing: '0.05em' }}>
-              MAVE SURFACE
-            </span>
-            <span
-              style={{
-                fontSize: '10px',
-                padding: '1px 6px',
-                borderRadius: '4px',
-                backgroundColor: snapshot.pinned ? '#3b82f6' : 'rgba(255, 255, 255, 0.1)',
-                color: '#fff'
-              }}
-            >
-              {snapshot.pinned ? 'PINNED' : snapshot.sizeClass.toUpperCase()}
-            </span>
+            <div>MODE: {snapshot.mode}</div>
+            <div>SIZE: {snapshot.sizeClass}</div>
+            <div>PINNED: {String(snapshot.pinned)}</div>
+            <div>ACT: {snapshot.activity}</div>
           </div>
-
-          <div style={{ color: '#94a3b8', fontSize: '11px', lineHeight: '1.4' }}>
-            <div>
-              Mode: <strong style={{ color: '#f8fafc' }}>{snapshot.mode}</strong> | Activity:{' '}
-              <strong style={{ color: '#f8fafc' }}>{snapshot.activity}</strong>
-            </div>
-            {snapshot.transcript?.text && (
-              <div style={{ marginTop: '2px', color: '#cbd5e1' }}>
-                You: "{snapshot.transcript.text}"
-              </div>
-            )}
-            {snapshot.assistantText && (
-              <div style={{ marginTop: '2px', color: '#93c5fd' }}>
-                MAVE: "{snapshot.assistantText}"
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Minimal M4.2 diagnostic action triggers */}
-        <div style={{ display: 'flex', gap: '6px', marginTop: '6px' }}>
-          <button
-            onClick={() => dispatchAction({ type: 'expand' })}
-            style={{
-              fontSize: '10px',
-              padding: '3px 8px',
-              borderRadius: '4px',
-              border: '1px solid rgba(255, 255, 255, 0.15)',
-              backgroundColor: 'rgba(255, 255, 255, 0.08)',
-              color: '#e2e8f0',
-              cursor: 'pointer'
-            }}
-          >
-            Expand
-          </button>
-          <button
-            onClick={() => dispatchAction({ type: 'collapse' })}
-            style={{
-              fontSize: '10px',
-              padding: '3px 8px',
-              borderRadius: '4px',
-              border: '1px solid rgba(255, 255, 255, 0.15)',
-              backgroundColor: 'rgba(255, 255, 255, 0.08)',
-              color: '#e2e8f0',
-              cursor: 'pointer'
-            }}
-          >
-            Collapse
-          </button>
-          <button
-            onClick={() => dispatchAction({ type: 'toggle_pin' })}
-            style={{
-              fontSize: '10px',
-              padding: '3px 8px',
-              borderRadius: '4px',
-              border: '1px solid rgba(255, 255, 255, 0.15)',
-              backgroundColor: snapshot.pinned ? '#2563eb' : 'rgba(255, 255, 255, 0.08)',
-              color: '#e2e8f0',
-              cursor: 'pointer'
-            }}
-          >
-            {snapshot.pinned ? 'Unpin' : 'Pin'}
-          </button>
-          <button
-            onClick={() => dispatchAction({ type: 'dismiss' })}
-            style={{
-              fontSize: '10px',
-              padding: '3px 8px',
-              borderRadius: '4px',
-              border: '1px solid rgba(239, 68, 68, 0.4)',
-              backgroundColor: 'rgba(239, 68, 68, 0.15)',
-              color: '#fca5a5',
-              cursor: 'pointer'
-            }}
-          >
-            Dismiss
-          </button>
-        </div>
+        )}
       </div>
     </div>
   );

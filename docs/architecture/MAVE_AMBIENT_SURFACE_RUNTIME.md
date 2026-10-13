@@ -505,4 +505,32 @@ new BrowserWindow({
 - The existing Developer Diagnostics Window ($440 \times 580$) remains fully operational for engineering diagnostics.
 - The single Vite renderer bundle multiplexes views via query string: `?view=surface` routes to `<SurfaceView />`, while default route preserves the Developer Diagnostics view `<App />`.
 
+---
+
+## 20. M4.3 Compact Ambient Surface Foundation & Preload Capability Gating
+
+Milestone 4.3 establishes the visual identity foundation of MAVE's resting presence and enforces least-privilege capability gating at the preload layer.
+
+### 20.1 Preload Capability Gating (Least Privilege Principle)
+To prevent the Ambient Surface Renderer from accessing unneeded privileged control channels:
+- When a window loads `?view=surface`, `preload/index.ts` gates exposure and attaches **only** the `surface` API:
+  ```typescript
+  if (isSurfaceWindow) {
+    contextBridge.exposeInMainWorld('mave', { surface: api.surface });
+  } else {
+    contextBridge.exposeInMainWorld('mave', api); // Developer diagnostics
+  }
+  ```
+- The Ambient Surface window has zero access to `window.mave.chat`, `window.mave.voice`, or `window.mave.sendCommand`.
+
+### 20.2 Window Construction Ordering
+- The primary Developer Diagnostics `mainWindow` is instantiated first, ensuring standard test fixtures and Playwright `firstWindow()` bindings bind to the diagnostic harness.
+- `SurfaceWindowManager` initializes subsequently, mounting the frameless transparent overlay without stealing OS focus.
+
+### 20.3 Visual Identity & Presence Mark Primitive
+- **PresenceMark**: An SVG kinetic primitive consisting of 3 rounded acoustic energy bars (4px, 10.4px, 16.8px) that exhibit calm, organic breathing cycles in ambient mode (3.6s cycle) without heavy 3D or WebGL overhead.
+- **Product-Facing Copy**: Exposes polite, calm user status descriptors (`Ready`, `Listening...`, `Thinking...`, `Speaking...`), strictly decoupling product UX from internal state machine terminology (`sleeping`, `transcribing`).
+- **Accessibility**: Marked with `aria-hidden="true"` on decorative elements, semantic `role="region"`, accessible button action triggers, and strict compliance with `prefers-reduced-motion: reduce`.
+
+
 

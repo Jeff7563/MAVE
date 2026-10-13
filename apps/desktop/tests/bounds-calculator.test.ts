@@ -176,3 +176,4 @@ describe('BoundsCalculator & Multi-Monitor DisplayLockManager', () => {
     });
   });
 });
+

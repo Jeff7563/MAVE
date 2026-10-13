@@ -210,7 +210,11 @@ app.whenReady().then(async () => {
       voiceManager ?? undefined
     );
 
-    // 7. Initialize Ambient Surface Runtime (M4.2)
+    // 7. Create Developer Window & Tray
+    mainWindow = createWindow();
+    tray = createSystemTray(maveService, () => mainWindow);
+
+    // 8. Initialize Ambient Surface Runtime (M4.2)
     surfaceController = new SurfaceStateController({ enableTimers: true });
 
     if (voiceManager) {
@@ -233,10 +237,6 @@ app.whenReady().then(async () => {
     await surfaceWindowManager.initialize();
     registerSurfaceIpcHandlers(surfaceController, surfaceWindowManager);
     logger.info('ambient surface window manager initialized');
-
-    // 8. Create Developer Window & Tray
-    mainWindow = createWindow();
-    tray = createSystemTray(maveService, () => mainWindow);
 
     // 9. Send APP_READY
     maveService.send({ type: 'APP_READY' });

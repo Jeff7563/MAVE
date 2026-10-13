@@ -151,4 +151,18 @@ const api: MaveApi = {
   }
 };
 
-contextBridge.exposeInMainWorld('mave', api);
+// Capability-Gating (Least Privilege Principle):
+// Ambient Surface Window receives ONLY the surface namespace.
+// Developer Diagnostics Window receives full developer control & diagnostic namespaces.
+const isSurfaceWindow = Boolean(
+  typeof window !== 'undefined' &&
+    (window.location.search.includes('view=surface') || window.location.href.includes('view=surface'))
+);
+
+if (isSurfaceWindow) {
+  contextBridge.exposeInMainWorld('mave', {
+    surface: api.surface
+  });
+} else {
+  contextBridge.exposeInMainWorld('mave', api);
+}
