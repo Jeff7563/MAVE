@@ -340,12 +340,57 @@ export class SessionManager {
       );
     }
 
-    const now = this.clock();
-    turn.status = status;
-    turn.updatedAt = now;
-    if (error !== undefined) {
-      turn.error = error;
+    return this.updateTurn(sessionId, turnId, { status, error });
+  }
+
+  /**
+   * Updates turn status, content, and/or error message on an active session.
+   */
+  updateTurn(
+    sessionId: string,
+    turnId: string,
+    updates: {
+      status?: ConversationTurnStatus;
+      content?: string;
+      error?: string;
     }
+  ): ConversationTurn {
+    if (!sessionId || !turnId) {
+      throw new SessionManagerError('invalid_turn', 'Session ID and turn ID are required');
+    }
+    const trimmedSessionId = sessionId.trim();
+    const trimmedTurnId = turnId.trim();
+
+    const session = this.sessions.get(trimmedSessionId);
+    if (!session) {
+      throw new SessionManagerError(
+        'session_not_found',
+        `Session '${trimmedSessionId}' not found`,
+        { sessionId: trimmedSessionId }
+      );
+    }
+
+    const turns = this.sessionTurns.get(trimmedSessionId);
+    const turn = turns?.find(t => t.id === trimmedTurnId);
+    if (!turn) {
+      throw new SessionManagerError(
+        'turn_not_found',
+        `Turn '${trimmedTurnId}' not found in session '${trimmedSessionId}'`,
+        { sessionId: trimmedSessionId, turnId: trimmedTurnId }
+      );
+    }
+
+    const now = this.clock();
+    if (updates.status !== undefined) {
+      turn.status = updates.status;
+    }
+    if (updates.content !== undefined) {
+      turn.content = updates.content;
+    }
+    if (updates.error !== undefined) {
+      turn.error = updates.error;
+    }
+    turn.updatedAt = now;
 
     session.updatedAt = now;
 
