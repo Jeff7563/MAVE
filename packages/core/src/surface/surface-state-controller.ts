@@ -143,9 +143,9 @@ export class SurfaceStateController {
 
     switch (action.type) {
       case 'expand': {
-        if (prev.mode === 'compact_response') {
+        if (prev.mode === 'compact_response' || prev.sizeClass === 'card') {
           return this.updateSnapshot({
-            mode: 'expanded_response',
+            mode: prev.mode === 'compact_response' ? 'expanded_response' : prev.mode,
             sizeClass: 'expanded',
             interactionMode: 'interactive',
             focusIntent: 'preserve', // expanding container does not steal OS focus
@@ -155,19 +155,37 @@ export class SurfaceStateController {
             updatedAt: now
           });
         }
+        if (prev.sizeClass === 'compact' || prev.sizeClass === 'ambient') {
+          return this.updateSnapshot({
+            sizeClass: 'card',
+            interactionMode: 'passive',
+            focusIntent: 'preserve',
+            updatedAt: now
+          });
+        }
         return prev;
       }
 
       case 'collapse': {
-        if (prev.mode === 'expanded_response') {
+        if (prev.mode === 'expanded_response' || prev.sizeClass === 'expanded') {
           return this.updateSnapshot({
-            mode: 'compact_response',
+            mode: prev.mode === 'expanded_response' ? 'compact_response' : prev.mode,
             sizeClass: 'card',
             interactionMode: 'passive',
             focusIntent: 'preserve',
             autoCollapse: prev.pinned
               ? { enabled: false, afterMs: 0, targetMode: 'ambient' }
               : { enabled: true, afterMs: DEFAULT_AUTO_COLLAPSE_COMPACT_MS, targetMode: 'ambient' },
+            updatedAt: now
+          });
+        }
+        if (prev.sizeClass === 'card') {
+          return this.updateSnapshot({
+            mode: prev.mode === 'compact_response' ? 'ambient' : prev.mode,
+            sizeClass: 'compact',
+            interactionMode: 'passive',
+            focusIntent: 'preserve',
+            autoCollapse: undefined,
             updatedAt: now
           });
         }
@@ -307,12 +325,14 @@ export class SurfaceStateController {
       return prev;
     }
 
+    const activeSizeClass = prev.pinned ? prev.sizeClass : 'compact';
+
     switch (intent.voiceState) {
       case 'sleeping': {
         this.streamingClassifier.reset();
         return this.updateSnapshot({
           mode: 'ambient',
-          sizeClass: 'ambient',
+          sizeClass: prev.pinned ? prev.sizeClass : 'ambient',
           interactionMode: 'passive',
           focusIntent: 'preserve', // Zero focus-stealing invariant
           activity: 'idle',
@@ -330,7 +350,7 @@ export class SurfaceStateController {
         return this.updateSnapshot({
           mode: 'listening',
           visibility: 'visible',
-          sizeClass: 'compact',
+          sizeClass: activeSizeClass,
           interactionMode: 'passive',
           focusIntent: 'preserve',
           activity: 'listening',
@@ -347,7 +367,7 @@ export class SurfaceStateController {
         return this.updateSnapshot({
           mode: 'listening',
           visibility: 'visible',
-          sizeClass: 'compact',
+          sizeClass: activeSizeClass,
           interactionMode: 'passive',
           focusIntent: 'preserve',
           activity: 'listening',
@@ -366,7 +386,7 @@ export class SurfaceStateController {
         return this.updateSnapshot({
           mode: 'listening',
           visibility: 'visible',
-          sizeClass: 'compact',
+          sizeClass: activeSizeClass,
           interactionMode: 'passive',
           focusIntent: 'preserve',
           activity: 'listening',
@@ -383,7 +403,7 @@ export class SurfaceStateController {
         return this.updateSnapshot({
           mode: 'thinking',
           visibility: 'visible',
-          sizeClass: 'compact',
+          sizeClass: activeSizeClass,
           interactionMode: 'passive',
           focusIntent: 'preserve',
           activity: 'thinking',
@@ -400,7 +420,7 @@ export class SurfaceStateController {
         return this.updateSnapshot({
           mode: 'speaking',
           visibility: 'visible',
-          sizeClass: 'compact',
+          sizeClass: activeSizeClass,
           interactionMode: 'passive',
           focusIntent: 'preserve',
           activity: 'speaking',
@@ -420,7 +440,7 @@ export class SurfaceStateController {
         return this.updateSnapshot({
           mode: 'listening',
           visibility: 'visible',
-          sizeClass: 'compact',
+          sizeClass: activeSizeClass,
           interactionMode: 'passive',
           focusIntent: 'preserve',
           activity: 'listening',
@@ -448,7 +468,7 @@ export class SurfaceStateController {
 
         return this.updateSnapshot({
           mode: 'error',
-          sizeClass: 'compact',
+          sizeClass: activeSizeClass,
           interactionMode: 'passive',
           focusIntent: 'preserve',
           activity: 'error',

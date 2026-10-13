@@ -101,6 +101,33 @@ describe('BoundsCalculator & Multi-Monitor DisplayLockManager', () => {
       expect(bounds.x).toBe(-296);
       expect(bounds.y).toBe(984);
     });
+
+    it('proves bottom-right anchor invariant across all 4 size classes in positive and negative coordinate spaces', () => {
+      const coordinateSpaces = [
+        { name: 'Primary 1080p', workArea: { x: 0, y: 0, width: 1920, height: 1080 } },
+        { name: '4K Display', workArea: { x: 0, y: 0, width: 3840, height: 2160 } },
+        { name: 'Negative Left Display', workArea: { x: -1920, y: -200, width: 1920, height: 1080 } },
+        { name: 'Negative Top Display', workArea: { x: 0, y: -1080, width: 1920, height: 1080 } }
+      ];
+
+      const sizeClasses = ['ambient', 'compact', 'card', 'expanded'] as const;
+
+      for (const space of coordinateSpaces) {
+        const expectedRight = space.workArea.x + space.workArea.width - DEFAULT_SURFACE_MARGIN_DIP;
+        const expectedBottom = space.workArea.y + space.workArea.height - DEFAULT_SURFACE_MARGIN_DIP;
+
+        for (const sizeClass of sizeClasses) {
+          const bounds = calculateSurfaceBounds({
+            workArea: space.workArea,
+            sizeClass
+          });
+
+          // Absolute bottom-right corner must exactly match expected
+          expect(bounds.x + bounds.width).toBe(expectedRight);
+          expect(bounds.y + bounds.height).toBe(expectedBottom);
+        }
+      }
+    });
   });
 
   describe('DisplayLockManager', () => {

@@ -539,4 +539,92 @@ describe('SurfaceStateController', () => {
       expect(snapInterrupted.inputLevel).toBe(0);
     });
   });
+
+  describe('M4.5 Adaptive Envelope & Pinned Footprint Preservation', () => {
+    it('preserves expanded sizeClass when pinned during full voice lifecycle', () => {
+      const controller = new SurfaceStateController();
+
+      // Show response that classifies as expanded
+      controller.applyIntent({
+        type: 'show_response',
+        text: 'Here is the implementation:\n```ts\nexport function example() { return 42; }\n```'
+      });
+      expect(controller.getSnapshot().sizeClass).toBe('expanded');
+
+      // Pin the surface
+      controller.dispatchAction({ type: 'toggle_pin', origin: 'user', pinned: true });
+      expect(controller.getSnapshot().pinned).toBe(true);
+      expect(controller.getSnapshot().sizeClass).toBe('expanded');
+
+      // Voice enters listening -> mode updates, but sizeClass remains expanded!
+      const snapListen = controller.applyIntent({ type: 'voice_activity', voiceState: 'listening' });
+      expect(snapListen.mode).toBe('listening');
+      expect(snapListen.sizeClass).toBe('expanded');
+      expect(snapListen.pinned).toBe(true);
+
+      // Voice enters thinking
+      const snapThink = controller.applyIntent({ type: 'voice_activity', voiceState: 'thinking' });
+      expect(snapThink.mode).toBe('thinking');
+      expect(snapThink.sizeClass).toBe('expanded');
+
+      // Voice enters speaking
+      const snapSpeak = controller.applyIntent({ type: 'voice_activity', voiceState: 'speaking' });
+      expect(snapSpeak.mode).toBe('speaking');
+      expect(snapSpeak.sizeClass).toBe('expanded');
+
+      // Barge-in interrupted
+      const snapInterrupt = controller.applyIntent({ type: 'voice_activity', voiceState: 'interrupted' });
+      expect(snapInterrupt.mode).toBe('listening');
+      expect(snapInterrupt.sizeClass).toBe('expanded');
+
+      // Sleep
+      const snapSleep = controller.applyIntent({ type: 'voice_activity', voiceState: 'sleeping' });
+      expect(snapSleep.mode).toBe('ambient');
+      expect(snapSleep.sizeClass).toBe('expanded');
+      expect(snapSleep.pinned).toBe(true);
+    });
+
+    it('supports sequential user expand and collapse actions across sizes', () => {
+      const controller = new SurfaceStateController();
+      expect(controller.getSnapshot().sizeClass).toBe('ambient');
+
+      // Expand from ambient -> card
+      const snap1 = controller.dispatchAction({ type: 'expand', origin: 'user' });
+      expect(snap1.sizeClass).toBe('card');
+
+      // Expand from card -> expanded
+      const snap2 = controller.dispatchAction({ type: 'expand', origin: 'user' });
+      expect(snap2.sizeClass).toBe('expanded');
+
+      // Collapse from expanded -> card
+      const snap3 = controller.dispatchAction({ type: 'collapse', origin: 'user' });
+      expect(snap3.sizeClass).toBe('card');
+
+      // Collapse from card -> compact
+      const snap4 = controller.dispatchAction({ type: 'collapse', origin: 'user' });
+      expect(snap4.sizeClass).toBe('compact');
+    });
+
+    it('allows user expand and collapse while pinned without unpinning', () => {
+      const controller = new SurfaceStateController();
+      controller.dispatchAction({ type: 'toggle_pin', origin: 'user', pinned: true });
+      expect(controller.getSnapshot().pinned).toBe(true);
+
+      // Expand to card
+      const snap1 = controller.dispatchAction({ type: 'expand', origin: 'user' });
+      expect(snap1.sizeClass).toBe('card');
+      expect(snap1.pinned).toBe(true);
+
+      // Expand to expanded
+      const snap2 = controller.dispatchAction({ type: 'expand', origin: 'user' });
+      expect(snap2.sizeClass).toBe('expanded');
+      expect(snap2.pinned).toBe(true);
+
+      // Collapse to card
+      const snap3 = controller.dispatchAction({ type: 'collapse', origin: 'user' });
+      expect(snap3.sizeClass).toBe('card');
+      expect(snap3.pinned).toBe(true);
+    });
+  });
 });
+

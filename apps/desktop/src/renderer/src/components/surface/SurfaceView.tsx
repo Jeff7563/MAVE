@@ -76,51 +76,17 @@ export const SurfaceView: React.FC<SurfaceViewProps> = ({ initialSnapshot = null
     return null;
   }
 
-  // Response modes (M4.6 & M4.7 foundation placeholders)
-  const isResponseMode =
-    snapshot.mode === 'compact_response' || snapshot.mode === 'expanded_response';
-
   return (
     <div
-      className="mave-surface-viewport"
+      className={`mave-surface-viewport ${showDevDiagnostics ? 'mave-dev-outline-active' : ''}`.trim()}
       data-testid="mave-surface-viewport"
     >
       <div className="mave-surface-anchor">
-        {isResponseMode ? (
-          <div
-            className="mave-response-placeholder"
-            onMouseEnter={() => handleHoverChange(true)}
-            onMouseLeave={() => handleHoverChange(false)}
-            data-testid="mave-response-card"
-          >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-              <MaveCapsule
-                snapshot={snapshot}
-                onAction={handleAction}
-                onHoverChange={handleHoverChange}
-              />
-            </div>
-            {snapshot.assistantText && (
-              <div
-                style={{
-                  color: 'var(--mave-surface-text)',
-                  fontSize: '13px',
-                  lineHeight: '1.4',
-                  marginTop: '8px'
-                }}
-                data-testid="mave-response-text"
-              >
-                {snapshot.assistantText}
-              </div>
-            )}
-          </div>
-        ) : (
-          <MaveCapsule
-            snapshot={snapshot}
-            onAction={handleAction}
-            onHoverChange={handleHoverChange}
-          />
-        )}
+        <MaveCapsule
+          snapshot={snapshot}
+          onAction={handleAction}
+          onHoverChange={handleHoverChange}
+        />
 
         {/* Optional Developer Diagnostic Overlay (Alt+D) */}
         {showDevDiagnostics && (

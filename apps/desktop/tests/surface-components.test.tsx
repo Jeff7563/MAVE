@@ -267,4 +267,54 @@ describe('M4.3 Compact Ambient Surface Components', () => {
       expect(html).toContain('Today in Bangkok it is 31 degrees Celsius.');
     });
   });
+
+  describe('M4.5 Adaptive Morph Container Foundations', () => {
+    it('renders data-size attribute matching semantic size classes', () => {
+      const ambientHtml = renderToStaticMarkup(
+        <MaveCapsule snapshot={createSnapshot({ sizeClass: 'ambient' })} />
+      );
+      expect(ambientHtml).toContain('data-size="ambient"');
+
+      const cardHtml = renderToStaticMarkup(
+        <MaveCapsule snapshot={createSnapshot({ sizeClass: 'card', mode: 'compact_response' })} />
+      );
+      expect(cardHtml).toContain('data-size="card"');
+      expect(cardHtml).toContain('data-testid="mave-action-expand"');
+
+      const expandedHtml = renderToStaticMarkup(
+        <MaveCapsule snapshot={createSnapshot({ sizeClass: 'expanded', mode: 'expanded_response' })} />
+      );
+      expect(expandedHtml).toContain('data-size="expanded"');
+      expect(expandedHtml).toContain('data-testid="mave-action-collapse"');
+    });
+
+    it('retains PresenceMark and MAVE brand across card and expanded morphs', () => {
+      const cardHtml = renderToStaticMarkup(
+        <MaveCapsule
+          snapshot={createSnapshot({
+            sizeClass: 'card',
+            mode: 'speaking',
+            outputLevel: 0.8
+          })}
+        />
+      );
+      expect(cardHtml).toContain('mave-presence-mark--speaking');
+      expect(cardHtml).toContain('data-testid="mave-brand-label"');
+      expect(cardHtml).toContain('MAVE');
+
+      const expandedHtml = renderToStaticMarkup(
+        <MaveCapsule
+          snapshot={createSnapshot({
+            sizeClass: 'expanded',
+            mode: 'listening',
+            inputLevel: 0.6
+          })}
+        />
+      );
+      expect(expandedHtml).toContain('mave-presence-mark--listening');
+      expect(expandedHtml).toContain('data-testid="mave-brand-label"');
+      expect(expandedHtml).toContain('MAVE');
+    });
+  });
 });
+

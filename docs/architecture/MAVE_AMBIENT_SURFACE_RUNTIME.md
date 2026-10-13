@@ -569,6 +569,62 @@ The PresenceMark consists of 3 rounded acoustic bars rendered via SVG:
 - **Compositor Interpolation**: The Renderer updates CSS custom properties on `.mave-presence-mark`. SVG `<rect>` elements apply `transform: scaleY(...)` with hardware-accelerated transitions (`120ms cubic-bezier(0.16, 1, 0.3, 1)`), eliminating the need for `requestAnimationFrame` loops or high-frequency IPC streaming.
 - **Reduced Motion**: Under `@media (prefers-reduced-motion: reduce)`, all physical scaling transforms and keyframe loops are disabled (`transform: none !important`), and audio energy is mapped purely to subtle opacity modulation ($\text{opacity} = 0.65 + 0.35 \times \text{energy}$).
 
+---
+
+## 22. M4.5 Adaptive Envelope & Morph System
+
+Milestone 4.5 implements the adaptive geometry and visual transition foundation connecting the Ambient Capsule ($280 \times 80$), Quick Info Card ($360 \times 180$), and Expanded Context Panel ($440 \times 580$).
+
+### 22.1 Hybrid Envelope Window Architecture
+To combine the performance and stability of native OS windows with the visual beauty of modern desktop surfaces:
+- **Native Geometry**: Strictly discrete. Exactly ONE native `win.setBounds()` call is performed per semantic envelope promotion/demotion. Never a 60 FPS `setBounds` polling loop.
+- **Visual Container**: Internally fluid. The Renderer smoothly tweens container `width`, `height`, and `border-radius` ($9999\text{px} \to 14\text{px} \to 16\text{px}$) via CSS GPU-accelerated compositing (`250ms cubic-bezier(0.16, 1, 0.3, 1)`).
+
+### 22.2 Asymmetric Transition Sequencing
+Expansion and collapse follow strict asymmetric order to prevent visual clipping and ugly instantaneous truncation on Windows:
+1. **Expansion (Grow)**:
+   - Target bounds are calculated.
+   - Native BrowserWindow expands **FIRST** (`win.setBounds(targetBounds)`), creating sufficient transparent room.
+   - `SurfaceSnapshot` is broadcast to Renderer.
+   - Renderer visual container animates smoothly into the newly expanded envelope.
+2. **Collapse (Shrink)**:
+   - `SurfaceSnapshot` is broadcast to Renderer **FIRST**.
+   - Renderer visual container immediately starts animating inward into smaller dimensions ($250\text{ ms}$).
+   - Native window bounds remain at the larger size during the collapse animation.
+   - After the collapse duration ($260\text{ ms}$, $250\text{ ms}$ motion $+ 10\text{ ms}$ buffer), native bounds are shrunk to the smaller envelope.
+
+### 22.3 Bottom-Right Anchor Invariant
+The native window and internal CSS viewport are anchored strictly to the bottom-right corner of the usable `workArea`:
+$$X = \text{workArea.x} + \text{workArea.width} - \text{width} - \text{margin}$$
+$$Y = \text{workArea.y} + \text{workArea.height} - \text{height} - \text{margin}$$
+Notice that the absolute screen coordinates of the bottom-right edge:
+$$X + \text{width} = \text{workArea.x} + \text{workArea.width} - \text{margin} = \text{constant}$$
+$$Y + \text{height} = \text{workArea.y} + \text{workArea.height} - \text{margin} = \text{constant}$$
+are mathematically independent of `width` and `height`. Across all envelope transitions and across arbitrary positive and negative display topologies, the bottom-right point remains rock-solid while the surface expands upward and leftward.
+
+### 22.4 SurfaceTransitionCoordinator & Stale Revision Protection
+`SurfaceTransitionCoordinator` in Electron Main tracks the transition state machine:
+- Tracks `currentNativeSizeClass`, `targetSizeClass`, `state` (`idle` | `expanding` | `collapsing`), and a monotonic `transitionRevision` integer counter.
+- **Stale Shrink Protection**: When a collapse is initiated, the $260\text{ ms}$ native shrink timer records `scheduledRev = ++transitionRevision`. If a user re-expands or a new intent arrives during the collapse, `transitionRevision` increments, and any stale shrink timer becomes a strict no-op.
+- **Dismissal**: When snapshot mode or visibility becomes `hidden`, all pending timers are cancelled immediately, and the window hides without waiting for animation timeouts.
+
+### 22.5 Continuous Visual Identity & Morphing Container
+Rather than destroying and mounting separate DOM components, `MaveCapsule` serves as the continuous adaptive surface container:
+- `PresenceMark`, brand label, status text, and action buttons live in the anchored header row (`.mave-capsule-header`).
+- `PresenceMark` SVG dimensions remain fixed ($18 \times 18$) and never distort or stretch when the container morphs.
+- Active voice reactivity continues unimpeded throughout size transitions (e.g., live `outputLevel` continues modulating the 3 bars while expanding to a response card).
+- Adaptive action slot exposes context-appropriate expand / collapse triggers.
+
+### 22.6 Pinned State Preservation
+- When `pinned: true`, the surface retains the user's chosen presentation footprint (`sizeClass: prev.sizeClass`) even as voice activity cycles through `listening`, `thinking`, `speaking`, `interrupted`, or `sleeping`.
+- Pinned surfaces never auto-collapse, while still allowing explicit user expand, collapse, and unpin actions.
+
+### 22.7 Hit Region & Pointer Safety
+- Newly expanded transparent regions around the visual container maintain `pointer-events: none` in CSS and `win.setIgnoreMouseEvents(true, { forward: true })` in Electron.
+- Pointer events are captured exclusively when the cursor hovers directly over the visible container (`.mave-surface-container`), preventing invisible transparent space from blocking clicks to underlying desktop applications.
+- Zero focus stealing: all passive size transitions preserve `focusable: false` and use `showInactive()`.
+
+
 
 
 

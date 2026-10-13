@@ -15,6 +15,10 @@ import {
   type SimpleDisplay,
   type SimplePoint
 } from './bounds-calculator.js';
+import {
+  SurfaceTransitionCoordinator,
+  type TransitionDiagnostics
+} from './surface-transition-coordinator.js';
 
 export interface ScreenAdapter {
   getCursorScreenPoint(): SimplePoint;
@@ -45,6 +49,7 @@ export interface SurfaceWindowDiagnostics {
   alwaysOnTop: boolean;
   mode: string;
   sizeClass: string;
+  transition?: TransitionDiagnostics;
 }
 
 export interface SurfaceWindowManagerOptions {
@@ -79,6 +84,7 @@ export class SurfaceWindowManager {
   private readonly margin: number;
   private readonly logger: Logger;
   private readonly displayLockManager = new DisplayLockManager();
+  private readonly transitionCoordinator: SurfaceTransitionCoordinator;
 
   private unsubscribeController: (() => void) | null = null;
   private isHovering = false;
@@ -99,6 +105,9 @@ export class SurfaceWindowManager {
     this.screenAdapter = options.screenAdapter ?? createDefaultScreenAdapter();
     this.margin = options.margin ?? DEFAULT_SURFACE_MARGIN_DIP;
     this.logger = options.logger ?? createLogger({ name: 'mave:surface-window' });
+    this.transitionCoordinator = new SurfaceTransitionCoordinator({
+      initialSizeClass: this.controller.getSnapshot().sizeClass
+    });
   }
 
   /**
@@ -260,30 +269,7 @@ export class SurfaceWindowManager {
       }
     }
 
-    // 2. Resolve Target Display and Envelope Bounds
-    const targetDisplay = this.resolveTargetDisplay();
-    this.activeDisplayId = targetDisplay.id;
-
-    const newBounds = calculateSurfaceBounds({
-      workArea: targetDisplay.workArea,
-      sizeClass: snapshot.sizeClass,
-      margin: this.margin
-    });
-
-    // Apply discrete bounds if changed
-    if (
-      !this.currentBounds ||
-      this.currentBounds.x !== newBounds.x ||
-      this.currentBounds.y !== newBounds.y ||
-      this.currentBounds.width !== newBounds.width ||
-      this.currentBounds.height !== newBounds.height
-    ) {
-      win.setBounds(newBounds);
-      this.currentBounds = newBounds;
-      this.logger.debug({ bounds: newBounds, sizeClass: snapshot.sizeClass }, 'native surface bounds adjusted');
-    }
-
-    // 3. Visibility Policy
+    // 2. Visibility Policy
     const shouldBeVisible = snapshot.visibility === 'visible' && snapshot.mode !== 'hidden';
     if (!shouldBeVisible) {
       if (win.isVisible()) {
@@ -299,7 +285,7 @@ export class SurfaceWindowManager {
       }
     }
 
-    // 4. Focus Policy
+    // 3. Focus Policy
     if (snapshot.focusIntent === 'request') {
       if (!this.isFocusableActive) {
         win.setFocusable(true);
@@ -315,11 +301,35 @@ export class SurfaceWindowManager {
       }
     }
 
-    // 5. Interaction Mode / Hit-Testing Policy
+    // 4. Interaction Mode / Hit-Testing Policy
     this.updateMouseBehavior(snapshot);
 
-    // 6. Broadcast Snapshot to Renderer
-    this.broadcastSnapshot(snapshot);
+    // 5. Coordinated Asymmetric Envelope Transition & Snapshot Broadcast
+    this.transitionCoordinator.handleSnapshot(snapshot, {
+      applyBounds: (sizeClass) => {
+        const targetDisplay = this.resolveTargetDisplay();
+        this.activeDisplayId = targetDisplay.id;
+        const newBounds = calculateSurfaceBounds({
+          workArea: targetDisplay.workArea,
+          sizeClass,
+          margin: this.margin
+        });
+        if (
+          !this.currentBounds ||
+          this.currentBounds.x !== newBounds.x ||
+          this.currentBounds.y !== newBounds.y ||
+          this.currentBounds.width !== newBounds.width ||
+          this.currentBounds.height !== newBounds.height
+        ) {
+          win.setBounds(newBounds);
+          this.currentBounds = newBounds;
+          this.logger.debug({ bounds: newBounds, sizeClass }, 'native surface bounds adjusted');
+        }
+      },
+      broadcastSnapshot: (snap) => {
+        this.broadcastSnapshot(snap);
+      }
+    });
   }
 
   /**
@@ -362,7 +372,8 @@ export class SurfaceWindowManager {
       ignoreMouse: this.isIgnoringMouse,
       alwaysOnTop: this.isAlwaysOnTopActive,
       mode: snapshot.mode,
-      sizeClass: snapshot.sizeClass
+      sizeClass: snapshot.sizeClass,
+      transition: this.transitionCoordinator.getDiagnostics()
     };
   }
 
@@ -371,6 +382,8 @@ export class SurfaceWindowManager {
    */
   public dispose(): void {
     this.logger.info('disposing SurfaceWindowManager');
+
+    this.transitionCoordinator.dispose();
 
     if (this.unsubscribeController) {
       this.unsubscribeController();
@@ -420,6 +433,7 @@ export class SurfaceWindowManager {
 
     this.window.setBounds(newBounds);
     this.currentBounds = newBounds;
+    this.transitionCoordinator.resetNativeSizeClass(snapshot.sizeClass);
   }
 
   private updateMouseBehavior(snapshot: SurfaceSnapshot): void {
