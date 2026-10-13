@@ -627,7 +627,7 @@ describe('VoiceManager (M3.5 Wake ↔ Voice Handoff Integration)', () => {
 
     let ipcTriggered = false;
 
-    const { voiceManager, service, wakeManager, wakeProvider } = await createHarness({
+    const { voiceManager, service, wakeManager } = await createHarness({
       sttProvider,
       audioOutput,
       onVoiceRuntimeEvent: (event) => {

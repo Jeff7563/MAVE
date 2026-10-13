@@ -9,6 +9,10 @@ import { createSystemTray } from './tray.js';
 import { WakeManager } from './wake-manager.js';
 import { ConversationManager } from './conversation-manager.js';
 import { VoiceManager } from './voice-manager.js';
+import {
+  SounddeviceAudioInputProvider,
+  MockAudioInputProvider
+} from '@mave/providers';
 
 const logger = createLogger({ name: 'mave:main' });
 
@@ -137,10 +141,19 @@ app.whenReady().then(async () => {
       getPersistedSetting(maveDatabase, 'voice.enabled') !== 'false';
 
     if (voiceEnabled) {
+      const audioInput =
+        process.env['NODE_ENV'] === 'test' || process.env['MAVE_MOCK_VOICE_INPUT'] === '1'
+          ? new MockAudioInputProvider()
+          : new SounddeviceAudioInputProvider({
+              rootDir: path.resolve(__dirname, '../../../..'),
+              pythonExecutable: process.env['MAVE_WAKE_PYTHON']
+            });
+
       voiceManager = new VoiceManager({
         service: maveService,
         wakeManager,
-        conversationRuntime: conversationManager.getRuntime()
+        conversationRuntime: conversationManager.getRuntime(),
+        audioInput
       });
       await voiceManager.start();
       logger.info('voice manager initialized and started');
