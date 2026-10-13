@@ -149,7 +149,7 @@ describe('VoiceSurfaceAdapter', () => {
       });
     });
 
-    it('maps audio_level with output > 0 to speaking and output 0 to listening', () => {
+    it('maps audio_level to voice_activity with inputLevel and outputLevel telemetry without macro state override', () => {
       const speakingLevel: VoiceRuntimeEvent = {
         type: 'audio_level',
         sessionId: 'sess-1',
@@ -159,7 +159,7 @@ describe('VoiceSurfaceAdapter', () => {
       };
       expect(voiceEventToSurfaceIntent(speakingLevel)).toEqual({
         type: 'voice_activity',
-        voiceState: 'speaking',
+        voiceState: undefined,
         inputLevel: 0,
         outputLevel: 0.55,
         sessionId: 'sess-1',
@@ -175,7 +175,7 @@ describe('VoiceSurfaceAdapter', () => {
       };
       expect(voiceEventToSurfaceIntent(listeningLevel)).toEqual({
         type: 'voice_activity',
-        voiceState: 'listening',
+        voiceState: undefined,
         inputLevel: 0.45,
         outputLevel: 0,
         sessionId: 'sess-1',

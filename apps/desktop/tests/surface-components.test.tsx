@@ -1,7 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 import type { SurfaceSnapshot } from '@mave/contracts';
-import { PresenceMark } from '../src/renderer/src/components/surface/PresenceMark';
+import {
+  PresenceMark,
+  computeVisualIntensity,
+  computeBarScales
+} from '../src/renderer/src/components/surface/PresenceMark';
 import { MaveCapsule } from '../src/renderer/src/components/surface/MaveCapsule';
 import { SurfaceView } from '../src/renderer/src/components/surface/SurfaceView';
 
@@ -40,6 +44,95 @@ describe('M4.3 Compact Ambient Surface Components', () => {
         const html = renderToStaticMarkup(<PresenceMark mode={mode} />);
         expect(html).toContain(`mave-presence-mark--${mode}`);
       }
+    });
+
+    it('computeVisualIntensity suppresses noise below floor and maps vocal dynamics smoothly', () => {
+      // Noise floor suppression (< 0.03)
+      expect(computeVisualIntensity(0)).toBe(0);
+      expect(computeVisualIntensity(-0.5)).toBe(0);
+      expect(computeVisualIntensity(0.01)).toBe(0);
+      expect(computeVisualIntensity(0.03)).toBe(0);
+      expect(computeVisualIntensity(NaN)).toBe(0);
+      expect(computeVisualIntensity(Infinity)).toBe(0);
+
+      // Monotonic vocal expansion
+      const low = computeVisualIntensity(0.08);
+      const mid = computeVisualIntensity(0.25);
+      const high = computeVisualIntensity(0.60);
+      const full = computeVisualIntensity(1.0);
+
+      expect(low).toBeGreaterThan(0);
+      expect(mid).toBeGreaterThan(low);
+      expect(high).toBeGreaterThan(mid);
+      expect(full).toBe(1.0);
+
+      // Clamping ceiling
+      expect(computeVisualIntensity(1.5)).toBe(1.0);
+    });
+
+    it('computeBarScales produces coordinated 3-bar kinetic factors', () => {
+      // Listening silence baseline
+      const listenSilence = computeBarScales('listening', 0);
+      expect(listenSilence.center).toBe(0.85);
+      expect(listenSilence.left).toBe(0.65);
+      expect(listenSilence.right).toBe(0.70);
+
+      // Listening active vocal energy
+      const listenActive = computeBarScales('listening', 1.0);
+      expect(listenActive.center).toBe(1.50);
+      expect(listenActive.center).toBeGreaterThan(listenActive.left);
+      expect(listenActive.center).toBeGreaterThan(listenActive.right);
+      expect(listenActive.right).toBeGreaterThan(listenActive.left);
+
+      // Speaking silence pause relaxation
+      const speakSilence = computeBarScales('speaking', 0);
+      expect(speakSilence.center).toBe(0.75);
+      expect(speakSilence.left).toBe(0.55);
+      expect(speakSilence.right).toBe(0.60);
+
+      // Speaking active output energy
+      const speakActive = computeBarScales('speaking', 1.0);
+      expect(speakActive.center).toBe(1.50);
+      expect(speakActive.center).toBeGreaterThan(speakActive.left);
+      expect(speakActive.center).toBeGreaterThan(speakActive.right);
+
+      // Ambient/thinking baseline
+      const ambientScales = computeBarScales('ambient', 0.8);
+      expect(ambientScales).toEqual({ left: 1, center: 1, right: 1 });
+    });
+
+    it('PresenceMark uses inputLevel in listening mode and ignores outputLevel', () => {
+      const html = renderToStaticMarkup(
+        <PresenceMark mode="listening" inputLevel={0.4} outputLevel={0.9} />
+      );
+      // Mode should be listening, intensity mapped from inputLevel (~0.4), not outputLevel (0.9)
+      expect(html).toContain('data-mode="listening"');
+      expect(html).toContain('mave-presence-mark--listening');
+      // Should define CSS custom properties
+      expect(html).toContain('--mave-energy');
+      expect(html).toContain('--mave-bar-center-scale');
+    });
+
+    it('PresenceMark uses outputLevel in speaking mode and ignores inputLevel', () => {
+      const html = renderToStaticMarkup(
+        <PresenceMark mode="speaking" inputLevel={0.8} outputLevel={0.3} />
+      );
+      expect(html).toContain('data-mode="speaking"');
+      expect(html).toContain('mave-presence-mark--speaking');
+      expect(html).toContain('--mave-energy');
+      expect(html).toContain('--mave-bar-center-scale');
+    });
+
+    it('PresenceMark in thinking and ambient modes ignores both audio levels', () => {
+      const htmlThink = renderToStaticMarkup(
+        <PresenceMark mode="thinking" inputLevel={0.8} outputLevel={0.8} />
+      );
+      expect(htmlThink).toContain('data-intensity="0.000"');
+
+      const htmlAmbient = renderToStaticMarkup(
+        <PresenceMark mode="ambient" inputLevel={0.8} outputLevel={0.8} />
+      );
+      expect(htmlAmbient).toContain('data-intensity="0.000"');
     });
   });
 

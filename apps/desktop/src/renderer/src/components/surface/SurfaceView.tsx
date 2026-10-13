@@ -145,6 +145,8 @@ export const SurfaceView: React.FC<SurfaceViewProps> = ({ initialSnapshot = null
             <div>SIZE: {snapshot.sizeClass}</div>
             <div>PINNED: {String(snapshot.pinned)}</div>
             <div>ACT: {snapshot.activity}</div>
+            <div>IN: {snapshot.inputLevel.toFixed(3)}</div>
+            <div>OUT: {snapshot.outputLevel.toFixed(3)}</div>
           </div>
         )}
       </div>

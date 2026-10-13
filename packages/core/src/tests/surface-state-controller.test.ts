@@ -426,4 +426,117 @@ describe('SurfaceStateController', () => {
       expect(listener).toHaveBeenCalledTimes(1); // not called again
     });
   });
+
+  describe('Voice-Reactive Telemetry & Mode Source Switching', () => {
+    it('updates inputLevel during listening without changing mode or flapping', () => {
+      const controller = new SurfaceStateController();
+      controller.applyIntent({ type: 'voice_activity', voiceState: 'listening' });
+      expect(controller.getSnapshot().mode).toBe('listening');
+      expect(controller.getSnapshot().inputLevel).toBe(0);
+
+      const snap1 = controller.applyIntent({
+        type: 'voice_activity',
+        inputLevel: 0.42
+      });
+      expect(snap1.mode).toBe('listening');
+      expect(snap1.inputLevel).toBe(0.42);
+      expect(snap1.outputLevel).toBe(0);
+
+      // Dropping back to silence does not exit listening
+      const snap2 = controller.applyIntent({
+        type: 'voice_activity',
+        inputLevel: 0
+      });
+      expect(snap2.mode).toBe('listening');
+      expect(snap2.inputLevel).toBe(0);
+    });
+
+    it('updates outputLevel during speaking without changing mode or flapping', () => {
+      const controller = new SurfaceStateController();
+      controller.applyIntent({ type: 'voice_activity', voiceState: 'speaking' });
+      expect(controller.getSnapshot().mode).toBe('speaking');
+      expect(controller.getSnapshot().outputLevel).toBe(0);
+
+      const snap1 = controller.applyIntent({
+        type: 'voice_activity',
+        outputLevel: 0.78
+      });
+      expect(snap1.mode).toBe('speaking');
+      expect(snap1.outputLevel).toBe(0.78);
+      expect(snap1.inputLevel).toBe(0);
+
+      // Natural speech silence gap (outputLevel = 0) relaxes mark without exiting speaking
+      const snap2 = controller.applyIntent({
+        type: 'voice_activity',
+        outputLevel: 0
+      });
+      expect(snap2.mode).toBe('speaking');
+      expect(snap2.outputLevel).toBe(0);
+      expect(snap2.inputLevel).toBe(0);
+    });
+
+    it('ignores audio telemetry in ambient, thinking, and error modes', () => {
+      const controller = new SurfaceStateController();
+      expect(controller.getSnapshot().mode).toBe('ambient');
+
+      // Telemetry in ambient is ignored
+      const snapAmbient = controller.applyIntent({
+        type: 'voice_activity',
+        inputLevel: 0.5,
+        outputLevel: 0.5
+      });
+      expect(snapAmbient.mode).toBe('ambient');
+      expect(snapAmbient.inputLevel).toBe(0);
+      expect(snapAmbient.outputLevel).toBe(0);
+
+      // Thinking mode ignores audio telemetry
+      controller.applyIntent({ type: 'voice_activity', voiceState: 'thinking' });
+      expect(controller.getSnapshot().mode).toBe('thinking');
+      const snapThinking = controller.applyIntent({
+        type: 'voice_activity',
+        inputLevel: 0.6,
+        outputLevel: 0.6
+      });
+      expect(snapThinking.mode).toBe('thinking');
+      expect(snapThinking.inputLevel).toBe(0);
+      expect(snapThinking.outputLevel).toBe(0);
+
+      // Error mode ignores audio telemetry
+      controller.applyIntent({ type: 'voice_activity', voiceState: 'error' });
+      expect(controller.getSnapshot().mode).toBe('error');
+      const snapError = controller.applyIntent({
+        type: 'voice_activity',
+        inputLevel: 0.7,
+        outputLevel: 0.7
+      });
+      expect(snapError.mode).toBe('error');
+      expect(snapError.inputLevel).toBe(0);
+      expect(snapError.outputLevel).toBe(0);
+    });
+
+    it('mode switch cleanses previous opposite level and prevents stale bleed', () => {
+      const controller = new SurfaceStateController();
+
+      // Listening with input=0.85
+      controller.applyIntent({ type: 'voice_activity', voiceState: 'listening' });
+      controller.applyIntent({ type: 'voice_activity', inputLevel: 0.85 });
+      expect(controller.getSnapshot().inputLevel).toBe(0.85);
+
+      // Transition to speaking -> inputLevel is immediately 0, outputLevel starts at 0
+      const snapSpeaking = controller.applyIntent({ type: 'voice_activity', voiceState: 'speaking' });
+      expect(snapSpeaking.mode).toBe('speaking');
+      expect(snapSpeaking.inputLevel).toBe(0);
+      expect(snapSpeaking.outputLevel).toBe(0);
+
+      // Now speaking plays audio
+      controller.applyIntent({ type: 'voice_activity', outputLevel: 0.65 });
+      expect(controller.getSnapshot().outputLevel).toBe(0.65);
+
+      // Interrupted yields to listening -> outputLevel is immediately 0
+      const snapInterrupted = controller.applyIntent({ type: 'voice_activity', voiceState: 'interrupted' });
+      expect(snapInterrupted.mode).toBe('listening');
+      expect(snapInterrupted.outputLevel).toBe(0);
+      expect(snapInterrupted.inputLevel).toBe(0);
+    });
+  });
 });

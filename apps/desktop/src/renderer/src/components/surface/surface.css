@@ -210,11 +210,12 @@
 }
 
 .mave-presence-bar {
-  transform-origin: center;
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
   transition:
     fill var(--mave-motion-normal),
-    opacity var(--mave-motion-normal),
-    transform var(--mave-motion-normal);
+    opacity var(--mave-motion-fast),
+    transform 120ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 /* Resting State: Calm organic breathing cycle */
@@ -233,10 +234,25 @@
   animation-delay: 0.6s;
 }
 
-/* Listening State: Luminous focus */
+/* Listening State: Active vocal focus & dynamic voice reactivity */
 .mave-presence-mark--listening .mave-presence-bar {
   fill: var(--mave-accent-listening);
-  animation: mave-listen-pulse 2s ease-in-out infinite;
+  animation: none;
+  opacity: calc(0.8 + var(--mave-energy, 0) * 0.2);
+  transition:
+    transform 120ms cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 160ms ease-out,
+    fill var(--mave-motion-normal);
+}
+
+.mave-presence-mark--listening .mave-presence-bar:nth-child(1) {
+  transform: scaleY(var(--mave-bar-left-scale, 0.65));
+}
+.mave-presence-mark--listening .mave-presence-bar:nth-child(2) {
+  transform: scaleY(var(--mave-bar-center-scale, 0.85));
+}
+.mave-presence-mark--listening .mave-presence-bar:nth-child(3) {
+  transform: scaleY(var(--mave-bar-right-scale, 0.70));
 }
 
 /* Thinking State: Harmonious wave drift */
@@ -254,16 +270,33 @@
   animation-delay: 0.4s;
 }
 
-/* Speaking State: Active luminescence */
+/* Speaking State: Speech-shaped kinetic luminescence */
 .mave-presence-mark--speaking .mave-presence-bar {
   fill: var(--mave-accent-speaking);
-  animation: mave-speak-pulse 1.8s ease-in-out infinite;
+  animation: none;
+  opacity: calc(0.75 + var(--mave-energy, 0) * 0.25);
+  transition:
+    transform 120ms cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 160ms ease-out,
+    fill var(--mave-motion-normal);
+}
+
+.mave-presence-mark--speaking .mave-presence-bar:nth-child(1) {
+  transform: scaleY(var(--mave-bar-left-scale, 0.55));
+}
+.mave-presence-mark--speaking .mave-presence-bar:nth-child(2) {
+  transform: scaleY(var(--mave-bar-center-scale, 0.75));
+}
+.mave-presence-mark--speaking .mave-presence-bar:nth-child(3) {
+  transform: scaleY(var(--mave-bar-right-scale, 0.60));
 }
 
 /* Error State: Subtle warning glow */
 .mave-presence-mark--error .mave-presence-bar {
   fill: var(--mave-accent-error);
+  animation: none;
   opacity: 0.9;
+  transform: scaleY(1);
 }
 
 /* ==========================================================================
@@ -321,8 +354,23 @@
 @media (prefers-reduced-motion: reduce) {
   .mave-presence-bar {
     animation: none !important;
-    opacity: 0.9 !important;
+    transition: fill var(--mave-motion-normal), opacity var(--mave-motion-fast) !important;
     transform: none !important;
+  }
+  .mave-presence-mark--ambient .mave-presence-bar {
+    opacity: 0.8 !important;
+  }
+  .mave-presence-mark--listening .mave-presence-bar {
+    opacity: calc(0.65 + var(--mave-energy, 0) * 0.35) !important;
+  }
+  .mave-presence-mark--thinking .mave-presence-bar {
+    opacity: 0.85 !important;
+  }
+  .mave-presence-mark--speaking .mave-presence-bar {
+    opacity: calc(0.65 + var(--mave-energy, 0) * 0.35) !important;
+  }
+  .mave-presence-mark--error .mave-presence-bar {
+    opacity: 0.9 !important;
   }
   .mave-capsule {
     transition: none !important;
@@ -348,3 +396,4 @@
   pointer-events: auto;
   max-width: 100%;
 }
+

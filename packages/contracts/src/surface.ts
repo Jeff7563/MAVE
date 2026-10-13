@@ -312,7 +312,7 @@ export const SurfacePresentationIntentSchema = z.discriminatedUnion('type', [
       'speaking',
       'interrupted',
       'error'
-    ]),
+    ]).optional(),
     inputLevel: z.number().min(0.0).max(1.0).optional(),
     outputLevel: z.number().min(0.0).max(1.0).optional(),
     transcript: SurfaceTranscriptSchema.optional(),

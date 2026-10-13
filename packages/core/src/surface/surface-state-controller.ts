@@ -277,6 +277,36 @@ export class SurfaceStateController {
     // Cancel collapse timer when voice activity resumes
     this.clearActiveTimer();
 
+    // Pure telemetry update: preserve current mode/activity, only update levels appropriate for active mode
+    if (!intent.voiceState) {
+      if (prev.mode === 'listening') {
+        const nextInputLevel = intent.inputLevel ?? prev.inputLevel;
+        if (nextInputLevel === prev.inputLevel && prev.outputLevel === 0) {
+          return prev;
+        }
+        return this.updateSnapshot({
+          inputLevel: nextInputLevel,
+          outputLevel: 0,
+          updatedAt: now
+        });
+      }
+
+      if (prev.mode === 'speaking') {
+        const nextOutputLevel = intent.outputLevel ?? prev.outputLevel;
+        if (nextOutputLevel === prev.outputLevel && prev.inputLevel === 0) {
+          return prev;
+        }
+        return this.updateSnapshot({
+          inputLevel: 0,
+          outputLevel: nextOutputLevel,
+          updatedAt: now
+        });
+      }
+
+      // In ambient, thinking, or error modes, audio level telemetry is ignored to avoid jitter
+      return prev;
+    }
+
     switch (intent.voiceState) {
       case 'sleeping': {
         this.streamingClassifier.reset();

@@ -138,7 +138,6 @@ export function voiceEventToSurfaceIntent(
     case 'audio_level':
       return {
         type: 'voice_activity',
-        voiceState: (event.outputLevel && event.outputLevel > 0) ? 'speaking' : 'listening',
         inputLevel: event.inputLevel,
         outputLevel: event.outputLevel,
         sessionId: event.sessionId,

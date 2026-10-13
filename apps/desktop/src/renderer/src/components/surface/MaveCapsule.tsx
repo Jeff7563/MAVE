@@ -78,7 +78,11 @@ export const MaveCapsule: React.FC<MaveCapsuleProps> = ({
       aria-label="MAVE Assistant"
     >
       {/* 1. Luminous Presence Mark */}
-      <PresenceMark mode={snapshot.mode} />
+      <PresenceMark
+        mode={snapshot.mode}
+        inputLevel={snapshot.inputLevel}
+        outputLevel={snapshot.outputLevel}
+      />
 
       {/* 2. Primary Brand Label */}
       <span className="mave-capsule-brand" data-testid="mave-brand-label">
@@ -130,3 +134,4 @@ export const MaveCapsule: React.FC<MaveCapsuleProps> = ({
     </div>
   );
 };
+

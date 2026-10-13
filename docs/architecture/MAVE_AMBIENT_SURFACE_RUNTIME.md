@@ -532,5 +532,43 @@ To prevent the Ambient Surface Renderer from accessing unneeded privileged contr
 - **Product-Facing Copy**: Exposes polite, calm user status descriptors (`Ready`, `Listening...`, `Thinking...`, `Speaking...`), strictly decoupling product UX from internal state machine terminology (`sleeping`, `transcribing`).
 - **Accessibility**: Marked with `aria-hidden="true"` on decorative elements, semantic `role="region"`, accessible button action triggers, and strict compliance with `prefers-reduced-motion: reduce`.
 
+---
+
+## 21. M4.4 Voice-Reactive States & Visual Energy Mapping
+
+Milestone 4.4 integrates normalized real-time audio telemetry from the Milestone 3 voice runtime into the Compact Ambient Surface, turning the static PresenceMark into a responsive, living voice presence.
+
+### 21.1 Telemetry Contract & Strict IPC Boundary
+- **Normalized Telemetry Range**: Telemetry values are strictly bounded normalized scalar energy ratings ($0.0 \le \text{inputLevel}, \text{outputLevel} \le 1.0$).
+- **No Raw Audio in Renderer**: No `AudioFrame`, PCM, `Buffer`, `Uint8Array`, or FFT calculation is ever exposed through IPC to the Surface window or developer preloads. Only scalar energy amplitude crosses the boundary.
+- **Single Source of Truth**: The Renderer never directly subscribes to `VoiceManager` or low-level audio providers. All presentation updates flow authoritatively through `SurfaceSnapshot` managed by `SurfaceStateController`.
+
+### 21.2 Visual Transfer Function & Noise-Floor Calibration
+Raw RMS values do not map linearly to pleasing visual motion due to acoustic dynamic range and ambient background noise. `computeVisualIntensity` implements a presentation-only non-linear transfer function:
+$$\text{visualIntensity} = \left(\frac{\text{clamp}(\text{level}, 0, 1) - \text{noiseGate}}{1 - \text{noiseGate}}\right)^{0.6}$$
+- **Noise Floor Suppression**: `VISUAL_NOISE_FLOOR = 0.03`. Host machine telemetry observations with the FIFINE K690 USB microphone measured quiet room ambient noise at $\approx 0.0001\text{--}0.0008$, ensuring complete suppression of background room hiss and zero jitter at rest.
+- **Speech Excursion**: Real TTS and vocal utterances measured active output levels averaging $\approx 0.08\text{--}0.09$ with peaks reaching $\approx 0.26$. The $0.6$ power curve expands speech energy dynamics for lively syllabic responsiveness.
+
+### 21.3 Coordinated 3-Bar Kinetic Dynamic Architecture
+The PresenceMark consists of 3 rounded acoustic bars rendered via SVG:
+- **Left Bar**: Medium excursion (scales from baseline up to $1.15\times$).
+- **Center Bar**: Primary vocal core (strongest excursion, scales from baseline up to $1.50\times$).
+- **Right Bar**: Staggered/alternate excursion (scales from baseline up to $1.25\times$).
+- **Capsule Geometry Bounds**: Vertical deflection is bounded such that bars never exceed the 24px SVG viewBox or clip within the 38px capsule boundary. No layout reflow or text shifting occurs.
+
+### 21.4 State Animation Ownership & Silence Handling
+- **Ambient**: Calm, organic breathing cycle (3.6s cycle). Audio telemetry is ignored to ensure the mark remains quiet while Wake owns the microphone.
+- **Listening**: User vocal energy drives the 3 bars with fast attack/release via CSS custom properties (`--mave-bar-left-scale`, `--mave-bar-center-scale`, `--mave-bar-right-scale`). During pauses in user speech, the mark relaxes to an active listening baseline ($0.65 / 0.85 / 0.70$) without collapsing to ambient.
+- **Thinking**: Autonomous harmonious wave drift (1.6s cycle). Zero audio reactivity; stale mic levels are completely ignored.
+- **Speaking**: MAVE's spoken TTS playback dynamically modulates the bars. During natural TTS pauses, the mark relaxes to a resting speaking baseline ($0.55 / 0.75 / 0.60$) without flapping back to listening or ambient mode.
+- **Interrupted (Barge-In)**: Interruption yields immediately from outputLevel to inputLevel in $< 50\text{ ms}$, instantly clearing the assistant output scale and responding to the user's microphone. Zero red error flashes.
+- **Error**: Restrained static warning state with muted coral tone (`#f87171`) and zero audio reactivity.
+
+### 21.5 CSS Compositor Smoothing & Performance
+- **Telemetry Frequency**: Audio level diagnostics are throttled at $\approx 50\text{ ms}$ ($\approx 20\text{ Hz}$).
+- **Compositor Interpolation**: The Renderer updates CSS custom properties on `.mave-presence-mark`. SVG `<rect>` elements apply `transform: scaleY(...)` with hardware-accelerated transitions (`120ms cubic-bezier(0.16, 1, 0.3, 1)`), eliminating the need for `requestAnimationFrame` loops or high-frequency IPC streaming.
+- **Reduced Motion**: Under `@media (prefers-reduced-motion: reduce)`, all physical scaling transforms and keyframe loops are disabled (`transform: none !important`), and audio energy is mapped purely to subtle opacity modulation ($\text{opacity} = 0.65 + 0.35 \times \text{energy}$).
+
+
 
 
