@@ -82,31 +82,37 @@ Deliverables:
 
 Result: Text chat creates sessions, routes providers, streams responses, persists turns, cancels cleanly, and works with both deterministic Mock and real subscription AI.
 
-## Milestone 3 — Voice Loop ← CURRENT
+## Milestone 3 — Voice Loop ✅
 
-Goal: natural wake-to-conversation flow (Spoken Voice Assistant)
+Goal: natural wake-to-conversation flow (Spoken Voice Assistant — COMPLETED in Phases M3.0–M3.10)
 
-Detailed Architecture & Implementation Spec:
+Detailed Architecture & Closeout Records:
 - [`MAVE_VOICE_ARCHITECTURE.md`](MAVE_VOICE_ARCHITECTURE.md)
 - [`MAVE_MILESTONE_3_SPEC.md`](MAVE_MILESTONE_3_SPEC.md)
+- [`MAVE_MILESTONE_3_CLOSEOUT.md`](MAVE_MILESTONE_3_CLOSEOUT.md)
 
 Phased Implementation Roadmap:
 - **M3.0 — Voice Architecture & Milestone 3 Specification** ✅
-- **M3.1 — Voice Contracts & Audio Format Baseline**
-- **M3.2 — Deterministic Mock Voice Providers**
-- **M3.3 — Streaming Text Chunker & Progressive Speech**
-- **M3.4 — VoiceSessionCoordinator Core Runtime**
-- **M3.5 — Wake $\longleftrightarrow$ Voice Handoff Integration**
-- **M3.6 — Barge-In & Interruption Pipeline**
-- **M3.7 — First Real STT Provider**
-- **M3.8 — First Real TTS Provider**
-- **M3.9 — Voice IPC Streaming & Developer Diagnostics UI**
-- **M3.10 — End-to-End Voice Loop Closeout**
+- **M3.1 — Voice Contracts & Audio Format Baseline** ✅
+- **M3.2 — Deterministic Mock Voice Providers** ✅
+- **M3.3 — Streaming Text Chunker & Progressive Speech** ✅
+- **M3.4 — VoiceSessionCoordinator Core Runtime** ✅
+- **M3.5 — Wake $\longleftrightarrow$ Voice Handoff Integration** ✅
+- **M3.6 — Barge-In & Interruption Pipeline** ✅
+- **M3.7A — Real Audio Input Provider** ✅
+- **M3.7B — First Real STT Provider (`faster-whisper`)** ✅
+- **M3.8 — First Real TTS Provider (`EdgeTTS`) & Audio Output** ✅
+- **M3.9 — Voice IPC Streaming & Developer Diagnostics UI** ✅
+- **M3.10 — End-to-End Voice Loop Closeout** ✅
+
+Result: Real spoken voice loop with zero mic overlap, bilingual transcription, progressive speech chunking, real audio output, programmatic barge-in, developer diagnostics, and 100% test pass rate.
 
 > [!IMPORTANT]
-> **Parallel Fast Brain Evaluation**: While M3 voice loop abstractions and pipeline engineering proceed, an active Fast Brain evaluation must run in parallel. Antigravity CLI provides strong real AI capability for complex work (`agent_work`), but its measured TTFT (~9–10s) is too slow for fluid voice turn-taking (target TTFT $\le 1\text{--}3$s). Natural JARVIS-like voice conversation requires a dedicated Fast Brain provider.
+> **Parallel Fast Brain & Wake V2 Tracks**: While M3 voice loop is complete and ready for M4, parallel work continues on:
+> 1. Fast Brain evaluation to bridge the ~9s TTFT gap to sub-2s conversational turn-taking.
+> 2. Wake V2 retraining for enhanced single-syllable "MAVE" recall under M1.3.
 
-## Milestone 4 — MAVE Surface
+## Milestone 4 — MAVE Surface ← CURRENT
 
 Goal: Floating UI เป็น visual center
 

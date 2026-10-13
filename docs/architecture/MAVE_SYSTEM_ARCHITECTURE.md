@@ -65,7 +65,7 @@ Stack: pnpm, Turborepo, TypeScript, Electron, React, XState, SQLite, Drizzle, Py
 
 Interaction layer ส่ง event เข้า Runtime เท่านั้น ห้ามเรียก AI provider/tool โดยตรง
 
-### 3.1 Voice Subsystem (Milestone 3)
+### 3.1 Voice Subsystem (Milestone 3 — Completed)
 
 Spoken voice interaction connects wake detection, speech recognition, reasoning, and speech synthesis:
 ```text
@@ -85,7 +85,7 @@ TTSProvider (speech synthesis)
       ↓
 AudioOutput (speaker playback + 50Hz amplitude telemetry)
 ```
-Complete specification: [`MAVE_VOICE_ARCHITECTURE.md`](MAVE_VOICE_ARCHITECTURE.md) and [`MAVE_MILESTONE_3_SPEC.md`](MAVE_MILESTONE_3_SPEC.md).
+Complete specification & closeout records: [`MAVE_VOICE_ARCHITECTURE.md`](MAVE_VOICE_ARCHITECTURE.md), [`MAVE_MILESTONE_3_SPEC.md`](MAVE_MILESTONE_3_SPEC.md), and [`MAVE_MILESTONE_3_CLOSEOUT.md`](MAVE_MILESTONE_3_CLOSEOUT.md).
 
 ## 4. Assistant Runtime
 

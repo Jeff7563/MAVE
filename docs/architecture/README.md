@@ -25,7 +25,8 @@
 - Local DB: SQLite / Drizzle
 - Wake service: Python + openWakeWord (`assets/wake/mave.onnx`)
 - Milestone 2 Complete: Provider-independent Conversation Runtime, sessions, persistence, typed IPC streaming, official Antigravity CLI adapter
-- Current focus: Milestone 3 — Voice Loop (Audio Input, STT, TTS, progressive synthesis, barge-in) + parallel Fast Brain evaluation
+- Milestone 3 Complete: End-to-end Voice Loop (Audio Input, faster-whisper STT, EdgeTTS, sounddevice playback, progressive synthesis, programmatic barge-in, developer diagnostics)
+- Current focus: Milestone 4 — MAVE Surface (Floating UI, Ambient Adaptive Surface) + parallel Fast Brain & Wake V2 evaluation
 
 ## Core Direction
 
