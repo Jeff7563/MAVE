@@ -96,12 +96,18 @@ Milestone 4 is executed in 11 disciplined engineering phases:
 
 ## 6. Deliverables per Phase
 
-### Phase M4.1 — Contracts & State Model
-- Package: `@mave/contracts`
+### Phase M4.1 — Contracts & Presentation State Model
+- Package: `@mave/contracts` & `@mave/core`
 - Deliverables:
-  - `SurfaceMode` enum (`hidden`, `ambient`, `listening`, `thinking`, `speaking`, `compact_response`, `expanded_response`, `confirmation`, `progress`, `error`, `pinned`).
-  - `SurfaceSnapshotSchema`, `SurfaceEventSchema`, `SurfaceIntentSchema`.
-  - `SURFACE_IPC_CHANNELS` constants.
+  - `SurfaceMode` enum (`hidden`, `ambient`, `listening`, `thinking`, `speaking`, `compact_response`, `expanded_response`, `confirmation`, `progress`, `error`).
+  - Presentation dimensions: `SurfaceSizeClass`, `SurfaceInteractionMode`, `SurfaceFocusIntent`, `SurfaceActivity`, `SurfaceSource`, `SurfacePriority`.
+  - Semantic content blocks: `SurfaceContentBlock` discriminated union (`text`, `markdown`, `code`, `vocabulary`, `confirmation`, `progress`, `source`, `status`).
+  - Typed schemas: `SurfaceSnapshotSchema`, `SurfaceEventSchema`, `SurfaceActionSchema`, `SurfacePresentationIntentSchema`.
+  - `SURFACE_IPC_CHANNELS` constants (`GET_SNAPSHOT`, `EVENT`, `DISPATCH_ACTION`).
+  - Presentation Engine in `@mave/core/src/surface/`:
+    - `classifyResponseContent` & `StreamingResponseClassifier`: semantic sizing and stable streaming promotion.
+    - `SurfaceStateController`: deterministic state transitions, focus-preservation security invariant, priority arbitration, auto-collapse policies.
+    - `VoiceSurfaceAdapter`: decoupled translation of M3 voice diagnostics into surface presentation intents.
 
 ### Phase M4.2 — Surface Window Runtime Foundation
 - Package: `apps/desktop/src/main/surface/`
@@ -268,3 +274,4 @@ The following items are deferred to future milestones:
 - **Milestone 6**: Long-term memory cards and personal knowledge search panels.
 - **Milestone 7**: Interactive vocabulary flashcards and language learning analytics panels.
 - **Advanced Visual Polish**: Native Windows 11 Acrylic/Mica glassmorphism shaders (evaluated post-M4 baseline).
+

@@ -442,3 +442,4 @@ The following 10 invariants are permanent and must never be violated in Mileston
 1. *Native OS Blur/Vibrancy*: Windows 11 Acrylic/Mica effect support vs standard high-performance transparent dark CSS styling (evaluate in M4.2).
 2. *User Drag-and-Snap*: Allow user to freely drag the capsule across screen edges, or lock firmly to bottom-right (evaluate in M4.8).
 3. *Global Hotkey Summon*: Register global shortcut (e.g. `Ctrl+Space` or `Win+Shift+M`) to summon MAVE without voice (evaluate in M4.8).
+
