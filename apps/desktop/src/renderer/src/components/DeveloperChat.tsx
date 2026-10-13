@@ -8,6 +8,7 @@ import {
 
 export const DeveloperChat: React.FC = () => {
   const [state, dispatch] = useReducer(chatReducer, initialChatState);
+  const [selectedProvider, setSelectedProvider] = React.useState<string>('mock');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const activeRequestIdRef = useRef<string | null>(null);
 
@@ -75,7 +76,8 @@ export const DeveloperChat: React.FC = () => {
       const response = await window.mave.chat.send({
         requestId,
         message: text.trim(),
-        sessionId: state.sessionId
+        sessionId: state.sessionId,
+        preferredProviderId: selectedProvider
       });
 
       if (response.accepted) {
@@ -153,6 +155,20 @@ export const DeveloperChat: React.FC = () => {
     <div className="card developer-chat" data-testid="developer-chat-card">
       <div className="developer-controls">
         <h2>Developer Text Chat (M2)</h2>
+        <div className="provider-selector-row">
+          <label htmlFor="provider-select" className="control-label">Provider:</label>
+          <select
+            id="provider-select"
+            data-testid="chat-select-provider"
+            className="chat-provider-select"
+            value={selectedProvider}
+            onChange={(e) => setSelectedProvider(e.target.value)}
+            disabled={state.isStreaming}
+          >
+            <option value="mock">mock (Deterministic)</option>
+            <option value="antigravity">antigravity (Google Antigravity CLI)</option>
+          </select>
+        </div>
       </div>
 
       {!ipcAvailable && (

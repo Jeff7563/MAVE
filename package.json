@@ -13,10 +13,12 @@
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
+    "test:antigravity:live": "tsx scripts/test-antigravity-live.ts",
     "test:e2e": "turbo run test:e2e --filter=@mave/desktop",
     "clean": "turbo run clean"
   },
   "devDependencies": {
+    "tsx": "^4.23.15",
     "turbo": "^2.4.4",
     "typescript": "^5.8.2"
   },

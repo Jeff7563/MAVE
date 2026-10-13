@@ -3,7 +3,13 @@ export {
   OpenWakeWordProvider,
   type OpenWakeWordProviderOptions
 } from './wake/openwakeword.js';
-export { MockBrainProvider, type MockBrainOptions } from './brain/index.js';
+export {
+  MockBrainProvider,
+  type MockBrainOptions,
+  AntigravityBrainProvider,
+  type AntigravityBrainProviderOptions,
+  type SpawnFactory
+} from './brain/index.js';
 
 import type { VoiceProvider } from '@mave/contracts';
 import { createLogger } from '@mave/shared';

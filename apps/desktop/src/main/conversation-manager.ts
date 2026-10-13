@@ -1,5 +1,7 @@
 import { randomUUID } from 'node:crypto';
-import type { BrowserWindow } from 'electron';
+import fs from 'node:fs';
+import path from 'node:path';
+import { app, type BrowserWindow } from 'electron';
 import {
   CHAT_IPC_CHANNELS,
   ChatCancelRequestSchema,
@@ -22,7 +24,7 @@ import {
 } from '@mave/core';
 import type { MaveDatabase } from '@mave/database';
 import { SQLiteConversationStore } from '@mave/database';
-import { MockBrainProvider } from '@mave/providers';
+import { MockBrainProvider, AntigravityBrainProvider } from '@mave/providers';
 import { createLogger } from '@mave/shared';
 
 const logger = createLogger({ name: 'mave:conversation-manager' });
@@ -79,6 +81,8 @@ export interface ConversationManagerOptions {
   router?: BrainRouter;
   providerRegistry?: BrainProviderRegistry;
   mockProvider?: MockBrainProvider;
+  antigravityProvider?: AntigravityBrainProvider;
+  antigravityWorkspaceDir?: string;
   store?: ConversationStore;
   sessionManager?: SessionManager;
 }
@@ -92,6 +96,7 @@ export class ConversationManager {
   private readonly store: ConversationStore;
   private readonly providerRegistry: BrainProviderRegistry;
   private readonly mockProvider: MockBrainProvider;
+  private readonly antigravityProvider: AntigravityBrainProvider;
   private readonly router: BrainRouter;
   private readonly sessionManager: SessionManager;
   private readonly contextManager: ContextManager;
@@ -110,11 +115,35 @@ export class ConversationManager {
     // 1. ConversationStore (SQLite)
     this.store = options.store ?? new SQLiteConversationStore(this.database);
 
-    // 2. Provider Registry & Mock Brain Provider
+    // 2. Provider Registry & Brain Providers
     this.providerRegistry = options.providerRegistry ?? new BrainProviderRegistry();
     this.mockProvider = options.mockProvider ?? new MockBrainProvider();
     if (!this.providerRegistry.has(this.mockProvider.id)) {
       this.providerRegistry.register(this.mockProvider);
+    }
+
+    let defaultAntigravityDir: string;
+    try {
+      defaultAntigravityDir = app?.getPath
+        ? path.join(app.getPath('userData'), 'brain-workspaces', 'antigravity')
+        : path.join(process.cwd(), '.tmp', 'brain-workspaces', 'antigravity');
+    } catch {
+      defaultAntigravityDir = path.join(process.cwd(), '.tmp', 'brain-workspaces', 'antigravity');
+    }
+
+    const workingDirectory = options.antigravityWorkspaceDir ?? defaultAntigravityDir;
+    try {
+      fs.mkdirSync(workingDirectory, { recursive: true });
+    } catch (err) {
+      logger.warn({ err, workingDirectory }, 'Could not ensure antigravity working directory exists');
+    }
+
+    this.antigravityProvider =
+      options.antigravityProvider ??
+      new AntigravityBrainProvider({ workingDirectory });
+
+    if (!this.providerRegistry.has(this.antigravityProvider.id)) {
+      this.providerRegistry.register(this.antigravityProvider);
     }
 
     // 3. Brain Router (default provider: 'mock')
@@ -142,7 +171,7 @@ export class ConversationManager {
         defaultTimeoutMs: this.timeoutMs
       });
 
-    logger.info('ConversationManager initialized with MockBrainProvider and SQLite store');
+    logger.info('ConversationManager initialized with MockBrainProvider, AntigravityBrainProvider and SQLite store');
   }
 
   setMainWindowGetter(getter: () => BrowserWindow | null): void {
@@ -167,6 +196,10 @@ export class ConversationManager {
 
   getMockProvider(): MockBrainProvider {
     return this.mockProvider;
+  }
+
+  getAntigravityProvider(): AntigravityBrainProvider {
+    return this.antigravityProvider;
   }
 
   getSessionManager(): SessionManager {
