@@ -12,6 +12,7 @@ export interface WakeManagerOptions {
   provider?: WakeWordProvider;
   useMockProvider?: boolean;
   rootDir?: string;
+  pythonExecutable?: string;
   rearmGuardMs?: number;
   onWakeDetected?: () => Promise<void> | void;
   autoManageCapture?: boolean;
@@ -41,23 +42,33 @@ export class WakeManager {
 
     if (options.provider) {
       this.provider = options.provider;
-    } else if (options.useMockProvider || process.env['NODE_ENV'] === 'test') {
+    } else if (options.useMockProvider ?? (process.env['NODE_ENV'] === 'test')) {
       this.provider = new MockWakeWordProvider();
     } else {
       const persistedDevice = this.getPersistedSetting('wake.microphoneDeviceIndex');
       const persistedThreshold =
         this.getPersistedSetting('wake.threshold') ?? this.getPersistedSetting('wake.sensitivity');
+      const persistedPython = this.getPersistedSetting('wake.pythonExecutable');
 
       this.provider = new OpenWakeWordProvider({
         deviceIndex: persistedDevice !== null ? parseInt(persistedDevice, 10) : -1,
         threshold: persistedThreshold !== null ? parseFloat(persistedThreshold) : 0.5,
-        rootDir: options.rootDir
+        rootDir: options.rootDir,
+        pythonExecutable: options.pythonExecutable ?? (persistedPython || undefined)
       });
     }
   }
 
   async initialize(): Promise<void> {
     logger.info('initializing wake manager lifecycle coordinator');
+
+    if (
+      'getResolvedPythonExecutable' in this.provider &&
+      typeof (this.provider as any).getResolvedPythonExecutable === 'function'
+    ) {
+      const pythonExecutable = (this.provider as any).getResolvedPythonExecutable();
+      logger.info({ pythonExecutable }, 'wake.python.resolved');
+    }
 
     // 1. Hook wake detection -> state machine transition with guards
     this.unsubscribeWake = this.provider.onWake(async () => {

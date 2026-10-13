@@ -290,4 +290,21 @@ describe('WakeManager Lifecycle & State Machine Coordinator', () => {
 
     await manager.dispose();
   });
+
+  it('instantiates OpenWakeWordProvider with pythonExecutable when not using mock', async () => {
+    const manager = new WakeManager({
+      service,
+      database: mockDb,
+      useMockProvider: false,
+      pythonExecutable: 'C:\\custom\\env\\python.exe',
+      rootDir: 'C:\\fake\\dir'
+    });
+
+    const provider = manager.getProvider();
+    expect(provider).toBeDefined();
+    if ('getResolvedPythonExecutable' in provider) {
+      expect((provider as any).getResolvedPythonExecutable()).toBe('C:\\custom\\env\\python.exe');
+    }
+    await manager.dispose();
+  });
 });

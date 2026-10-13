@@ -1,4 +1,5 @@
 import { spawn, type ChildProcess } from 'node:child_process';
+import fs from 'node:fs';
 import path from 'node:path';
 import readline from 'node:readline';
 import type {
@@ -9,6 +10,73 @@ import type {
 } from '@mave/contracts';
 import { createLogger } from '@mave/shared';
 
+export interface ResolvePythonOptions {
+  pythonExecutable?: string;
+  rootDir?: string;
+  env?: Record<string, string | undefined>;
+  platform?: NodeJS.Platform;
+  fsExistsFn?: (filePath: string) => boolean;
+}
+
+export function findRepoRoot(
+  startDir: string,
+  existsFn: (filePath: string) => boolean = fs.existsSync,
+  platform: NodeJS.Platform = process.platform
+): string {
+  const pathLib = platform === 'win32' ? path.win32 : path.posix;
+  let curr = pathLib.resolve(startDir);
+  while (true) {
+    if (
+      existsFn(pathLib.join(curr, 'services', 'wake')) ||
+      existsFn(pathLib.join(curr, 'pnpm-workspace.yaml'))
+    ) {
+      return curr;
+    }
+    const parent = pathLib.dirname(curr);
+    if (parent === curr) break;
+    curr = parent;
+  }
+  return pathLib.resolve(startDir);
+}
+
+export function resolveWakePythonExecutable(options?: ResolvePythonOptions): string {
+  // 1. Explicit option
+  if (options?.pythonExecutable && options.pythonExecutable.trim().length > 0) {
+    return options.pythonExecutable.trim();
+  }
+
+  // 2. Environment override
+  const env = options?.env ?? process.env;
+  const envPython = env['MAVE_WAKE_PYTHON'];
+  if (envPython && envPython.trim().length > 0) {
+    return envPython.trim();
+  }
+
+  // 3. Repository-local Wake virtual environment
+  const platform = options?.platform ?? process.platform;
+  const existsFn = options?.fsExistsFn ?? fs.existsSync;
+  const pathLib = platform === 'win32' ? path.win32 : path.posix;
+
+  const rawRootDir = options?.rootDir;
+  const rootDir = rawRootDir
+    ? pathLib.resolve(rawRootDir)
+    : findRepoRoot(process.cwd(), existsFn, platform);
+
+  const venvRelPath =
+    platform === 'win32'
+      ? pathLib.join('services', 'wake', '.venv', 'Scripts', 'python.exe')
+      : pathLib.join('services', 'wake', '.venv', 'bin', 'python');
+
+  const venvFullPath = pathLib.resolve(rootDir, venvRelPath);
+
+  if (existsFn(venvFullPath)) {
+    return venvFullPath;
+  }
+
+  // 4. Fallback to system Python
+  return platform === 'win32' ? 'python' : 'python3';
+}
+
 export interface OpenWakeWordProviderOptions {
   modelPath?: string;
   threshold?: number;
@@ -16,6 +84,9 @@ export interface OpenWakeWordProviderOptions {
   pythonExecutable?: string;
   rootDir?: string;
   spawnFn?: (command: string, args: string[], options: any) => ChildProcess;
+  fsExistsFn?: (filePath: string) => boolean;
+  platform?: NodeJS.Platform;
+  env?: Record<string, string | undefined>;
 }
 
 export class OpenWakeWordProvider implements WakeWordProvider {
@@ -58,17 +129,24 @@ export class OpenWakeWordProvider implements WakeWordProvider {
   }
 
   private resolvePythonPath(): string {
-    if (this.options.pythonExecutable) {
-      return this.options.pythonExecutable;
-    }
-    return process.platform === 'win32' ? 'python' : 'python3';
+    return resolveWakePythonExecutable({
+      pythonExecutable: this.options.pythonExecutable,
+      rootDir: this.options.rootDir,
+      env: this.options.env,
+      platform: this.options.platform,
+      fsExistsFn: this.options.fsExistsFn
+    });
   }
 
   private resolveRootDir(): string {
     if (this.options.rootDir) {
       return this.options.rootDir;
     }
-    return path.resolve(process.cwd());
+    return findRepoRoot(process.cwd(), this.options.fsExistsFn, this.options.platform);
+  }
+
+  public getResolvedPythonExecutable(): string {
+    return this.resolvePythonPath();
   }
 
   private ensureProcessStarted(): Promise<void> {
@@ -99,6 +177,11 @@ export class OpenWakeWordProvider implements WakeWordProvider {
       }
 
       this.logger.info(
+        { pythonExecutable: pythonExe, rootDir },
+        'wake.python.resolved'
+      );
+
+      this.logger.info(
         { pythonExe, modelPath, threshold: this.threshold },
         'wake.supervisor.spawning_service'
       );
@@ -108,6 +191,7 @@ export class OpenWakeWordProvider implements WakeWordProvider {
         cwd: rootDir,
         env: {
           ...process.env,
+          ...this.options.env,
           PYTHONPATH: wakeSrcDir
         },
         stdio: ['pipe', 'pipe', 'pipe']

@@ -1,7 +1,10 @@
 export { MockWakeWordProvider, type MockWakeWordProviderOptions } from './wake/mock.js';
 export {
   OpenWakeWordProvider,
-  type OpenWakeWordProviderOptions
+  type OpenWakeWordProviderOptions,
+  resolveWakePythonExecutable,
+  findRepoRoot,
+  type ResolvePythonOptions
 } from './wake/openwakeword.js';
 export {
   MockBrainProvider,

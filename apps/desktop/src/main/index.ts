@@ -119,7 +119,8 @@ app.whenReady().then(async () => {
       service: maveService,
       database: maveDatabase,
       useMockProvider: process.env['NODE_ENV'] === 'test' || process.env['MAVE_MOCK_WAKE'] === '1',
-      rootDir: path.resolve(__dirname, '../../../..')
+      rootDir: path.resolve(__dirname, '../../../..'),
+      pythonExecutable: process.env['MAVE_WAKE_PYTHON']
     });
     await wakeManager.initialize();
 

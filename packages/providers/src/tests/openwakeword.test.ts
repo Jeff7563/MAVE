@@ -3,7 +3,11 @@ import { EventEmitter } from 'node:events';
 import { PassThrough } from 'node:stream';
 import type { ChildProcess } from 'node:child_process';
 import { MockWakeWordProvider } from '../wake/mock.js';
-import { OpenWakeWordProvider } from '../wake/openwakeword.js';
+import {
+  OpenWakeWordProvider,
+  resolveWakePythonExecutable,
+  findRepoRoot
+} from '../wake/openwakeword.js';
 
 class MockChildProcess extends EventEmitter {
   public stdout = new PassThrough();
@@ -352,6 +356,123 @@ describe('OpenWakeWordProvider Supervisor & Protocol', () => {
     expect(diag.latestScore).toBe(0.35);
     expect(diag.peakScore).toBe(0.49);
     expect(diag.lastWakeScore).toBe(0.88);
+  });
+});
+
+describe('resolveWakePythonExecutable & Interpreter Resolution', () => {
+  it('1. explicit pythonExecutable wins over environment override and local venv', () => {
+    const result = resolveWakePythonExecutable({
+      pythonExecutable: 'C:\\custom\\explicit\\python.exe',
+      env: { MAVE_WAKE_PYTHON: 'C:\\env\\python.exe' },
+      rootDir: 'C:\\mock\\repo',
+      platform: 'win32',
+      fsExistsFn: () => true
+    });
+    expect(result).toBe('C:\\custom\\explicit\\python.exe');
+  });
+
+  it('2. MAVE_WAKE_PYTHON environment override wins when explicit option absent', () => {
+    const result = resolveWakePythonExecutable({
+      env: { MAVE_WAKE_PYTHON: '/opt/custom/bin/python' },
+      rootDir: '/mock/repo',
+      platform: 'linux',
+      fsExistsFn: () => true
+    });
+    expect(result).toBe('/opt/custom/bin/python');
+  });
+
+  it('3. Windows local Wake .venv is selected when present', () => {
+    const checkedPaths: string[] = [];
+    const result = resolveWakePythonExecutable({
+      rootDir: 'D:\\project\\MAVE',
+      platform: 'win32',
+      fsExistsFn: (p) => {
+        checkedPaths.push(p);
+        return p.includes('services\\wake\\.venv\\Scripts\\python.exe');
+      }
+    });
+    expect(result).toBe('D:\\project\\MAVE\\services\\wake\\.venv\\Scripts\\python.exe');
+    expect(checkedPaths.some((p) => p.includes('Scripts\\python.exe'))).toBe(true);
+  });
+
+  it('4. Unix local Wake .venv path is selected when present', () => {
+    const checkedPaths: string[] = [];
+    const result = resolveWakePythonExecutable({
+      rootDir: '/workspace/MAVE',
+      platform: 'linux',
+      fsExistsFn: (p) => {
+        checkedPaths.push(p);
+        return p.includes('services/wake/.venv/bin/python');
+      }
+    });
+    expect(result).toBe('/workspace/MAVE/services/wake/.venv/bin/python');
+    expect(checkedPaths.some((p) => p.includes('bin/python'))).toBe(true);
+  });
+
+  it('5. fallback to python on Windows when local venv does not exist', () => {
+    const result = resolveWakePythonExecutable({
+      rootDir: 'E:\\project\\MAVE',
+      platform: 'win32',
+      fsExistsFn: () => false
+    });
+    expect(result).toBe('python');
+  });
+
+  it('5. fallback to python3 on Unix/macOS when local venv does not exist', () => {
+    const linuxResult = resolveWakePythonExecutable({
+      rootDir: '/var/empty',
+      platform: 'linux',
+      fsExistsFn: () => false
+    });
+    expect(linuxResult).toBe('python3');
+
+    const macResult = resolveWakePythonExecutable({
+      rootDir: '/var/empty',
+      platform: 'darwin',
+      fsExistsFn: () => false
+    });
+    expect(macResult).toBe('python3');
+  });
+
+  it('6. spawn receives the resolved executable in OpenWakeWordProvider', async () => {
+    let spawnedCommand = '';
+    const mockP = new MockChildProcess();
+
+    const provider = new OpenWakeWordProvider({
+      modelPath: 'assets/wake/mave.onnx',
+      rootDir: 'C:\\fake\\root',
+      platform: 'win32',
+      fsExistsFn: (p) => p.includes('Scripts\\python.exe'),
+      spawnFn: (command) => {
+        spawnedCommand = command;
+        setTimeout(() => {
+          mockP.sendStdoutLine({
+            type: 'status',
+            status: 'ready',
+            device: 'Mock Mic',
+            threshold: 0.5,
+            model_loaded: true
+          });
+        }, 5);
+        return mockP as unknown as ChildProcess;
+      }
+    });
+
+    await provider.start();
+    expect(spawnedCommand).toBe('C:\\fake\\root\\services\\wake\\.venv\\Scripts\\python.exe');
+    expect(provider.getResolvedPythonExecutable()).toBe(
+      'C:\\fake\\root\\services\\wake\\.venv\\Scripts\\python.exe'
+    );
+    await provider.dispose();
+  });
+
+  it('findRepoRoot walks up directory tree to locate repository root', () => {
+    const root = findRepoRoot(
+      '/workspace/project/packages/providers',
+      (p) => p.replace(/\\/g, '/') === '/workspace/project/services/wake',
+      'linux'
+    );
+    expect(root).toBe('/workspace/project');
   });
 });
 
