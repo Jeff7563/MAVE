@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mave-stt"
+version = "0.1.0"
+description = "MAVE local faster-whisper speech-to-text service"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "faster-whisper>=1.0.0",
+    "sounddevice>=0.4.6",
+    "numpy>=1.22.0"
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest>=7.0.0"
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src", "."]

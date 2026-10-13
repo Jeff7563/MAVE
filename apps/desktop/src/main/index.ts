@@ -11,7 +11,9 @@ import { ConversationManager } from './conversation-manager.js';
 import { VoiceManager } from './voice-manager.js';
 import {
   SounddeviceAudioInputProvider,
-  MockAudioInputProvider
+  MockAudioInputProvider,
+  FasterWhisperSTTProvider,
+  MockSTTProvider
 } from '@mave/providers';
 
 const logger = createLogger({ name: 'mave:main' });
@@ -149,11 +151,21 @@ app.whenReady().then(async () => {
               pythonExecutable: process.env['MAVE_WAKE_PYTHON']
             });
 
+      const stt =
+        process.env['NODE_ENV'] === 'test' || process.env['MAVE_MOCK_STT'] === '1'
+          ? new MockSTTProvider()
+          : new FasterWhisperSTTProvider({
+              rootDir: path.resolve(__dirname, '../../../..'),
+              pythonExecutable: process.env['MAVE_STT_PYTHON'],
+              model: process.env['MAVE_STT_MODEL'] ?? 'large-v3-turbo'
+            });
+
       voiceManager = new VoiceManager({
         service: maveService,
         wakeManager,
         conversationRuntime: conversationManager.getRuntime(),
-        audioInput
+        audioInput,
+        stt
       });
       await voiceManager.start();
       logger.info('voice manager initialized and started');
