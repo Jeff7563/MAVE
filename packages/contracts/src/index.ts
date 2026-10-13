@@ -5,3 +5,7 @@ export * from './providers.js';
 export * from './brain.js';
 export * from './session.js';
 export * from './chat.js';
+export * from './audio.js';
+export * from './stt.js';
+export * from './tts.js';
+export * from './voice.js';
