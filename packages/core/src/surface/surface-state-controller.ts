@@ -291,6 +291,14 @@ export class SurfaceStateController {
         });
       }
 
+      case 'user_activity':
+      case 'open_link':
+      case 'open_source':
+      case 'copy_text': {
+        this.resetInactivityTimer();
+        return prev;
+      }
+
       default:
         return prev;
     }

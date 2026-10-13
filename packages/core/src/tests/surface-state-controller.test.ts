@@ -862,6 +862,125 @@ describe('SurfaceStateController', () => {
       clock.tick(30000);
       expect(controller.getSnapshot().mode).toBe('ambient');
     });
+
+    it('semantics-first: 80-char code block expands immediately', () => {
+      const controller = new SurfaceStateController();
+      const codeSnippet = '```ts\nconst x = 42;\nconsole.log(x);\n```';
+      expect(codeSnippet.length).toBeLessThan(100);
+
+      const snap = controller.applyIntent({
+        type: 'show_response',
+        text: codeSnippet
+      });
+
+      expect(snap.mode).toBe('expanded_response');
+      expect(snap.sizeClass).toBe('expanded');
+    });
+
+    it('semantics-first: 180-char markdown table expands immediately', () => {
+      const controller = new SurfaceStateController();
+      const tableMarkdown = '| Feature | Status |\n|---|---|\n| Wake | Done |\n| STT | Done |\n| TTS | Done |\n';
+      expect(tableMarkdown.length).toBeLessThan(200);
+
+      const snap = controller.applyIntent({
+        type: 'show_response',
+        text: tableMarkdown
+      });
+
+      expect(snap.mode).toBe('expanded_response');
+      expect(snap.sizeClass).toBe('expanded');
+    });
+
+    it('semantics-first: 320-char plain conversational paragraph stays in compact card', () => {
+      const controller = new SurfaceStateController();
+      // 320 characters of plain natural prose without markdown fences or lists
+      const longProse = 'In Milestone 4 we focus on the MAVE ambient surface architecture, ensuring that short conversational responses remain cleanly legible within the compact desktop card envelope while preserving strictly anchored bottom-right geometry, zero keyboard focus stealing, and fluid hardware-accelerated transitions.';
+      expect(longProse.length).toBeGreaterThan(300);
+      expect(longProse.length).toBeLessThan(380);
+
+      const snap = controller.applyIntent({
+        type: 'show_response',
+        text: longProse
+      });
+
+      expect(snap.mode).toBe('compact_response');
+      expect(snap.sizeClass).toBe('card');
+    });
+
+    it('semantics-first: confirmation mode is preserved regardless of text length', () => {
+      const controller = new SurfaceStateController();
+      const longDesc = 'A'.repeat(500);
+
+      const snap = controller.applyIntent({
+        type: 'show_confirmation',
+        confirmation: {
+          id: 'conf-1',
+          type: 'confirmation',
+          actionId: 'exec-1',
+          title: 'Execute Command',
+          description: longDesc,
+          risk: 'high',
+          confirmLabel: 'Approve',
+          rejectLabel: 'Deny'
+        }
+      });
+
+      expect(snap.mode).toBe('confirmation');
+      expect(snap.sizeClass).toBe('card');
+    });
+
+    it('user_activity action resets auto-collapse countdown without modifying other state', () => {
+      const clock = createMockClock();
+      const controller = new SurfaceStateController({ clock, enableTimers: true });
+
+      controller.applyIntent({
+        type: 'voice_activity',
+        voiceState: 'speaking',
+        assistantText: 'Test response',
+        isSpeakingFinished: true
+      });
+
+      expect(controller.getSnapshot().mode).toBe('compact_response');
+
+      // Advance 20 seconds
+      clock.tick(20000);
+      expect(controller.getSnapshot().mode).toBe('compact_response');
+
+      // User scrolls / interacts -> emits user_activity
+      controller.dispatchAction({ type: 'user_activity', origin: 'user' });
+
+      // Advance another 20 seconds (total 40s from start, but only 20s from reset)
+      clock.tick(20000);
+      // Still compact_response because timer was reset!
+      expect(controller.getSnapshot().mode).toBe('compact_response');
+
+      // Advance remaining 10 seconds (total 30s from reset)
+      clock.tick(10000);
+      // Now auto-collapses to ambient
+      expect(controller.getSnapshot().mode).toBe('ambient');
+    });
+
+    it('expanded response uses canonical 120-second auto-collapse timeout', () => {
+      const clock = createMockClock();
+      const controller = new SurfaceStateController({ clock, enableTimers: true });
+
+      const snap = controller.applyIntent({
+        type: 'show_response',
+        text: '```ts\nconst x = 1;\n```'
+      });
+
+      expect(snap.mode).toBe('expanded_response');
+      expect(snap.sizeClass).toBe('expanded');
+      expect(snap.autoCollapse?.afterMs).toBe(120000);
+
+      // Advance 60s -> still expanded
+      clock.tick(60000);
+      expect(controller.getSnapshot().mode).toBe('expanded_response');
+
+      // Advance another 60s -> 120s total -> auto-collapses to ambient
+      clock.tick(60000);
+      expect(controller.getSnapshot().mode).toBe('ambient');
+    });
   });
 });
 

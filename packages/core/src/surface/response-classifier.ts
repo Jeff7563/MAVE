@@ -14,7 +14,7 @@ export interface ClassificationResult {
   reason: string;
 }
 
-export const MAX_COMPACT_CHAR_COUNT = 280;
+export const MAX_COMPACT_CHAR_COUNT = 340;
 
 /**
  * Regex to detect markdown fenced code blocks (complete or incomplete during streaming).
@@ -181,6 +181,19 @@ export function classifyResponseContent(input: {
     };
   }
 
+  // 5b. Check for markdown lists / structured bullet points
+  const hasStructuredList = /(?:^|\n)\s*(?:[*-]|\d+\.)\s+\S+/.test(text);
+  if (hasStructuredList) {
+    return {
+      mode: 'expanded_response',
+      sizeClass: 'expanded',
+      priority: input.priority || 'normal',
+      blocks,
+      isExpanded: true,
+      reason: 'contains_structured_list'
+    };
+  }
+
   // 6. Check for multiple citations / sources
   const sourceCount = blocks.filter((b) => b.type === 'source').length;
   if (sourceCount >= 2) {
@@ -194,20 +207,21 @@ export function classifyResponseContent(input: {
     };
   }
 
-  // 7. Check length thresholds & paragraph density
-  const trimmed = text.trim();
-  const paragraphs = trimmed.split(/\n\s*\n/).filter((p) => p.trim().length > 0);
-
-  if (trimmed.length > MAX_COMPACT_CHAR_COUNT) {
+  // 6b. Check for multiple structured blocks (e.g. text + source + source, or >= 3 blocks)
+  if (blocks.length >= 3) {
     return {
       mode: 'expanded_response',
       sizeClass: 'expanded',
       priority: input.priority || 'normal',
       blocks,
       isExpanded: true,
-      reason: `character_count_exceeded_${trimmed.length}`
+      reason: 'multiple_structured_blocks'
     };
   }
+
+  // 7. Check length thresholds & paragraph density (Content Semantics First)
+  const trimmed = text.trim();
+  const paragraphs = trimmed.split(/\n\s*\n/).filter((p) => p.trim().length > 0);
 
   if (paragraphs.length >= 3) {
     return {
@@ -217,6 +231,17 @@ export function classifyResponseContent(input: {
       blocks,
       isExpanded: true,
       reason: 'multiple_paragraphs'
+    };
+  }
+
+  if (trimmed.length > MAX_COMPACT_CHAR_COUNT) {
+    return {
+      mode: 'expanded_response',
+      sizeClass: 'expanded',
+      priority: input.priority || 'normal',
+      blocks,
+      isExpanded: true,
+      reason: `character_count_exceeded_${trimmed.length}`
     };
   }
 

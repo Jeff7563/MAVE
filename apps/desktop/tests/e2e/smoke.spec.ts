@@ -1,6 +1,22 @@
 import { test, expect, _electron as electron } from '@playwright/test';
 import path from 'node:path';
 
+async function getDevWindow(electronApp: any) {
+  const first = await electronApp.firstWindow();
+  await first.waitForLoadState('domcontentloaded');
+  if (!first.url().includes('view=surface')) {
+    return first;
+  }
+  const other = (await electronApp.windows()).find((w: any) => !w.url().includes('view=surface'));
+  if (other) {
+    await other.waitForLoadState('domcontentloaded');
+    return other;
+  }
+  const next = await electronApp.waitForEvent('window');
+  await next.waitForLoadState('domcontentloaded');
+  return next;
+}
+
 test('Electron desktop smoke test: Milestone 1 local wake word, diagnostics, and lifecycle', async () => {
   // Launch Electron application with built main script
   const mainScript = path.resolve(__dirname, '../../dist/main/index.js');
@@ -17,8 +33,7 @@ test('Electron desktop smoke test: Milestone 1 local wake word, diagnostics, and
   });
 
   try {
-    const window = await electronApp.firstWindow();
-    await window.waitForLoadState('domcontentloaded');
+    const window = await getDevWindow(electronApp);
 
     // 1. Verify MAVE heading is visible
     const title = window.locator('[data-testid="app-title"]');
@@ -131,8 +146,7 @@ test('Electron desktop smoke test: Milestone 2 developer text chat streaming and
   });
 
   try {
-    const window = await electronApp.firstWindow();
-    await window.waitForLoadState('domcontentloaded');
+    const window = await getDevWindow(electronApp);
 
     // 1. Verify Developer Chat card and controls are visible
     const chatCard = window.locator('[data-testid="developer-chat-card"]');
@@ -204,8 +218,7 @@ test('Electron desktop smoke test: Milestone 3 wake to voice handoff end-to-end 
   });
 
   try {
-    const window = await electronApp.firstWindow();
-    await window.waitForLoadState('domcontentloaded');
+    const window = await getDevWindow(electronApp);
 
     const status = window.locator('[data-testid="assistant-status"]');
     const wakeStatus = window.locator('[data-testid="wake-status"]');

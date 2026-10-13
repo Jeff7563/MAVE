@@ -1,4 +1,4 @@
-import { BrowserWindow, screen, type Display } from 'electron';
+import { BrowserWindow, screen, shell, clipboard, type Display } from 'electron';
 import {
   SURFACE_IPC_CHANNELS,
   type SurfaceSnapshot,
@@ -346,6 +346,35 @@ export class SurfaceWindowManager {
    */
   public dispatchAction(action: SurfaceAction): { success: boolean; error?: string } {
     try {
+      if (action.type === 'open_link' || action.type === 'open_source') {
+        const urlToOpen = action.url;
+        if (urlToOpen) {
+          try {
+            const parsed = new URL(urlToOpen);
+            if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+              shell.openExternal(urlToOpen);
+              this.controller.dispatchAction(action);
+              return { success: true };
+            } else {
+              this.logger.warn({ url: urlToOpen, protocol: parsed.protocol }, 'rejected non-http(s) URL scheme');
+              return { success: false, error: 'Rejected non-http(s) URL scheme' };
+            }
+          } catch (urlErr: any) {
+            this.logger.warn({ url: urlToOpen, err: urlErr }, 'invalid URL scheme');
+            return { success: false, error: 'Invalid URL' };
+          }
+        }
+      }
+
+      if (action.type === 'copy_text') {
+        if (typeof action.text === 'string' && action.text.length <= 100000) {
+          clipboard.writeText(action.text);
+          this.controller.dispatchAction(action);
+          return { success: true };
+        }
+        return { success: false, error: 'Payload exceeds maximum copy length' };
+      }
+
       this.controller.dispatchAction(action);
       return { success: true };
     } catch (err: any) {

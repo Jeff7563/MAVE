@@ -8,6 +8,12 @@ import {
 } from '../src/renderer/src/components/surface/PresenceMark';
 import { MaveCapsule } from '../src/renderer/src/components/surface/MaveCapsule';
 import { MaveCompactResponse } from '../src/renderer/src/components/surface/MaveCompactResponse';
+import {
+  MaveMarkdownRenderer,
+  isSafeWebUrl
+} from '../src/renderer/src/components/surface/MaveMarkdownRenderer';
+import { MaveContentBlockRenderer } from '../src/renderer/src/components/surface/MaveContentBlockRenderer';
+import { MaveExpandedPanel } from '../src/renderer/src/components/surface/MaveExpandedPanel';
 import { SurfaceView } from '../src/renderer/src/components/surface/SurfaceView';
 
 function createSnapshot(overrides: Partial<SurfaceSnapshot> = {}): SurfaceSnapshot {
@@ -445,6 +451,165 @@ describe('M4.3 Compact Ambient Surface Components', () => {
       expect(html).toContain('data-testid="mave-compact-response"');
       expect(html).toContain('Here is your answer.');
       expect(html).toContain('data-testid="mave-brand-label"');
+    });
+  });
+
+  describe('Milestone 4.7 Expanded Context Panel & Rich Content Presentation', () => {
+    describe('isSafeWebUrl helper', () => {
+      it('approves https and http schemes', () => {
+        expect(isSafeWebUrl('https://example.com')).toBe(true);
+        expect(isSafeWebUrl('https://api.github.com/repos')).toBe(true);
+        expect(isSafeWebUrl('http://localhost:3000')).toBe(true);
+      });
+
+      it('rejects dangerous and non-http schemes', () => {
+        expect(isSafeWebUrl('javascript:alert(1)')).toBe(false);
+        expect(isSafeWebUrl('file:///etc/passwd')).toBe(false);
+        expect(isSafeWebUrl('data:text/html,<script>alert(1)</script>')).toBe(false);
+        expect(isSafeWebUrl('vbscript:msgbox')).toBe(false);
+        expect(isSafeWebUrl('')).toBe(false);
+        expect(isSafeWebUrl('not a url')).toBe(false);
+      });
+    });
+
+    describe('MaveMarkdownRenderer', () => {
+      it('renders headings, bold, italic, and lists safely', () => {
+        const md = '# Title 1\n\n## Subtitle\n\nText with **bold** and *italic*.\n\n- Bullet 1\n- Bullet 2';
+        const html = renderToStaticMarkup(<MaveMarkdownRenderer markdown={md} />);
+        expect(html).toContain('mave-md-h1');
+        expect(html).toContain('Title 1');
+        expect(html).toContain('mave-md-h2');
+        expect(html).toContain('Subtitle');
+        expect(html).toContain('mave-md-strong');
+        expect(html).toContain('bold');
+        expect(html).toContain('mave-md-em');
+        expect(html).toContain('italic');
+        expect(html).toContain('mave-md-ul');
+        expect(html).toContain('Bullet 1');
+      });
+
+      it('disarms unsafe link schemes and renders safe links with proper class', () => {
+        const md = 'Check [Safe](https://example.com) and [Unsafe](javascript:alert(1)).';
+        const html = renderToStaticMarkup(<MaveMarkdownRenderer markdown={md} />);
+        expect(html).toContain('href="https://example.com"');
+        expect(html).toContain('class="mave-md-link"');
+        expect(html).toContain('Safe');
+        // Unsafe link must NOT be an <a> anchor with javascript:
+        expect(html).not.toContain('href="javascript:');
+        expect(html).toContain('mave-md-link-disabled');
+        expect(html).toContain('Unsafe');
+      });
+
+      it('escapes raw HTML tags as literal text, preventing XSS execution', () => {
+        const md = 'Here is an exploit: <script>alert("pwned")</script> and <iframe src="evil.com"></iframe>';
+        const html = renderToStaticMarkup(<MaveMarkdownRenderer markdown={md} />);
+        expect(html).not.toContain('<script>');
+        expect(html).not.toContain('<iframe>');
+        // Escaped into text
+        expect(html).toContain('alert(&quot;pwned&quot;)');
+      });
+
+      it('renders markdown tables with header and body cells', () => {
+        const md = '| Component | Status |\n|---|---|\n| PresenceMark | Active |\n| Panel | Expanded |';
+        const html = renderToStaticMarkup(<MaveMarkdownRenderer markdown={md} />);
+        expect(html).toContain('data-testid="mave-table-wrapper"');
+        expect(html).toContain('Component');
+        expect(html).toContain('PresenceMark');
+        expect(html).toContain('Expanded');
+      });
+
+      it('gracefully renders incomplete streaming code fences without throwing', () => {
+        const md = 'Streaming started:\n```typescript\nconst x = 42;';
+        // Unclosed code fence during token streaming
+        const html = renderToStaticMarkup(<MaveMarkdownRenderer markdown={md} />);
+        expect(html).toContain('data-testid="mave-code-block"');
+        expect(html).toContain('const x = 42;');
+      });
+    });
+
+    describe('MaveContentBlockRenderer', () => {
+      it('renders multi-block content in deterministic order with stable keys', () => {
+        const blocks = [
+          { id: 'b-text', type: 'text' as const, text: 'Explanation paragraph' },
+          { id: 'b-code', type: 'code' as const, language: 'typescript', code: 'const answer = 42;' },
+          { id: 'b-source', type: 'source' as const, title: 'MAVE Architecture Spec', domain: 'mave.ai', url: 'https://mave.ai/spec' }
+        ];
+        const html = renderToStaticMarkup(<MaveContentBlockRenderer blocks={blocks} />);
+        expect(html).toContain('data-testid="mave-content-blocks"');
+        expect(html).toContain('Explanation paragraph');
+        expect(html).toContain('data-testid="mave-block-code"');
+        expect(html).toContain('const answer = 42;');
+        expect(html).toContain('data-testid="mave-source-card"');
+        expect(html).toContain('MAVE Architecture Spec');
+      });
+
+      it('renders confirmation card with title, risk badge, and action buttons', () => {
+        const blocks = [
+          {
+            id: 'b-conf',
+            type: 'confirmation' as const,
+            actionId: 'action-123',
+            title: 'Delete temporary voice cache?',
+            description: 'This will purge all cached local TTS audio frames.',
+            risk: 'medium' as const,
+            confirmLabel: 'Purge Now',
+            rejectLabel: 'Keep Files'
+          }
+        ];
+        const html = renderToStaticMarkup(<MaveContentBlockRenderer blocks={blocks} />);
+        expect(html).toContain('data-testid="mave-confirmation-card"');
+        expect(html).toContain('Delete temporary voice cache?');
+        expect(html).toContain('MEDIUM');
+        expect(html).toContain('Purge Now');
+        expect(html).toContain('Keep Files');
+      });
+
+      it('renders progress card with label and determinate track', () => {
+        const blocks = [
+          {
+            id: 'b-prog',
+            type: 'progress' as const,
+            taskId: 'task-456',
+            label: 'Downloading language model',
+            percentage: 65,
+            status: 'running' as const
+          }
+        ];
+        const html = renderToStaticMarkup(<MaveContentBlockRenderer blocks={blocks} />);
+        expect(html).toContain('data-testid="mave-progress-card"');
+        expect(html).toContain('Downloading language model');
+        expect(html).toContain('65%');
+      });
+    });
+
+    describe('MaveExpandedPanel & MaveCapsule Expanded Integration', () => {
+      it('renders MaveExpandedPanel with scrollable viewport and off-screen polite announcer', () => {
+        const snap = createSnapshot({
+          sizeClass: 'expanded',
+          mode: 'expanded_response',
+          assistantText: 'Full expanded markdown response explanation.'
+        });
+        const html = renderToStaticMarkup(<MaveExpandedPanel snapshot={snap} />);
+        expect(html).toContain('data-testid="mave-expanded-panel"');
+        expect(html).toContain('data-testid="mave-expanded-viewport"');
+        expect(html).toContain('data-testid="mave-sr-announcer"');
+        expect(html).toContain('aria-live="polite"');
+        expect(html).toContain('Full expanded markdown response explanation.');
+      });
+
+      it('renders MaveCapsule with MaveExpandedPanel embedded in expanded sizeClass', () => {
+        const snap = createSnapshot({
+          sizeClass: 'expanded',
+          mode: 'expanded_response',
+          assistantText: 'Here is detailed research.'
+        });
+        const html = renderToStaticMarkup(<MaveCapsule snapshot={snap} />);
+        expect(html).toContain('data-testid="mave-expanded-card"');
+        expect(html).toContain('data-testid="mave-expanded-panel"');
+        expect(html).toContain('data-testid="mave-brand-label"');
+        expect(html).toContain('data-testid="mave-action-collapse"');
+        expect(html).toContain('data-testid="mave-presence-mark"');
+      });
     });
   });
 });

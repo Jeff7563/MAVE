@@ -296,6 +296,26 @@ export const SurfaceActionSchema = z.discriminatedUnion('type', [
     type: z.literal('set_interaction_mode'),
     origin: SurfaceActionOriginSchema.default('user'),
     mode: SurfaceInteractionModeSchema
+  }),
+  z.object({
+    type: z.literal('open_link'),
+    origin: SurfaceActionOriginSchema.default('user'),
+    url: z.string().max(2048)
+  }),
+  z.object({
+    type: z.literal('open_source'),
+    origin: SurfaceActionOriginSchema.default('user'),
+    sourceId: z.string().max(256).optional(),
+    url: z.string().max(2048).optional()
+  }),
+  z.object({
+    type: z.literal('copy_text'),
+    origin: SurfaceActionOriginSchema.default('user'),
+    text: z.string().max(100000)
+  }),
+  z.object({
+    type: z.literal('user_activity'),
+    origin: SurfaceActionOriginSchema.default('user')
   })
 ]);
 export type SurfaceAction = z.infer<typeof SurfaceActionSchema>;

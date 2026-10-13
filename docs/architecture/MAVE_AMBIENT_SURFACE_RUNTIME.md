@@ -671,7 +671,52 @@ To guarantee rock-solid timer safety in high-concurrency desktop environments:
 - `SurfaceStateController` maintains a private monotonic integer counter `activeTimerRevision`.
 - Whenever a timer is armed (`scheduleCollapse`), it captures the current revision `timerRev = ++this.activeTimerRevision`.
 - In the `setTimeout` callback, execution verifies `if (this.activeTimerRevision !== timerRev) return;`.
-- Any subsequent user interaction, pin toggle, hover event, new voice intent, or dismiss invalidates older timers by incrementing `activeTimerRevision`, preventing stale collapse races.
+## 24. M4.7 Expanded Context Panel & Rich Content Architecture
+
+### 24.1 Expanded Surface Purpose & Conceptual Boundaries
+The Expanded Context Panel ($440 \times 580\text{ DIP}$ native envelope) serves as MAVE's high-density desktop presentation surface for rich, structured, or lengthy responses that cannot comfortably reside in the compact card ($360 \times 180\text{ DIP}$).
+
+Key architectural invariants:
+1. **Continuous Identity**: MAVE remains a single unified adaptive object. The PresenceMark, voice visualizer, brand label, and window controls remain pinned in the sticky header across all envelope levels (`ambient` $\to$ `card` $\to$ `expanded`).
+2. **Not a Traditional Chat App**: MAVE does not feature chat bubbles, user/assistant avatars, historical chat message threads, or persistent conversation logs. It displays the active turn's rich context.
+3. **Passive and Focus-Safe**: Auto-expansion or streaming into the expanded panel is strictly non-activating (`focusable: false`, `showInactive()`). Window focus is never stolen from host applications.
+4. **Presentation-Only Boundaries**: Progress indicators and action confirmation cards are rendered strictly for presentation purposes in M4.7. Actual tool execution, sandbox permissions, and task orchestration are deferred to Milestone 5.
+
+### 24.2 Semantic-First Surface Classification Matrix
+`ResponseClassifier` uses a semantic-first heuristic where content structure strictly overrides raw character count:
+
+| Content Pattern / Trigger | Envelope | Mode | Auto-Collapse Hold | Rationale |
+| :--- | :--- | :--- | :--- | :--- |
+| Code block (` ```lang ... ``` `) | `expanded` ($440 \times 580$) | `expanded_response` | $120\text{ s}$ ($2\text{ min}$) | Requires monospace formatting, horizontal scroller, and copy affordance. |
+| Markdown table (`\| ... \|`) | `expanded` ($440 \times 580$) | `expanded_response` | $120\text{ s}$ ($2\text{ min}$) | Requires structured column alignment and tabular scroller. |
+| Structured list ($\ge 3$ items) | `expanded` ($440 \times 580$) | `expanded_response` | $120\text{ s}$ ($2\text{ min}$) | Multi-item lists exceed compact card vertical bounds. |
+| Rich Content Blocks ($\ge 3$ blocks or $\ge 2$ sources) | `expanded` ($440 \times 580$) | `expanded_response` | $120\text{ s}$ ($2\text{ min}$) | Multi-card layout requires full viewport. |
+| Text $> 340$ characters | `expanded` ($440 \times 580$) | `expanded_response` | $120\text{ s}$ ($2\text{ min}$) | Exceeds readable card typography bounds. |
+| Plain paragraph $\le 340$ characters | `card` ($360 \times 180$) | `compact_response` | $30\text{ s}$ | Concise conversational response. |
+| Confirmation Card (`SurfaceConfirmationBlock`) | `card` ($360 \times 180$) | `confirmation` | Indefinite until acted upon | High-visibility interactive prompt. |
+| Status Card (`SurfaceStatusBlock`) | `card` ($360 \times 180$) | `compact_response` | $3\text{ s}$ | Short operational acknowledgement. |
+
+### 24.3 Safe React Markdown AST Pipeline (Zero `dangerouslySetInnerHTML`)
+Security against untrusted content and remote code execution is enforced via `marked.lexer()`:
+- **Direct AST Token Mapping**: Markdown tokens (`marked.lexer(markdown)`) are transformed directly into standard React DOM elements (`<p>`, `<h1>`–`<h6>`, `<strong>`, `<em>`, `<code>`, `<pre>`, `<table>`, `<ul>`, `<ol>`).
+- **Zero Raw HTML Injection**: All strings are passed as children to React elements, utilizing standard browser DOM `createTextNode` escaping. Raw HTML tokens (`token.type === 'html'`) are rendered as inert text nodes.
+- **Link Scheme Whitelisting**: The `isSafeWebUrl` validator permits only `http:` and `https:` schemes. Dangerous URI schemes (`javascript:`, `file:`, `data:`, `vbscript:`) are neutralized into disabled spans (`.mave-md-link-disabled`).
+- **External Shell Routing**: Safe anchor clicks trigger an IPC dispatch (`open_link`), which delegates to Electron Main's `shell.openExternal()`. The BrowserWindow itself never executes native in-page navigation.
+- **Tracking Pixel Protection**: Image tags (`token.type === 'image'`) are rendered as accessible textual image captions rather than `<img>` tags, preventing unauthorized outbound network calls or token-leak tracking pixels.
+
+### 24.4 Semantic Rich Content Blocks
+MAVE supports typed content blocks via `MaveContentBlockRenderer`:
+- **Code Blocks (`MaveCodeBlockComponent`)**: Monospace code presenter featuring language/filename label, syntax wrap, and an instant Copy button emitting `copy_text` to the native clipboard via Main.
+- **Vocabulary Cards (`MaveVocabularyCardComponent`)**: High-contrast language study cards featuring word, phonetic pronunciation, part of speech, definition, and example sentences.
+- **Source References (`MaveSourceCardComponent`)**: Compact research citations displaying domain badge, title, and snippet. Clicking dispatches `open_source` to Main.
+- **Progress Visualizations (`MaveProgressCardComponent`)**: Determinate ($0$–$100\%$) and indeterminate pulsing progress bars.
+- **Confirmation Cards (`MaveConfirmationCardComponent`)**: Risk-badged prompts (`low`, `medium`, `high`, `critical`) with Approve and Deny actions emitting `confirm_action`.
+
+### 24.5 Scroll-Follow Ergonomics, Live Announcers & Auto-Collapse Lifecycle
+- **Respectful Auto-Scroll**: Streaming tokens append dynamically. The expanded viewport only auto-scrolls down if the user is already near the bottom ($\le 40\text{ px}$). If the user has scrolled up to inspect previous code or text, the viewport stays anchored to their reading position.
+- **Screen Reader Announcer**: To prevent speech synthesizer flood and stutter during high-speed TTS token streaming, token-level live updates are decoupled from ARIA live regions. An off-screen polite announcer (`.mave-sr-announcer` with `role="status"` and `aria-live="polite"`) updates strictly at meaningful completion boundaries (`isSpeakingFinished: true`, mode transitions, idle).
+- **Throttled User Activity Reporting**: User scrolling or pointer interaction inside the expanded panel dispatches a throttled `user_activity` action (interval $\ge 1200\text{ ms}$) to Main, continuously extending the $120\text{ s}$ inactivity timer so long reading sessions are never interrupted.
+
 
 
 

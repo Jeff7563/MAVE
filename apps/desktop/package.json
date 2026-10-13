@@ -21,6 +21,7 @@
     "@mave/providers": "workspace:*",
     "@mave/shared": "workspace:*",
     "better-sqlite3": "^13.0.3",
+    "marked": "^18.1.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "sql.js": "^1.14.2",

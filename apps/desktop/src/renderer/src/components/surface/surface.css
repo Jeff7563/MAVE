@@ -639,4 +639,454 @@
   letter-spacing: 0.01em;
 }
 
+/* ==========================================================================
+   Milestone 4.7: Expanded Context Panel & Rich Content Styles
+   ========================================================================== */
+
+/* Screen Reader Accessible Announcer (Off-screen) */
+.mave-sr-announcer {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/* Expanded Panel Layout */
+.mave-expanded-panel {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  position: relative;
+  user-select: text;
+}
+
+.mave-expanded-viewport {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 4px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+
+.mave-expanded-viewport::-webkit-scrollbar {
+  width: 5px;
+}
+.mave-expanded-viewport::-webkit-scrollbar-track {
+  background: transparent;
+}
+.mave-expanded-viewport::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 9999px;
+}
+.mave-expanded-viewport::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.mave-expanded-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--mave-surface-text-muted);
+  font-size: 13px;
+  font-style: italic;
+}
+
+/* Semantic Content Block Stacking */
+.mave-content-blocks {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.mave-block-text {
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--mave-surface-text);
+}
+.mave-block-text p {
+  margin: 0;
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+
+/* Markdown Rendering */
+.mave-markdown-content {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--mave-surface-text);
+}
+
+.mave-md-p {
+  margin: 0;
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+
+.mave-md-heading {
+  font-weight: 700;
+  color: #ffffff;
+  margin: 4px 0 2px 0;
+  letter-spacing: -0.01em;
+}
+.mave-md-h1 { font-size: 18px; }
+.mave-md-h2 { font-size: 16px; }
+.mave-md-h3 { font-size: 14.5px; }
+.mave-md-h4, .mave-md-h5, .mave-md-h6 { font-size: 13.5px; }
+
+.mave-md-strong {
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.mave-md-em {
+  font-style: italic;
+  color: #e2e8f0;
+}
+
+.mave-md-codespan {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #38bdf8;
+  padding: 1.5px 5px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.mave-md-del {
+  text-decoration: line-through;
+  opacity: 0.7;
+}
+
+.mave-md-link {
+  color: #38bdf8;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+  transition: color 150ms ease;
+}
+.mave-md-link:hover {
+  color: #7dd3fc;
+}
+
+.mave-md-link-disabled {
+  color: var(--mave-surface-text-muted);
+  text-decoration: line-through;
+  cursor: not-allowed;
+}
+
+.mave-md-image-caption {
+  color: var(--mave-surface-text-muted);
+  font-size: 12px;
+  font-style: italic;
+}
+
+.mave-md-list {
+  margin: 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.mave-md-li {
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.mave-md-blockquote {
+  margin: 0;
+  padding: 4px 12px;
+  border-left: 3px solid var(--mave-accent-idle);
+  background: rgba(56, 189, 248, 0.05);
+  color: #cbd5e1;
+  border-radius: 0 4px 4px 0;
+  font-style: italic;
+}
+
+.mave-md-hr {
+  border: none;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  margin: 6px 0;
+}
+
+.mave-md-escaped-html {
+  font-family: monospace;
+  font-size: 11.5px;
+  color: var(--mave-surface-text-muted);
+  background: rgba(0, 0, 0, 0.2);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+/* Responsive Table Wrapper */
+.mave-md-table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  margin: 4px 0;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  background: rgba(15, 23, 42, 0.5);
+  scrollbar-width: thin;
+}
+.mave-md-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+.mave-md-table th {
+  padding: 6px 10px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #f1f5f9;
+  font-weight: 600;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+.mave-md-table td {
+  padding: 6px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  color: #cbd5e1;
+}
+.mave-md-table tr:last-child td {
+  border-bottom: none;
+}
+
+/* Monospace Code Block Component */
+.mave-block-code, .mave-md-code-block {
+  background: rgba(15, 23, 42, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  overflow: hidden;
+  margin: 4px 0;
+}
+
+.mave-block-code-header, .mave-md-code-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 5px 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.mave-block-code-lang, .mave-md-code-lang {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--mave-surface-text-muted);
+}
+
+.mave-block-code-copy-btn {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+  padding: 2px 7px;
+  color: var(--mave-surface-text);
+  font-size: 10.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 150ms ease;
+}
+.mave-block-code-copy-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.mave-block-code-pre, .mave-md-code-pre {
+  margin: 0;
+  padding: 10px;
+  overflow-x: auto;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  scrollbar-width: thin;
+}
+
+.mave-block-code-content, .mave-md-code-text {
+  color: #f1f5f9;
+  tab-size: 2;
+}
+
+/* Research Source Card Component */
+.mave-source-card {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 150ms ease, border-color 150ms ease;
+}
+.mave-source-card:hover {
+  background: rgba(56, 189, 248, 0.08);
+  border-color: rgba(56, 189, 248, 0.25);
+}
+
+.mave-source-header {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.mave-source-domain {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #38bdf8;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.mave-source-title {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #f1f5f9;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.mave-source-snippet {
+  font-size: 11.5px;
+  color: #94a3b8;
+  line-height: 1.4;
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Progress Card Component */
+.mave-progress-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+}
+.mave-progress-header {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  font-weight: 600;
+  color: #f1f5f9;
+}
+.mave-progress-percent {
+  color: #38bdf8;
+  font-family: monospace;
+}
+.mave-progress-track {
+  height: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+  overflow: hidden;
+  position: relative;
+}
+.mave-progress-bar {
+  height: 100%;
+  background: #38bdf8;
+  border-radius: 3px;
+  transition: width 200ms ease;
+}
+.mave-progress-bar--indeterminate {
+  animation: mave-progress-indet 1.5s infinite ease-in-out;
+  width: 40%;
+}
+@keyframes mave-progress-indet {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(300%); }
+}
+
+/* Confirmation Card Component */
+.mave-confirmation-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+}
+.mave-confirmation-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.mave-confirmation-title {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #ffffff;
+}
+.mave-confirmation-risk {
+  font-size: 10px;
+  font-weight: 800;
+  padding: 2px 6px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.mave-risk--low {
+  background: rgba(74, 222, 128, 0.15);
+  color: #4ade80;
+  border: 1px solid rgba(74, 222, 128, 0.3);
+}
+.mave-risk--medium {
+  background: rgba(251, 191, 36, 0.15);
+  color: #fbbf24;
+  border: 1px solid rgba(251, 191, 36, 0.3);
+}
+.mave-risk--high {
+  background: rgba(248, 113, 113, 0.15);
+  color: #f87171;
+  border: 1px solid rgba(248, 113, 113, 0.3);
+}
+.mave-confirmation-desc {
+  font-size: 12.5px;
+  color: #cbd5e1;
+  margin: 0;
+  line-height: 1.45;
+}
+.mave-confirmation-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
+.mave-confirm-btn {
+  padding: 5px 12px;
+  border-radius: 5px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 150ms ease;
+}
+.mave-confirm-btn--reject {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #e2e8f0;
+}
+.mave-confirm-btn--reject:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+.mave-confirm-btn--approve {
+  background: #38bdf8;
+  border: 1px solid #38bdf8;
+  color: #0f172a;
+}
+.mave-confirm-btn--approve:hover {
+  background: #7dd3fc;
+}
+
 
