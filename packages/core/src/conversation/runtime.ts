@@ -23,6 +23,7 @@ export interface ConversationRuntimeOptions {
   store?: ConversationStore;
   requestIdFactory?: () => string;
   clock?: () => number;
+  defaultTimeoutMs?: number;
 }
 
 interface ActiveRequestRecord {
@@ -31,6 +32,10 @@ interface ActiveRequestRecord {
   abortController: AbortController;
   provider?: BrainProvider;
   assistantTurnId?: string;
+  timeoutTimer: NodeJS.Timeout | null;
+  isTimedOut: boolean;
+  isExplicitlyCancelled: boolean;
+  terminalEmitted: 'completed' | 'cancelled' | 'failed' | null;
 }
 
 const DEFAULT_REQUIRED_CAPABILITIES: Partial<BrainCapabilities> = {
@@ -45,6 +50,7 @@ export class ConversationRuntime {
   private readonly store?: ConversationStore;
   private readonly requestIdFactory: () => string;
   private readonly clock: () => number;
+  private readonly defaultTimeoutMs: number;
 
   private readonly activeRequests = new Map<string, ActiveRequestRecord>();
 
@@ -55,6 +61,10 @@ export class ConversationRuntime {
     this.store = options.store;
     this.requestIdFactory = options.requestIdFactory ?? (() => randomUUID());
     this.clock = options.clock ?? (() => Date.now());
+    this.defaultTimeoutMs =
+      options.defaultTimeoutMs !== undefined && options.defaultTimeoutMs > 0
+        ? options.defaultTimeoutMs
+        : 30000;
   }
 
   /**
@@ -99,9 +109,22 @@ export class ConversationRuntime {
       }
     }
 
+    // 3. Validate timeoutMs if provided
+    if (options?.timeoutMs !== undefined) {
+      if (
+        typeof options.timeoutMs !== 'number' ||
+        Number.isNaN(options.timeoutMs) ||
+        options.timeoutMs <= 0 ||
+        !Number.isFinite(options.timeoutMs)
+      ) {
+        throw new ConversationRuntimeError('invalid_request', 'timeoutMs must be a positive number');
+      }
+    }
+
+    const effectiveTimeoutMs = options?.timeoutMs ?? this.defaultTimeoutMs;
     const requestId = request.requestId ? request.requestId.trim() : this.requestIdFactory();
 
-    // 3. Reject duplicate active requestId
+    // 4. Reject duplicate active requestId
     if (this.activeRequests.has(requestId)) {
       throw new ConversationRuntimeError(
         'duplicate_request',
@@ -114,21 +137,38 @@ export class ConversationRuntime {
     const abortController = new AbortController();
     if (options?.signal) {
       if (options.signal.aborted) {
-        abortController.abort();
+        abortController.abort(options.signal.reason);
       } else {
-        options.signal.addEventListener('abort', () => abortController.abort(), { once: true });
+        options.signal.addEventListener('abort', () => abortController.abort(options.signal?.reason), { once: true });
       }
     }
 
     const record: ActiveRequestRecord = {
       requestId,
       sessionId: request.sessionId ? request.sessionId.trim() : '',
-      abortController
+      abortController,
+      timeoutTimer: null,
+      isTimedOut: false,
+      isExplicitlyCancelled: false,
+      terminalEmitted: null
     };
     this.activeRequests.set(requestId, record);
 
+    if (effectiveTimeoutMs > 0 && Number.isFinite(effectiveTimeoutMs)) {
+      record.timeoutTimer = setTimeout(() => {
+        if (record.terminalEmitted) {
+          return;
+        }
+        record.isTimedOut = true;
+        abortController.abort(`Request exceeded timeout of ${effectiveTimeoutMs}ms`);
+        if (record.provider?.cancel) {
+          record.provider.cancel(requestId).catch(() => {});
+        }
+      }, effectiveTimeoutMs);
+    }
+
     try {
-      // 4. Resolve / Create Session
+      // 5. Resolve / Create Session
       let sessionId: string;
       let isNewSession = false;
 
@@ -145,6 +185,7 @@ export class ConversationRuntime {
               }
             } catch (err) {
               const errorMsg = err instanceof Error ? err.message : 'Persistence error loading session';
+              record.terminalEmitted = 'failed';
               yield {
                 type: 'request_failed',
                 requestId,
@@ -191,7 +232,7 @@ export class ConversationRuntime {
 
       record.sessionId = sessionId;
 
-      // 5. Check same-session concurrency policy: reject concurrent request for same session
+      // 6. Check same-session concurrency policy: reject concurrent request for same session
       for (const [activeReqId, active] of this.activeRequests.entries()) {
         if (activeReqId !== requestId && active.sessionId === sessionId) {
           throw new ConversationRuntimeError(
@@ -202,7 +243,42 @@ export class ConversationRuntime {
         }
       }
 
-      // 6. Emit request_started and session_ready
+      // Early timeout / cancellation check
+      if (record.isTimedOut) {
+        record.terminalEmitted = 'failed';
+        yield {
+          type: 'request_failed',
+          requestId,
+          sessionId,
+          error: {
+            code: 'provider_timeout',
+            message: `Request exceeded timeout of ${effectiveTimeoutMs}ms`,
+            retryable: true
+          },
+          timestamp: this.clock()
+        };
+        if (options?.throwOnError) {
+          throw new ConversationRuntimeError('provider_timeout', `Request exceeded timeout of ${effectiveTimeoutMs}ms`, {
+            requestId,
+            sessionId
+          });
+        }
+        return;
+      }
+
+      if (abortController.signal.aborted) {
+        record.terminalEmitted = 'cancelled';
+        yield {
+          type: 'request_cancelled',
+          requestId,
+          sessionId,
+          reason: 'Request was aborted before execution',
+          timestamp: this.clock()
+        };
+        return;
+      }
+
+      // 7. Emit request_started and session_ready
       yield {
         type: 'request_started',
         requestId,
@@ -217,6 +293,7 @@ export class ConversationRuntime {
           await this.store.createSession(session);
         } catch (err) {
           const errorMsg = err instanceof Error ? err.message : 'Failed to persist created session';
+          record.terminalEmitted = 'failed';
           yield {
             type: 'request_failed',
             requestId,
@@ -241,8 +318,30 @@ export class ConversationRuntime {
         timestamp: this.clock()
       };
 
-      // Check abort before doing work
+      if (record.isTimedOut) {
+        record.terminalEmitted = 'failed';
+        yield {
+          type: 'request_failed',
+          requestId,
+          sessionId,
+          error: {
+            code: 'provider_timeout',
+            message: `Request exceeded timeout of ${effectiveTimeoutMs}ms`,
+            retryable: true
+          },
+          timestamp: this.clock()
+        };
+        if (options?.throwOnError) {
+          throw new ConversationRuntimeError('provider_timeout', `Request exceeded timeout of ${effectiveTimeoutMs}ms`, {
+            requestId,
+            sessionId
+          });
+        }
+        return;
+      }
+
       if (abortController.signal.aborted) {
+        record.terminalEmitted = 'cancelled';
         yield {
           type: 'request_cancelled',
           requestId,
@@ -253,7 +352,7 @@ export class ConversationRuntime {
         return;
       }
 
-      // 7. Append user turn as completed
+      // 8. Append user turn as completed
       const userTurn = this.sessionManager.appendTurn(sessionId, {
         requestId,
         role: 'user',
@@ -266,6 +365,7 @@ export class ConversationRuntime {
           await this.store.createTurn(userTurn);
         } catch (err) {
           const errorMsg = err instanceof Error ? err.message : 'Failed to persist user turn';
+          record.terminalEmitted = 'failed';
           yield {
             type: 'request_failed',
             requestId,
@@ -283,12 +383,12 @@ export class ConversationRuntime {
         }
       }
 
-      // 8. Build conversation context
+      // 9. Build conversation context
       const turns = this.sessionManager.getTurns(sessionId);
       const session = this.sessionManager.requireSession(sessionId);
       const contextBundle = this.contextManager.build(session, turns);
 
-      // 9. Route to BrainProvider
+      // 10. Route to BrainProvider
       const requiredCapabilities: Partial<BrainCapabilities> = {
         ...DEFAULT_REQUIRED_CAPABILITIES,
         ...request.requiredCapabilities
@@ -307,6 +407,7 @@ export class ConversationRuntime {
             ? err.code
             : 'routing_error';
 
+        record.terminalEmitted = 'failed';
         yield {
           type: 'request_failed',
           requestId,
@@ -333,6 +434,7 @@ export class ConversationRuntime {
           await this.store.updateSession(updatedSession);
         } catch (err) {
           const errorMsg = err instanceof Error ? err.message : 'Failed to persist session provider update';
+          record.terminalEmitted = 'failed';
           yield {
             type: 'request_failed',
             requestId,
@@ -360,7 +462,30 @@ export class ConversationRuntime {
         timestamp: this.clock()
       };
 
+      if (record.isTimedOut) {
+        record.terminalEmitted = 'failed';
+        yield {
+          type: 'request_failed',
+          requestId,
+          sessionId,
+          error: {
+            code: 'provider_timeout',
+            message: `Request exceeded timeout of ${effectiveTimeoutMs}ms`,
+            retryable: true
+          },
+          timestamp: this.clock()
+        };
+        if (options?.throwOnError) {
+          throw new ConversationRuntimeError('provider_timeout', `Request exceeded timeout of ${effectiveTimeoutMs}ms`, {
+            requestId,
+            sessionId
+          });
+        }
+        return;
+      }
+
       if (abortController.signal.aborted) {
+        record.terminalEmitted = 'cancelled';
         yield {
           type: 'request_cancelled',
           requestId,
@@ -371,7 +496,7 @@ export class ConversationRuntime {
         return;
       }
 
-      // 10. Create assistant pending turn
+      // 11. Create assistant pending turn
       const assistantTurn = this.sessionManager.appendTurn(sessionId, {
         requestId,
         role: 'assistant',
@@ -386,6 +511,7 @@ export class ConversationRuntime {
           await this.store.createTurn(assistantTurn);
         } catch (err) {
           const errorMsg = err instanceof Error ? err.message : 'Failed to persist assistant turn';
+          record.terminalEmitted = 'failed';
           yield {
             type: 'request_failed',
             requestId,
@@ -404,7 +530,7 @@ export class ConversationRuntime {
         }
       }
 
-      // 11. Construct canonical BrainRequest
+      // 12. Construct canonical BrainRequest
       const brainRequest: BrainRequest = {
         requestId,
         sessionId,
@@ -413,13 +539,63 @@ export class ConversationRuntime {
         context: contextBundle.context
       };
 
-      // 12. Consume BrainEvent stream from provider
+      // 13. Consume BrainEvent stream from provider
       let accumulatedText = '';
       let hasStarted = false;
 
+      const chatIterator = provider.chat(brainRequest, { signal: abortController.signal })[Symbol.asyncIterator]();
+
       try {
-        for await (const event of provider.chat(brainRequest, { signal: abortController.signal })) {
-          if (abortController.signal.aborted) {
+        while (true) {
+          if (record.terminalEmitted) {
+            break;
+          }
+
+          if (record.isTimedOut || abortController.signal.aborted) {
+            try {
+              await chatIterator.return?.();
+            } catch {
+              // safe disposal
+            }
+            break;
+          }
+
+          // Race next() against abort signal
+          let abortListener: (() => void) | undefined;
+          const abortPromise = new Promise<{ done: true; value: undefined; aborted: true }>((resolve) => {
+            if (abortController.signal.aborted || record.isTimedOut) {
+              resolve({ done: true, value: undefined, aborted: true });
+            } else {
+              abortListener = () => resolve({ done: true, value: undefined, aborted: true });
+              abortController.signal.addEventListener('abort', abortListener, { once: true });
+            }
+          });
+
+          const nextResult = await Promise.race([
+            chatIterator.next().then((res) => ({ ...res, aborted: false as const })),
+            abortPromise
+          ]);
+
+          if (abortListener) {
+            abortController.signal.removeEventListener('abort', abortListener);
+          }
+
+          if (nextResult.aborted || record.isTimedOut || abortController.signal.aborted) {
+            try {
+              await chatIterator.return?.();
+            } catch {
+              // safe disposal
+            }
+            break;
+          }
+
+          if (nextResult.done) {
+            break;
+          }
+
+          const event = nextResult.value;
+
+          if (record.terminalEmitted) {
             break;
           }
 
@@ -437,6 +613,10 @@ export class ConversationRuntime {
               timestamp: this.clock()
             };
           } else if (event.type === 'delta') {
+            if (record.terminalEmitted) {
+              break;
+            }
+
             if (!hasStarted) {
               hasStarted = true;
               this.sessionManager.updateTurn(sessionId, assistantTurn.id, {
@@ -467,6 +647,16 @@ export class ConversationRuntime {
               timestamp: this.clock()
             };
           } else if (event.type === 'completed') {
+            if (record.terminalEmitted) {
+              break;
+            }
+
+            record.terminalEmitted = 'completed';
+            if (record.timeoutTimer) {
+              clearTimeout(record.timeoutTimer);
+              record.timeoutTimer = null;
+            }
+
             const finalText = accumulatedText.length > 0 ? accumulatedText : (event.text ?? '');
             const finalCompletedTurn = this.sessionManager.updateTurn(sessionId, assistantTurn.id, {
               status: 'completed',
@@ -511,6 +701,61 @@ export class ConversationRuntime {
             };
             return;
           } else if (event.type === 'cancelled') {
+            if (record.terminalEmitted) {
+              break;
+            }
+
+            if (record.isTimedOut) {
+              // Timeout takes precedence over provider cancelled event
+              record.terminalEmitted = 'failed';
+              if (record.timeoutTimer) {
+                clearTimeout(record.timeoutTimer);
+                record.timeoutTimer = null;
+              }
+
+              const timeoutMsg = `Request exceeded timeout of ${effectiveTimeoutMs}ms`;
+              const finalFailedTurn = this.sessionManager.updateTurn(sessionId, assistantTurn.id, {
+                status: 'failed',
+                content: accumulatedText,
+                error: timeoutMsg
+              });
+
+              if (this.store) {
+                try {
+                  await this.store.updateTurn(finalFailedTurn);
+                } catch {
+                  // Safe error handling
+                }
+              }
+
+              yield {
+                type: 'request_failed',
+                requestId,
+                sessionId,
+                turnId: assistantTurn.id,
+                error: {
+                  code: 'provider_timeout',
+                  message: timeoutMsg,
+                  retryable: true
+                },
+                timestamp: this.clock()
+              };
+
+              if (options?.throwOnError) {
+                throw new ConversationRuntimeError('provider_timeout', timeoutMsg, {
+                  requestId,
+                  sessionId
+                });
+              }
+              return;
+            }
+
+            record.terminalEmitted = 'cancelled';
+            if (record.timeoutTimer) {
+              clearTimeout(record.timeoutTimer);
+              record.timeoutTimer = null;
+            }
+
             const finalCancelledTurn = this.sessionManager.updateTurn(sessionId, assistantTurn.id, {
               status: 'cancelled',
               content: accumulatedText
@@ -534,6 +779,60 @@ export class ConversationRuntime {
             };
             return;
           } else if (event.type === 'error') {
+            if (record.terminalEmitted) {
+              break;
+            }
+
+            if (record.isTimedOut) {
+              record.terminalEmitted = 'failed';
+              if (record.timeoutTimer) {
+                clearTimeout(record.timeoutTimer);
+                record.timeoutTimer = null;
+              }
+
+              const timeoutMsg = `Request exceeded timeout of ${effectiveTimeoutMs}ms`;
+              const finalFailedTurn = this.sessionManager.updateTurn(sessionId, assistantTurn.id, {
+                status: 'failed',
+                content: accumulatedText,
+                error: timeoutMsg
+              });
+
+              if (this.store) {
+                try {
+                  await this.store.updateTurn(finalFailedTurn);
+                } catch {
+                  // Safe error handling
+                }
+              }
+
+              yield {
+                type: 'request_failed',
+                requestId,
+                sessionId,
+                turnId: assistantTurn.id,
+                error: {
+                  code: 'provider_timeout',
+                  message: timeoutMsg,
+                  retryable: true
+                },
+                timestamp: this.clock()
+              };
+
+              if (options?.throwOnError) {
+                throw new ConversationRuntimeError('provider_timeout', timeoutMsg, {
+                  requestId,
+                  sessionId
+                });
+              }
+              return;
+            }
+
+            record.terminalEmitted = 'failed';
+            if (record.timeoutTimer) {
+              clearTimeout(record.timeoutTimer);
+              record.timeoutTimer = null;
+            }
+
             const finalFailedTurn = this.sessionManager.updateTurn(sessionId, assistantTurn.id, {
               status: 'failed',
               content: accumulatedText,
@@ -572,90 +871,203 @@ export class ConversationRuntime {
           }
         }
 
-        // Post-loop check: if aborted during stream
-        if (abortController.signal.aborted) {
-          const finalCancelledTurn = this.sessionManager.updateTurn(sessionId, assistantTurn.id, {
-            status: 'cancelled',
-            content: accumulatedText
-          });
-
-          if (this.store) {
-            try {
-              await this.store.updateTurn(finalCancelledTurn);
-            } catch {
-              // Safe cancellation handling
+        // Post-loop terminal event arbitration
+        if (!record.terminalEmitted) {
+          if (record.isTimedOut) {
+            record.terminalEmitted = 'failed';
+            if (record.timeoutTimer) {
+              clearTimeout(record.timeoutTimer);
+              record.timeoutTimer = null;
             }
-          }
 
-          yield {
-            type: 'request_cancelled',
-            requestId,
-            sessionId,
-            turnId: assistantTurn.id,
-            reason: 'Request was cancelled',
-            timestamp: this.clock()
-          };
+            const timeoutMsg = `Request exceeded timeout of ${effectiveTimeoutMs}ms`;
+            const finalFailedTurn = this.sessionManager.updateTurn(sessionId, assistantTurn.id, {
+              status: 'failed',
+              content: accumulatedText,
+              error: timeoutMsg
+            });
+
+            if (this.store) {
+              try {
+                await this.store.updateTurn(finalFailedTurn);
+              } catch {
+                // Safe error handling
+              }
+            }
+
+            yield {
+              type: 'request_failed',
+              requestId,
+              sessionId,
+              turnId: assistantTurn.id,
+              error: {
+                code: 'provider_timeout',
+                message: timeoutMsg,
+                retryable: true
+              },
+              timestamp: this.clock()
+            };
+
+            if (options?.throwOnError) {
+              throw new ConversationRuntimeError('provider_timeout', timeoutMsg, {
+                requestId,
+                sessionId
+              });
+            }
+            return;
+          } else if (abortController.signal.aborted) {
+            record.terminalEmitted = 'cancelled';
+            if (record.timeoutTimer) {
+              clearTimeout(record.timeoutTimer);
+              record.timeoutTimer = null;
+            }
+
+            const finalCancelledTurn = this.sessionManager.updateTurn(sessionId, assistantTurn.id, {
+              status: 'cancelled',
+              content: accumulatedText
+            });
+
+            if (this.store) {
+              try {
+                await this.store.updateTurn(finalCancelledTurn);
+              } catch {
+                // Safe cancellation handling
+              }
+            }
+
+            yield {
+              type: 'request_cancelled',
+              requestId,
+              sessionId,
+              turnId: assistantTurn.id,
+              reason: record.isExplicitlyCancelled ? 'Request was cancelled' : String(abortController.signal.reason || 'Request was cancelled'),
+              timestamp: this.clock()
+            };
+            return;
+          }
         }
       } catch (err) {
-        if (abortController.signal.aborted) {
-          const finalCancelledTurn = this.sessionManager.updateTurn(sessionId, assistantTurn.id, {
-            status: 'cancelled',
-            content: accumulatedText
-          });
-
-          if (this.store) {
-            try {
-              await this.store.updateTurn(finalCancelledTurn);
-            } catch {
-              // Safe cancellation handling
+        if (err instanceof ConversationRuntimeError) {
+          throw err;
+        }
+        if (!record.terminalEmitted) {
+          if (record.isTimedOut) {
+            record.terminalEmitted = 'failed';
+            if (record.timeoutTimer) {
+              clearTimeout(record.timeoutTimer);
+              record.timeoutTimer = null;
             }
-          }
 
-          yield {
-            type: 'request_cancelled',
-            requestId,
-            sessionId,
-            turnId: assistantTurn.id,
-            reason: 'Request was cancelled',
-            timestamp: this.clock()
-          };
-        } else {
-          const errorMsg = err instanceof Error ? err.message : String(err);
-          const finalFailedTurn = this.sessionManager.updateTurn(sessionId, assistantTurn.id, {
-            status: 'failed',
-            content: accumulatedText,
-            error: errorMsg
-          });
-
-          if (this.store) {
-            try {
-              await this.store.updateTurn(finalFailedTurn);
-            } catch {
-              // Safe error handling
-            }
-          }
-
-          yield {
-            type: 'request_failed',
-            requestId,
-            sessionId,
-            turnId: assistantTurn.id,
-            error: {
-              code: 'provider_error',
-              message: errorMsg
-            },
-            timestamp: this.clock()
-          };
-
-          if (options?.throwOnError) {
-            throw new ConversationRuntimeError('provider_error', errorMsg, {
-              requestId,
-              sessionId
+            const timeoutMsg = `Request exceeded timeout of ${effectiveTimeoutMs}ms`;
+            const finalFailedTurn = this.sessionManager.updateTurn(sessionId, assistantTurn.id, {
+              status: 'failed',
+              content: accumulatedText,
+              error: timeoutMsg
             });
+
+            if (this.store) {
+              try {
+                await this.store.updateTurn(finalFailedTurn);
+              } catch {
+                // Safe error handling
+              }
+            }
+
+            yield {
+              type: 'request_failed',
+              requestId,
+              sessionId,
+              turnId: assistantTurn.id,
+              error: {
+                code: 'provider_timeout',
+                message: timeoutMsg,
+                retryable: true
+              },
+              timestamp: this.clock()
+            };
+
+            if (options?.throwOnError) {
+              throw new ConversationRuntimeError('provider_timeout', timeoutMsg, {
+                requestId,
+                sessionId
+              });
+            }
+          } else if (abortController.signal.aborted) {
+            record.terminalEmitted = 'cancelled';
+            if (record.timeoutTimer) {
+              clearTimeout(record.timeoutTimer);
+              record.timeoutTimer = null;
+            }
+
+            const finalCancelledTurn = this.sessionManager.updateTurn(sessionId, assistantTurn.id, {
+              status: 'cancelled',
+              content: accumulatedText
+            });
+
+            if (this.store) {
+              try {
+                await this.store.updateTurn(finalCancelledTurn);
+              } catch {
+                // Safe cancellation handling
+              }
+            }
+
+            yield {
+              type: 'request_cancelled',
+              requestId,
+              sessionId,
+              turnId: assistantTurn.id,
+              reason: record.isExplicitlyCancelled ? 'Request was cancelled' : String(abortController.signal.reason || 'Request was cancelled'),
+              timestamp: this.clock()
+            };
+          } else {
+            record.terminalEmitted = 'failed';
+            if (record.timeoutTimer) {
+              clearTimeout(record.timeoutTimer);
+              record.timeoutTimer = null;
+            }
+
+            const errorMsg = err instanceof Error ? err.message : String(err);
+            const finalFailedTurn = this.sessionManager.updateTurn(sessionId, assistantTurn.id, {
+              status: 'failed',
+              content: accumulatedText,
+              error: errorMsg
+            });
+
+            if (this.store) {
+              try {
+                await this.store.updateTurn(finalFailedTurn);
+              } catch {
+                // Safe error handling
+              }
+            }
+
+            yield {
+              type: 'request_failed',
+              requestId,
+              sessionId,
+              turnId: assistantTurn.id,
+              error: {
+                code: 'provider_error',
+                message: errorMsg
+              },
+              timestamp: this.clock()
+            };
+
+            if (options?.throwOnError) {
+              throw new ConversationRuntimeError('provider_error', errorMsg, {
+                requestId,
+                sessionId
+              });
+            }
           }
         }
       }
     } finally {
+      if (record.timeoutTimer) {
+        clearTimeout(record.timeoutTimer);
+        record.timeoutTimer = null;
+      }
       this.activeRequests.delete(requestId);
     }
   }
@@ -681,7 +1093,7 @@ export class ConversationRuntime {
 
   /**
    * Cancels an in-flight conversation request by requestId.
-   * Returns true if the request was found and cancelled, false if not active.
+   * Returns true if the request was found and cancelled, false if not active or already finalized.
    */
   async cancel(requestId: string): Promise<boolean> {
     if (!requestId || typeof requestId !== 'string') {
@@ -692,7 +1104,17 @@ export class ConversationRuntime {
       return false;
     }
 
-    record.abortController.abort();
+    if (record.isTimedOut || record.terminalEmitted || record.isExplicitlyCancelled) {
+      return false;
+    }
+
+    record.isExplicitlyCancelled = true;
+    if (record.timeoutTimer) {
+      clearTimeout(record.timeoutTimer);
+      record.timeoutTimer = null;
+    }
+
+    record.abortController.abort('Request was cancelled');
     if (record.provider?.cancel) {
       try {
         await record.provider.cancel(record.requestId);

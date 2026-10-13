@@ -1,5 +1,6 @@
 import { app, BrowserWindow } from 'electron';
 import path from 'node:path';
+import { DefaultMaveConfig } from '@mave/contracts';
 import { createLogger } from '@mave/shared';
 import { createMaveService, type MaveService } from '@mave/core';
 import { createMaveDatabase, type MaveDatabase } from '@mave/database';
@@ -109,7 +110,8 @@ app.whenReady().then(async () => {
     // 4. Initialize Conversation Manager (M2 Phase 6)
     conversationManager = new ConversationManager({
       database: maveDatabase,
-      getMainWindow: () => mainWindow
+      getMainWindow: () => mainWindow,
+      timeoutMs: DefaultMaveConfig.brain.timeoutMs
     });
 
     // 5. Register IPC

@@ -73,6 +73,7 @@ export interface ConversationManagerOptions {
   database: MaveDatabase;
   getMainWindow?: () => BrowserWindow | null;
   coalesceWindowMs?: number;
+  timeoutMs?: number;
   /** Optional overrides for testing & dependency injection */
   runtime?: ConversationRuntime;
   router?: BrainRouter;
@@ -86,6 +87,7 @@ export class ConversationManager {
   private readonly database: MaveDatabase;
   private getMainWindow: () => BrowserWindow | null;
   private readonly coalesceWindowMs: number;
+  private readonly timeoutMs: number;
 
   private readonly store: ConversationStore;
   private readonly providerRegistry: BrainProviderRegistry;
@@ -103,6 +105,7 @@ export class ConversationManager {
     this.database = options.database;
     this.getMainWindow = options.getMainWindow ?? (() => null);
     this.coalesceWindowMs = options.coalesceWindowMs ?? 0;
+    this.timeoutMs = options.timeoutMs ?? 30000;
 
     // 1. ConversationStore (SQLite)
     this.store = options.store ?? new SQLiteConversationStore(this.database);
@@ -135,7 +138,8 @@ export class ConversationManager {
         sessionManager: this.sessionManager,
         contextManager: this.contextManager,
         router: this.router,
-        store: this.store
+        store: this.store,
+        defaultTimeoutMs: this.timeoutMs
       });
 
     logger.info('ConversationManager initialized with MockBrainProvider and SQLite store');

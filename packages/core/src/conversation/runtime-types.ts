@@ -12,6 +12,8 @@ export interface ConversationRequestOptions {
   signal?: AbortSignal;
   /** Whether to throw a ConversationRuntimeError on stream failure in addition to yielding request_failed. Defaults to false. */
   throwOnError?: boolean;
+  /** Request timeout in milliseconds. If specified, overrides defaultTimeoutMs. Must be > 0. */
+  timeoutMs?: number;
 }
 
 export type {
@@ -34,6 +36,7 @@ export type ConversationRuntimeErrorCode =
   | 'duplicate_request'
   | 'routing_error'
   | 'provider_error'
+  | 'provider_timeout'
   | 'persistence_error';
 
 export class ConversationRuntimeError extends Error {

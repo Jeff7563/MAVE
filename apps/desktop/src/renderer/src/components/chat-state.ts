@@ -41,9 +41,9 @@ export const initialChatState: ChatState = {
 export type ChatAction =
   | { type: 'SET_DRAFT'; draft: string }
   | { type: 'SET_LOAD_INPUT'; input: string }
-  | { type: 'SEND_INITIATED'; text: string }
+  | { type: 'SEND_INITIATED'; text: string; requestId?: string }
   | { type: 'SEND_ACCEPTED'; requestId: string }
-  | { type: 'SEND_REJECTED'; error: string }
+  | { type: 'SEND_REJECTED'; error: string; requestId?: string }
   | { type: 'CANCEL_CLICKED' }
   | { type: 'LOAD_SESSION_SUCCESS'; sessionId: string }
   | { type: 'LOAD_SESSION_ERROR'; error: string }
@@ -75,9 +75,11 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         return { ...state, error: validation.error };
       }
 
+      const assignedRequestId = action.requestId || '';
+
       const userMessage: ChatMessage = {
         id: `user-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-        requestId: '', // will be associated on SEND_ACCEPTED
+        requestId: assignedRequestId,
         role: 'user',
         content: action.text.trim(),
         status: 'completed'
@@ -86,6 +88,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       return {
         ...state,
         messages: [...state.messages, userMessage],
+        activeRequestId: assignedRequestId || state.activeRequestId,
         draftInput: '',
         status: 'sending',
         isStreaming: true,
@@ -114,13 +117,28 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       };
     }
 
-    case 'SEND_REJECTED':
+    case 'SEND_REJECTED': {
+      const updatedMessages = [...state.messages];
+      if (action.requestId && updatedMessages.length > 0) {
+        const lastMsg = updatedMessages[updatedMessages.length - 1];
+        if (lastMsg && lastMsg.role === 'user' && lastMsg.requestId === action.requestId) {
+          updatedMessages[updatedMessages.length - 1] = {
+            ...lastMsg,
+            status: 'failed',
+            error: action.error
+          };
+        }
+      }
+
       return {
         ...state,
+        activeRequestId: undefined,
+        messages: updatedMessages,
         status: 'failed',
         isStreaming: false,
         error: action.error
       };
+    }
 
     case 'CANCEL_CLICKED':
       return {
@@ -173,7 +191,18 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
           };
 
         case 'response_started': {
-          // Create assistant placeholder message
+          // Guard against duplicate response_started for the same request
+          const existingPlaceholder = state.messages.find(
+            (m) => m.requestId === evt.requestId && m.role === 'assistant'
+          );
+          if (existingPlaceholder) {
+            return {
+              ...state,
+              status: 'streaming',
+              isStreaming: true
+            };
+          }
+
           const placeholder: ChatMessage = {
             id: `assistant-${evt.turnId}`,
             requestId: evt.requestId,
@@ -192,9 +221,23 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         }
 
         case 'response_delta': {
-          return {
-            ...state,
-            messages: state.messages.map((m) => {
+          const hasAssistant = state.messages.some(
+            (m) => m.requestId === evt.requestId && m.role === 'assistant'
+          );
+
+          let updatedMessages = state.messages;
+          if (!hasAssistant) {
+            const placeholder: ChatMessage = {
+              id: `assistant-${evt.turnId}`,
+              requestId: evt.requestId,
+              turnId: evt.turnId,
+              role: 'assistant',
+              content: evt.text,
+              status: 'streaming'
+            };
+            updatedMessages = [...state.messages, placeholder];
+          } else {
+            updatedMessages = state.messages.map((m) => {
               if (m.requestId === evt.requestId && m.role === 'assistant') {
                 return {
                   ...m,
@@ -203,14 +246,35 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
                 };
               }
               return m;
-            })
+            });
+          }
+
+          return {
+            ...state,
+            messages: updatedMessages,
+            status: 'streaming',
+            isStreaming: true
           };
         }
 
         case 'response_completed': {
-          return {
-            ...state,
-            messages: state.messages.map((m) => {
+          const hasAssistant = state.messages.some(
+            (m) => m.requestId === evt.requestId && m.role === 'assistant'
+          );
+
+          let updatedMessages = state.messages;
+          if (!hasAssistant) {
+            const placeholder: ChatMessage = {
+              id: `assistant-${evt.turnId}`,
+              requestId: evt.requestId,
+              turnId: evt.turnId,
+              role: 'assistant',
+              content: evt.text,
+              status: 'completed'
+            };
+            updatedMessages = [...state.messages, placeholder];
+          } else {
+            updatedMessages = state.messages.map((m) => {
               if (m.requestId === evt.requestId && m.role === 'assistant') {
                 return {
                   ...m,
@@ -219,7 +283,12 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
                 };
               }
               return m;
-            }),
+            });
+          }
+
+          return {
+            ...state,
+            messages: updatedMessages,
             status: 'completed',
             isStreaming: false,
             activeRequestId: undefined
@@ -227,9 +296,23 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         }
 
         case 'request_cancelled': {
-          return {
-            ...state,
-            messages: state.messages.map((m) => {
+          const hasAssistant = state.messages.some(
+            (m) => m.requestId === evt.requestId && m.role === 'assistant'
+          );
+
+          let updatedMessages = state.messages;
+          if (!hasAssistant) {
+            const placeholder: ChatMessage = {
+              id: `assistant-${evt.turnId ?? 'cancelled'}`,
+              requestId: evt.requestId,
+              turnId: evt.turnId,
+              role: 'assistant',
+              content: '',
+              status: 'cancelled'
+            };
+            updatedMessages = [...state.messages, placeholder];
+          } else {
+            updatedMessages = state.messages.map((m) => {
               if (m.requestId === evt.requestId && m.role === 'assistant') {
                 return {
                   ...m,
@@ -237,7 +320,12 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
                 };
               }
               return m;
-            }),
+            });
+          }
+
+          return {
+            ...state,
+            messages: updatedMessages,
             status: 'cancelled',
             isStreaming: false,
             activeRequestId: undefined
@@ -246,9 +334,24 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
 
         case 'request_failed': {
           const errorMsg = `${evt.error.code}: ${evt.error.message}`;
-          return {
-            ...state,
-            messages: state.messages.map((m) => {
+          const hasAssistant = state.messages.some(
+            (m) => m.requestId === evt.requestId && m.role === 'assistant'
+          );
+
+          let updatedMessages = state.messages;
+          if (!hasAssistant) {
+            const placeholder: ChatMessage = {
+              id: `assistant-${evt.turnId ?? 'failed'}`,
+              requestId: evt.requestId,
+              turnId: evt.turnId,
+              role: 'assistant',
+              content: '',
+              status: 'failed',
+              error: errorMsg
+            };
+            updatedMessages = [...state.messages, placeholder];
+          } else {
+            updatedMessages = state.messages.map((m) => {
               if (m.requestId === evt.requestId && m.role === 'assistant') {
                 return {
                   ...m,
@@ -257,7 +360,12 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
                 };
               }
               return m;
-            }),
+            });
+          }
+
+          return {
+            ...state,
+            messages: updatedMessages,
             status: 'failed',
             isStreaming: false,
             error: errorMsg,
@@ -274,3 +382,4 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       return state;
   }
 }
+

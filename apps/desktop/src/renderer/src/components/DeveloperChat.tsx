@@ -9,6 +9,7 @@ import {
 export const DeveloperChat: React.FC = () => {
   const [state, dispatch] = useReducer(chatReducer, initialChatState);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const activeRequestIdRef = useRef<string | null>(null);
 
   const ipcAvailable = typeof window !== 'undefined' && !!window.mave?.chat;
 
@@ -19,6 +20,22 @@ export const DeveloperChat: React.FC = () => {
     }
 
     const unsubscribe = window.mave.chat.onEvent((event) => {
+      // Ignore events for previous/unrelated requests if we have an active request tracked
+      if (activeRequestIdRef.current && event.requestId !== activeRequestIdRef.current) {
+        return;
+      }
+
+      // If this is a terminal event, clear activeRequestIdRef
+      if (
+        event.type === 'response_completed' ||
+        event.type === 'request_cancelled' ||
+        event.type === 'request_failed'
+      ) {
+        if (activeRequestIdRef.current === event.requestId) {
+          activeRequestIdRef.current = null;
+        }
+      }
+
       dispatch({ type: 'RUNTIME_EVENT', event });
     });
 
@@ -45,10 +62,18 @@ export const DeveloperChat: React.FC = () => {
       return;
     }
 
-    dispatch({ type: 'SEND_INITIATED', text });
+    // Generate client-side requestId synchronously before invoking IPC to eliminate race conditions
+    const requestId =
+      typeof crypto !== 'undefined' && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `req-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+
+    activeRequestIdRef.current = requestId;
+    dispatch({ type: 'SEND_INITIATED', text, requestId });
 
     try {
       const response = await window.mave.chat.send({
+        requestId,
         message: text.trim(),
         sessionId: state.sessionId
       });
@@ -56,25 +81,30 @@ export const DeveloperChat: React.FC = () => {
       if (response.accepted) {
         dispatch({ type: 'SEND_ACCEPTED', requestId: response.requestId });
       } else {
+        activeRequestIdRef.current = null;
         dispatch({
           type: 'SEND_REJECTED',
+          requestId,
           error: response.error?.message || 'Request was rejected by runtime'
         });
       }
     } catch (err: any) {
+      activeRequestIdRef.current = null;
       dispatch({
         type: 'SEND_REJECTED',
+        requestId,
         error: err?.message || 'Failed to send chat request'
       });
     }
   };
 
   const handleCancel = async () => {
-    if (!state.activeRequestId || !window.mave?.chat) return;
+    const targetRequestId = activeRequestIdRef.current || state.activeRequestId;
+    if (!targetRequestId || !window.mave?.chat) return;
 
     dispatch({ type: 'CANCEL_CLICKED' });
     try {
-      await window.mave.chat.cancel(state.activeRequestId);
+      await window.mave.chat.cancel(targetRequestId);
     } catch (err: any) {
       console.error('Failed to cancel request:', err);
     }
@@ -265,3 +295,4 @@ export const DeveloperChat: React.FC = () => {
     </div>
   );
 };
+
