@@ -10,6 +10,7 @@ import type {
 } from '@mave/contracts';
 import { StatusCard } from './components/StatusCard';
 import { DeveloperControls } from './components/DeveloperControls';
+import { DeveloperChat } from './components/DeveloperChat';
 
 declare global {
   interface Window {
@@ -148,6 +149,7 @@ export const App: React.FC = () => {
           peakScore={snapshot.peakScore}
           latestScore={snapshot.latestScore}
         />
+        <DeveloperChat />
       </main>
     </div>
   );

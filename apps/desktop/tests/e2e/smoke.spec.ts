@@ -115,3 +115,76 @@ test('Electron desktop smoke test: Milestone 1 local wake word, diagnostics, and
     await electronApp.close();
   }
 });
+
+test('Electron desktop smoke test: Milestone 2 developer text chat streaming and session continuity', async () => {
+  const mainScript = path.resolve(__dirname, '../../dist/main/index.js');
+  const env: Record<string, string> = {
+    ...(process.env as Record<string, string>),
+    NODE_ENV: 'test'
+  };
+  delete env['ELECTRON_RUN_AS_NODE'];
+
+  const electronApp = await electron.launch({
+    args: [mainScript],
+    env
+  });
+
+  try {
+    const window = await electronApp.firstWindow();
+    await window.waitForLoadState('domcontentloaded');
+
+    // 1. Verify Developer Chat card and controls are visible
+    const chatCard = window.locator('[data-testid="developer-chat-card"]');
+    await expect(chatCard).toBeVisible();
+
+    const chatInput = window.locator('[data-testid="chat-input-message"]');
+    await expect(chatInput).toBeVisible();
+
+    const btnSend = window.locator('[data-testid="chat-btn-send"]');
+    await expect(btnSend).toBeVisible();
+
+    // 2. Type "Hello MAVE" and Send
+    await chatInput.fill('Hello MAVE');
+    await btnSend.click();
+
+    // 3. User message appears
+    const userMsg = window.locator('[data-testid="chat-message-user"]').first();
+    await expect(userMsg).toBeVisible();
+    await expect(userMsg).toContainText('Hello MAVE');
+
+    // 4. Assistant response appears and completes with deterministic mock response
+    const assistantMsg = window.locator('[data-testid="chat-message-assistant"]').first();
+    await expect(assistantMsg).toBeVisible();
+    await expect(assistantMsg).toContainText('Mock response: Hello MAVE');
+
+    // 5. Provider diagnostic shows 'mock'
+    const providerDiag = window.locator('[data-testid="chat-diagnostic-provider"]');
+    await expect(providerDiag).toHaveText('mock');
+
+    // 6. Session ID becomes visible
+    const sessionDiag = window.locator('[data-testid="chat-diagnostic-session"]');
+    await expect(sessionDiag).not.toHaveText('none');
+    const firstSessionId = await sessionDiag.innerText();
+    expect(firstSessionId.length).toBeGreaterThan(0);
+
+    // 7. Send second message
+    await chatInput.fill('What did I just say?');
+    await btnSend.click();
+
+    // Verify second user message appears
+    const userMsgs = window.locator('[data-testid="chat-message-user"]');
+    await expect(userMsgs).toHaveCount(2);
+    await expect(userMsgs.nth(1)).toContainText('What did I just say?');
+
+    // Verify second assistant response appears
+    const assistantMsgs = window.locator('[data-testid="chat-message-assistant"]');
+    await expect(assistantMsgs).toHaveCount(2);
+    await expect(assistantMsgs.nth(1)).toContainText('Mock response: What did I just say?');
+
+    // 8. Confirm same Session ID remains active
+    const secondSessionId = await sessionDiag.innerText();
+    expect(secondSessionId).toBe(firstSessionId);
+  } finally {
+    await electronApp.close();
+  }
+});
