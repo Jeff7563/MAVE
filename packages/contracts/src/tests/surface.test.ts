@@ -372,6 +372,36 @@ describe('Surface Contracts & Schemas', () => {
       expect(intent.type).toBe('show_response');
     });
 
+    it('parses set_preferred_display action and preferredDisplayId in snapshot', () => {
+      const action = SurfaceActionSchema.parse({
+        type: 'set_preferred_display',
+        origin: 'user',
+        displayId: 2
+      });
+      expect(action.type).toBe('set_preferred_display');
+      if (action.type === 'set_preferred_display') {
+        expect(action.displayId).toBe(2);
+      }
+
+      // Nullable displayId allows clearing preference
+      const clearAction = SurfaceActionSchema.parse({
+        type: 'set_preferred_display',
+        displayId: null
+      });
+      expect(clearAction.origin).toBe('user');
+      if (clearAction.type === 'set_preferred_display') {
+        expect(clearAction.displayId).toBeNull();
+      }
+
+      const snapshot = SurfaceSnapshotSchema.parse({
+        mode: 'ambient',
+        sizeClass: 'ambient',
+        preferredDisplayId: 2,
+        updatedAt: 123
+      });
+      expect(snapshot.preferredDisplayId).toBe(2);
+    });
+
     it('parses SurfaceEventSchema', () => {
       const snapshot = SurfaceSnapshotSchema.parse({
         mode: 'ambient',

@@ -14,7 +14,12 @@ import { createSystemTray } from './tray.js';
 import { WakeManager } from './wake-manager.js';
 import { ConversationManager } from './conversation-manager.js';
 import { VoiceManager } from './voice-manager.js';
-import { SurfaceWindowManager, registerSurfaceIpcHandlers } from './surface/index.js';
+import {
+  SurfaceWindowManager,
+  registerSurfaceIpcHandlers,
+  SurfacePreferencesStore,
+  SqlitePersistenceAdapter
+} from './surface/index.js';
 import {
   SounddeviceAudioInputProvider,
   MockAudioInputProvider,
@@ -218,7 +223,7 @@ app.whenReady().then(async () => {
     surfaceController = new SurfaceStateController({ enableTimers: true });
 
     if (voiceManager) {
-      voiceManager.onVoiceEvent((event) => {
+      voiceManager.onVoiceEvent((event: any) => {
         const intent = voiceEventToSurfaceIntent(event);
         surfaceController?.applyIntent(intent);
       });
@@ -229,10 +234,15 @@ app.whenReady().then(async () => {
       ? `${process.env['VITE_DEV_SERVER_URL']}?view=surface`
       : path.join(__dirname, '../renderer/index.html');
 
+    const surfacePreferencesStore = new SurfacePreferencesStore({
+      adapter: new SqlitePersistenceAdapter(maveDatabase)
+    });
+
     surfaceWindowManager = new SurfaceWindowManager({
       controller: surfaceController,
       surfaceUrl,
-      preloadPath: surfacePreloadPath
+      preloadPath: surfacePreloadPath,
+      preferencesStore: surfacePreferencesStore
     });
     await surfaceWindowManager.initialize();
     registerSurfaceIpcHandlers(surfaceController, surfaceWindowManager);

@@ -113,7 +113,8 @@ export class DisplayLockManager {
   public resolveTargetDisplay<T extends SimpleDisplay>(
     displays: T[],
     cursorPoint: SimplePoint,
-    fallbackDisplay: T
+    fallbackDisplay: T,
+    preferredDisplayId?: number | null
   ): T {
     if (displays.length === 0) {
       return fallbackDisplay;
@@ -129,7 +130,15 @@ export class DisplayLockManager {
       this.unlock();
     }
 
-    // 2. Select display containing cursor point
+    // 2. If preferred display is configured and currently connected, prioritize it
+    if (typeof preferredDisplayId === 'number') {
+      const preferred = displays.find((d) => d.id === preferredDisplayId);
+      if (preferred) {
+        return preferred;
+      }
+    }
+
+    // 3. Select display containing cursor point
     const cursorDisplay = displays.find((d) => {
       const b = d.bounds;
       return (
@@ -144,8 +153,8 @@ export class DisplayLockManager {
       return cursorDisplay;
     }
 
-    // 3. Fallback to first display or primary fallback
-    return displays[0] ?? fallbackDisplay;
+    // 4. Fallback to primary fallback or first display
+    return fallbackDisplay ?? displays[0];
   }
 }
 

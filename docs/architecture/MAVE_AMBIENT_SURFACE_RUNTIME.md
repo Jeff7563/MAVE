@@ -789,8 +789,9 @@ Frameless transparent windows on Windows 11 behave unpredictably if focus is req
 ### 25.7 Dedicated Preload Boundary (`surface-preload.ts`)
 To enforce strict least privilege natively at the BrowserWindow boundary:
 - The Ambient Surface BrowserWindow loads a dedicated preload script: `surface-preload.ts`.
-- Exposes **strictly** `window.mave.surface` (`getSnapshot`, `subscribe`, `dispatchAction`, `reportInteractiveHover`, `getDiagnostics`).
-- Developer-only capabilities are completely omitted from the Surface runtime:
+- Exposes **strictly** `window.mave.surface` (`getSnapshot`, `subscribe`, `dispatchAction`, `reportInteractiveHover`).
+- Developer diagnostics (`getDiagnostics`) and privileged capabilities belong exclusively to the Developer Diagnostics Window preload (`index.ts`) and are omitted from the Surface runtime:
+  - `window.mave.surface.getDiagnostics` (absent from surface preload)
   - `window.mave.chat` (absent)
   - `window.mave.voice` (absent)
   - `window.mave.sendCommand` (absent)
@@ -802,6 +803,77 @@ To enforce strict least privilege natively at the BrowserWindow boundary:
 - **Clipboard Bounds**: `copy_text` actions are validated and clamped to a maximum payload size of $100,000$ characters.
 - **User Text Submissions**: `submit_text` actions are strictly bounded to a maximum of $2,048$ characters.
 - **URL Whitelisting**: External links are validated to `http:` and `https:` schemes before being handed to `shell.openExternal()`.
+
+---
+
+## 26. M4.9 Multi-Monitor, Persistence & Reliability Architecture
+
+Milestone 4.9 hardens the MAVE Ambient Surface across multi-monitor topologies, display changes, settings persistence, focus cycles, and native desktop recovery.
+
+### 26.1 Multi-Monitor Management & Target Display Selection
+- **Deterministic Display Resolution**:
+  - `DisplayLockManager.resolveTargetDisplay(displays, cursor, primary, preferredDisplayId)`:
+    1. If `isLocked()`, preserves the locked display instance if still attached.
+    2. If `preferredDisplayId` is configured in user preferences, resolves that display if currently connected.
+    3. Otherwise, inspects cursor screen position via `screen.getDisplayNearestPoint(cursor)`.
+    4. Falls back gracefully to `primaryDisplay` or `displays[0]`.
+- **Target Display Lock Lifecycle**:
+  - **Passive / Ambient**: Display lock is unlocked (`isLocked() === false`), allowing subsequent activations to follow user focus / cursor across monitors.
+  - **Active Turns**: Transitioning to an interactive or voice state (`listening`, `thinking`, `speaking`, `compact_response`, `expanded_response`) immediately locks the Surface to the active display (`lock(displayId)`). The Surface never chases the cursor across monitors during an active conversation.
+  - **Pinned State**: Pinned presentation (`snapshot.pinned === true`) stays locked to its display indefinitely, even when the cursor moves across displays or the state transitions.
+  - **Dismissal / Ambient Reset**: Unpinned return to `ambient` unlocks the target display.
+
+### 26.2 Negative Virtual Coordinate Space & WorkArea Invariance
+- **Arbitrary Desktop Topologies**: Windows virtual desktop coordinates frequently locate secondary monitors to the left ($x < 0$) or above ($y < 0$) the primary display.
+- **Strict Invariant**:
+  $$\text{Right Edge} = \text{workArea.x} + \text{workArea.width} - \text{margin}$$
+  $$\text{Bottom Edge} = \text{workArea.y} + \text{workArea.height} - \text{margin}$$
+  MAVE always calculates bounds relative to `workArea` origin and dimensions, correctly placing the Surface at the bottom-right of the chosen monitor regardless of negative coordinate offsets.
+- **Taskbar Placement Independence**: Whether the Windows taskbar is positioned at the bottom, top, left, or right, `workArea` automatically reflects the usable screen space, preventing MAVE from rendering under or overlapping the taskbar.
+
+### 26.3 Display Disconnect & Reconnect Handling
+- **Display Disconnect (`display-removed`)**:
+  - When the locked or current display is disconnected, `SurfaceWindowManager` immediately unlocks the target display and triggers `recalculateBounds()`.
+  - The fallback display is resolved deterministically (primary or remaining display), and the window is relocated smoothly without crashes or detached rendering.
+- **Display Connect (`display-added`)**:
+  - Connecting an additional monitor while MAVE is active or pinned does not disrupt the active presentation.
+  - Unlocked ambient indicators recalculate bounds if necessary without stealing attention.
+
+### 26.4 Surface Preferences Persistence (`SurfacePreferencesStore`)
+- **Storage Subsystem**: Backed by the SQLite `settings` table (`id`, `key`, `value`, `updated_at`) within `MaveDatabase`, utilizing `SqlitePersistenceAdapter` under key `'surface.preferences'`.
+- **Persisted Attributes**:
+  - `preferredDisplayId: number | null` (explicit display lock or follow cursor)
+  - `enabled: boolean` (ambient surface enablement toggle)
+  - `reducedMotion: boolean` (accessible motion reduction flag)
+- **Content Privacy & Session Boundaries**:
+  - **Zero Persistent Transcripts**: Assistant text, speech tokens, and response blocks are strictly ephemeral in-memory state and are never written to disk.
+  - **Session-Only Pin**: Pin state does **NOT** survive application restarts. The Surface always initializes in the canonical clean `ambient` state upon startup, preventing sensitive or stale assistant text from resurrecting onto the desktop.
+- **Corruption Resilience**: Corrupted or non-object payloads in SQLite fallback gracefully to canonical factory defaults (`DEFAULT_SURFACE_PREFERENCES`) with clear warning diagnostics and zero runtime crashes.
+
+### 26.5 Preload Least-Privilege Boundary & Diagnostics Isolation
+- In accordance with defense-in-depth principles:
+  - `getDiagnostics()` was audited and found unnecessary for production Surface rendering components (`SurfaceView`, `MaveCapsule`, `MaveCompactResponse`, etc.).
+  - `getDiagnostics()` is strictly removed from the production `surface-preload.ts` API.
+  - Developer diagnostics remain accessible exclusively through the Developer Diagnostics Window preload (`index.ts`).
+- **Sender Authorization**: `mave:surface:report-hover` validates `event.sender.id === surfaceWin.webContents.id`, blocking foreign or dev-window spoofing of hit-region tracking.
+
+### 26.6 Always-On-Top Policy (`'status'` Level)
+- Electron's `win.setAlwaysOnTop(true, 'status')` on Windows maps to native `HWND_TOPMOST` without modal application behavior.
+- Keeps MAVE visible over standard desktop applications, browser windows, and editor environments while allowing passive window events to maintain zero focus-stealing.
+
+### 26.7 Pragmatic Fullscreen Policy
+- Fullscreen browser video and borderless games naturally cover `HWND_TOPMOST` when running in dedicated exclusive mode.
+- Avoids fragile, high-overhead Win32 polling hooks (such as `SHAppBarMessage` or global keyboard hooks).
+- MAVE respects native OS Z-ordering, remaining positioned within display `workArea` boundaries.
+
+### 26.8 Focus Lifecycle Reliability & Stress Verification
+- Survives 20 consecutive rapid focus acquire (`request_focus`) and release (`release_focus` / Escape) cycles without stuck focusable states.
+- Passive background events (`voice_activity`, responses, errors) rigorously enforce `isFocusable === false` and `showInactive()`.
+
+### 26.9 Singleton Window Lifecycle & Crash Recovery
+- **Reusability**: A single native `BrowserWindow` instance is reused across repeated presentation cycles; native windows are never recreated per turn.
+- **Crash Recovery (`render-process-gone`)**: If the renderer process encounters an unexpected crash or GPU process termination, `SurfaceWindowManager` captures the event, cleanly destroys the damaged window, and recreates a fresh transparent BrowserWindow if the state machine requires active presentation.
+
 
 
 

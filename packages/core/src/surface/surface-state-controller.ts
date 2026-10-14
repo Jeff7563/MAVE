@@ -313,6 +313,13 @@ export class SurfaceStateController {
         });
       }
 
+      case 'set_preferred_display': {
+        return this.updateSnapshot({
+          preferredDisplayId: action.displayId,
+          updatedAt: now
+        });
+      }
+
       case 'user_activity':
       case 'open_link':
       case 'open_source':

@@ -129,7 +129,13 @@ test('Electron desktop: Surface interaction, focus acquisition, Escape release, 
       await (window as any).mave.surface.reportInteractiveHover(true);
     });
 
-    let diagnostics = await surfaceWindow.evaluate(async () => {
+    // Verify dedicated surface preload omits getDiagnostics (least privilege)
+    const surfaceHasDiagnostics = await surfaceWindow.evaluate(() => {
+      return typeof (window as any).mave?.surface?.getDiagnostics === 'function';
+    });
+    expect(surfaceHasDiagnostics).toBe(false);
+
+    let diagnostics = await devWindow.evaluate(async () => {
       return await (window as any).mave.surface.getDiagnostics();
     });
     expect(diagnostics.ignoreMouse).toBe(false);
@@ -139,7 +145,7 @@ test('Electron desktop: Surface interaction, focus acquisition, Escape release, 
       await (window as any).mave.surface.reportInteractiveHover(false);
     });
 
-    diagnostics = await surfaceWindow.evaluate(async () => {
+    diagnostics = await devWindow.evaluate(async () => {
       return await (window as any).mave.surface.getDiagnostics();
     });
     expect(diagnostics.ignoreMouse).toBe(true);

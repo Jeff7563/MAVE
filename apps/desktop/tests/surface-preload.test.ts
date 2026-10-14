@@ -105,4 +105,10 @@ describe('Dedicated Surface Preload Least-Privilege Verification', () => {
     unsubscribe();
     expect(mockIpcRemoveListener).toHaveBeenCalledWith(SURFACE_IPC_CHANNELS.EVENT, registeredHandler);
   });
+
+  it('strictly omits getDiagnostics for least privilege (belongs in developer window)', () => {
+    const surface = exposedApis['mave'].surface;
+    expect(surface.getDiagnostics).toBeUndefined();
+  });
 });
+

@@ -11,7 +11,6 @@ export interface MaveSurfaceApi {
   subscribe: (callback: (event: SurfaceEvent) => void) => () => void;
   dispatchAction: (action: SurfaceAction) => Promise<{ success: boolean; error?: string }>;
   reportInteractiveHover: (isHovering: boolean) => Promise<void>;
-  getDiagnostics?: () => Promise<unknown>;
 }
 
 const surfaceApi: MaveSurfaceApi = {
@@ -35,9 +34,6 @@ const surfaceApi: MaveSurfaceApi = {
   },
   reportInteractiveHover: async (isHovering: boolean) => {
     await ipcRenderer.invoke('mave:surface:report-hover', isHovering);
-  },
-  getDiagnostics: async () => {
-    return await ipcRenderer.invoke('mave:surface:get-diagnostics');
   }
 };
 

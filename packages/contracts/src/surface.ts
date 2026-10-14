@@ -252,6 +252,7 @@ export const SurfaceSnapshotSchema = z.object({
   autoCollapse: AutoCollapsePolicySchema.optional(),
   error: SurfaceErrorSchema.optional(),
   sessionId: z.string().optional(),
+  preferredDisplayId: z.number().nullable().optional(),
   updatedAt: z.number().nonnegative()
 });
 export type SurfaceSnapshot = z.infer<typeof SurfaceSnapshotSchema>;
@@ -324,6 +325,11 @@ export const SurfaceActionSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('user_activity'),
     origin: SurfaceActionOriginSchema.default('user')
+  }),
+  z.object({
+    type: z.literal('set_preferred_display'),
+    origin: SurfaceActionOriginSchema.default('user'),
+    displayId: z.number().nullable()
   })
 ]);
 export type SurfaceAction = z.infer<typeof SurfaceActionSchema>;

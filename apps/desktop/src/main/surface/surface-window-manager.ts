@@ -19,6 +19,7 @@ import {
   SurfaceTransitionCoordinator,
   type TransitionDiagnostics
 } from './surface-transition-coordinator.js';
+import type { SurfacePreferencesStore } from './surface-preferences.js';
 
 export interface ScreenAdapter {
   getCursorScreenPoint(): SimplePoint;
@@ -43,6 +44,7 @@ export interface SurfaceWindowDiagnostics {
   visible: boolean;
   bounds: NativeSurfaceBounds | null;
   displayId: number | null;
+  preferredDisplayId?: number | null;
   isLocked: boolean;
   focusable: boolean;
   ignoreMouse: boolean;
@@ -59,6 +61,7 @@ export interface SurfaceWindowManagerOptions {
   screenAdapter?: ScreenAdapter;
   margin?: number;
   logger?: Logger;
+  preferencesStore?: SurfacePreferencesStore;
 }
 
 /**
@@ -83,6 +86,7 @@ export class SurfaceWindowManager {
   private readonly screenAdapter: ScreenAdapter;
   private readonly margin: number;
   private readonly logger: Logger;
+  private readonly preferencesStore?: SurfacePreferencesStore;
   private readonly displayLockManager = new DisplayLockManager();
   private readonly transitionCoordinator: SurfaceTransitionCoordinator;
 
@@ -97,6 +101,7 @@ export class SurfaceWindowManager {
 
   private onDisplayMetricsChanged: (() => void) | null = null;
   private onDisplayRemoved: ((_event: any, display: Display) => void) | null = null;
+  private onDisplayAdded: ((_event: any, display: Display) => void) | null = null;
 
   constructor(options: SurfaceWindowManagerOptions) {
     this.controller = options.controller;
@@ -105,6 +110,7 @@ export class SurfaceWindowManager {
     this.screenAdapter = options.screenAdapter ?? createDefaultScreenAdapter();
     this.margin = options.margin ?? DEFAULT_SURFACE_MARGIN_DIP;
     this.logger = options.logger ?? createLogger({ name: 'mave:surface-window' });
+    this.preferencesStore = options.preferencesStore;
     this.transitionCoordinator = new SurfaceTransitionCoordinator({
       initialSizeClass: this.controller.getSnapshot().sizeClass
     });
@@ -134,10 +140,25 @@ export class SurfaceWindowManager {
         this.displayLockManager.unlock();
       }
       this.recalculateBounds();
+      const snapshot = this.controller.getSnapshot();
+      if (snapshot.pinned || (snapshot.mode !== 'ambient' && snapshot.mode !== 'hidden')) {
+        if (this.activeDisplayId !== null) {
+          this.displayLockManager.lock(this.activeDisplayId);
+        }
+      }
+    };
+
+    this.onDisplayAdded = (_event, addedDisplay) => {
+      this.logger.info({ displayId: addedDisplay?.id }, 'display added');
+      const snapshot = this.controller.getSnapshot();
+      if (!this.displayLockManager.isLocked() && !snapshot.pinned) {
+        this.recalculateBounds();
+      }
     };
 
     this.screenAdapter.on('display-metrics-changed', this.onDisplayMetricsChanged);
     this.screenAdapter.on('display-removed', this.onDisplayRemoved);
+    this.screenAdapter.on('display-added', this.onDisplayAdded);
 
     // Apply initial snapshot
     const initialSnapshot = this.controller.getSnapshot();
@@ -239,6 +260,25 @@ export class SurfaceWindowManager {
       this.transitionCoordinator.dispose();
     });
 
+    win.webContents.on('render-process-gone', (_event, details) => {
+      this.logger.error({ details }, 'surface renderer process gone; initiating crash recovery');
+      if (this.window && !this.window.isDestroyed()) {
+        this.window.destroy();
+        this.window = null;
+      }
+      this.isReadyToShow = false;
+      this.isFocusableActive = false;
+      this.isHovering = false;
+      this.isIgnoringMouse = true;
+      this.currentBounds = null;
+      this.transitionCoordinator.dispose();
+      // Recreate window if controller still expects visible surface
+      const snapshot = this.controller.getSnapshot();
+      if (snapshot.visibility === 'visible' && snapshot.mode !== 'hidden') {
+        this.createWindow();
+      }
+    });
+
     win.webContents.on('did-finish-load', () => {
       this.logger.info('surface webContents finished loading, broadcasting active snapshot');
       // Reload recovery: ensure safety default is passive
@@ -276,9 +316,14 @@ export class SurfaceWindowManager {
     const win = this.window;
     if (!win || win.isDestroyed()) return;
 
+    const targetDisplay = this.resolveTargetDisplay();
+    this.activeDisplayId = targetDisplay.id;
+
     // 1. Update Display Lock Policy
-    if (snapshot.mode !== 'ambient' && snapshot.mode !== 'hidden') {
-      if (!this.displayLockManager.isLocked() && this.activeDisplayId !== null) {
+    // Surface locks to active display when interacting (non-ambient, non-hidden) OR when pinned.
+    // Pinned Surface stays on its current display until explicitly changed or display removed.
+    if (snapshot.pinned || (snapshot.mode !== 'ambient' && snapshot.mode !== 'hidden')) {
+      if (!this.displayLockManager.isLocked()) {
         this.displayLockManager.lock(this.activeDisplayId);
         this.logger.debug({ displayId: this.activeDisplayId }, 'locked surface to active display');
       }
@@ -332,10 +377,10 @@ export class SurfaceWindowManager {
     // 5. Coordinated Asymmetric Envelope Transition & Snapshot Broadcast
     this.transitionCoordinator.handleSnapshot(snapshot, {
       applyBounds: (sizeClass) => {
-        const targetDisplay = this.resolveTargetDisplay();
-        this.activeDisplayId = targetDisplay.id;
+        const display = this.resolveTargetDisplay();
+        this.activeDisplayId = display.id;
         const newBounds = calculateSurfaceBounds({
-          workArea: targetDisplay.workArea,
+          workArea: display.workArea,
           sizeClass,
           margin: this.margin
         });
@@ -355,6 +400,24 @@ export class SurfaceWindowManager {
         this.broadcastSnapshot(snap);
       }
     });
+
+    // Ensure bounds are updated if monitor moved even if sizeClass remained identical
+    const currentTargetDisplay = this.resolveTargetDisplay();
+    const expectedBounds = calculateSurfaceBounds({
+      workArea: currentTargetDisplay.workArea,
+      sizeClass: snapshot.sizeClass,
+      margin: this.margin
+    });
+    if (
+      !this.currentBounds ||
+      this.currentBounds.x !== expectedBounds.x ||
+      this.currentBounds.y !== expectedBounds.y ||
+      this.currentBounds.width !== expectedBounds.width ||
+      this.currentBounds.height !== expectedBounds.height
+    ) {
+      win.setBounds(expectedBounds);
+      this.currentBounds = expectedBounds;
+    }
   }
 
   /**
@@ -371,6 +434,19 @@ export class SurfaceWindowManager {
    */
   public dispatchAction(action: SurfaceAction): { success: boolean; error?: string } {
     try {
+      if (action.type === 'set_preferred_display') {
+        const displayId = action.displayId;
+        if (this.preferencesStore) {
+          this.preferencesStore.updatePreferences({ preferredDisplayId: displayId });
+        }
+        this.controller.dispatchAction(action);
+        if (this.displayLockManager.isLocked()) {
+          this.displayLockManager.unlock();
+        }
+        this.recalculateBounds();
+        return { success: true };
+      }
+
       if (action.type === 'open_link' || action.type === 'open_source') {
         const urlToOpen = action.url;
         if (urlToOpen) {
@@ -426,6 +502,10 @@ export class SurfaceWindowManager {
     return this.window;
   }
 
+  public getPreferencesStore(): SurfacePreferencesStore | undefined {
+    return this.preferencesStore;
+  }
+
   public getDiagnostics(): SurfaceWindowDiagnostics {
     const isCreated = this.window !== null && !this.window.isDestroyed();
     const isVisible = isCreated && this.window!.isVisible();
@@ -436,6 +516,7 @@ export class SurfaceWindowManager {
       visible: isVisible,
       bounds: this.currentBounds,
       displayId: this.activeDisplayId,
+      preferredDisplayId: this.preferencesStore?.getPreferences().preferredDisplayId ?? null,
       isLocked: this.displayLockManager.isLocked(),
       focusable: this.isFocusableActive,
       ignoreMouse: this.isIgnoringMouse,
@@ -469,6 +550,11 @@ export class SurfaceWindowManager {
       this.onDisplayRemoved = null;
     }
 
+    if (this.onDisplayAdded) {
+      this.screenAdapter.removeListener('display-added', this.onDisplayAdded);
+      this.onDisplayAdded = null;
+    }
+
     if (this.window && !this.window.isDestroyed()) {
       this.window.destroy();
       this.window = null;
@@ -483,8 +569,9 @@ export class SurfaceWindowManager {
     const displays = this.screenAdapter.getAllDisplays();
     const primary = this.screenAdapter.getPrimaryDisplay();
     const cursor = this.screenAdapter.getCursorScreenPoint();
+    const preferredDisplayId = this.preferencesStore?.getPreferences().preferredDisplayId ?? null;
 
-    return this.displayLockManager.resolveTargetDisplay(displays, cursor, primary);
+    return this.displayLockManager.resolveTargetDisplay(displays, cursor, primary, preferredDisplayId);
   }
 
   private recalculateBounds(): void {

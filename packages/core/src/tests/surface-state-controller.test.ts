@@ -1102,6 +1102,29 @@ describe('SurfaceStateController', () => {
       clock.tick(2000);
       expect(controller.getSnapshot().mode).toBe('ambient');
     });
+
+    it('updates preferredDisplayId in snapshot upon set_preferred_display action', () => {
+      const controller = new SurfaceStateController();
+      expect(controller.getSnapshot().preferredDisplayId).toBeUndefined();
+
+      // Set display 2
+      const updated = controller.dispatchAction({
+        type: 'set_preferred_display',
+        origin: 'user',
+        displayId: 2
+      });
+      expect(updated.preferredDisplayId).toBe(2);
+      expect(controller.getSnapshot().preferredDisplayId).toBe(2);
+
+      // Clear preference
+      const cleared = controller.dispatchAction({
+        type: 'set_preferred_display',
+        origin: 'user',
+        displayId: null
+      });
+      expect(cleared.preferredDisplayId).toBeNull();
+      expect(controller.getSnapshot().preferredDisplayId).toBeNull();
+    });
   });
 });
 

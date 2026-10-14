@@ -22,14 +22,18 @@ test('Electron desktop: Ambient surface Expanded Context Panel & Rich Content E2
 
   try {
     // 1. Await Dev Window and Surface Window
-    const devWindow = await electronApp.firstWindow();
-    await devWindow.waitForLoadState('domcontentloaded');
+    const firstWin = await electronApp.firstWindow();
+    await firstWin.waitForLoadState('domcontentloaded');
 
-    let surfaceWindow = (await electronApp.windows()).find((w) => w !== devWindow);
-    if (!surfaceWindow) {
-      surfaceWindow = await electronApp.waitForEvent('window');
+    let secondWin = (await electronApp.windows()).find((w) => w !== firstWin);
+    if (!secondWin) {
+      secondWin = await electronApp.waitForEvent('window');
     }
-    await surfaceWindow.waitForLoadState('domcontentloaded');
+    await secondWin.waitForLoadState('domcontentloaded');
+
+    const isFirstDev = await firstWin.evaluate(() => typeof (window as any).mave?.sendCommand === 'function');
+    const devWindow = isFirstDev ? firstWin : secondWin;
+    const surfaceWindow = isFirstDev ? secondWin : firstWin;
 
     // 2. Initial Ambient Capsule State (280x80 DIP)
     const initialBounds = await electronApp.evaluate(({ BrowserWindow }) => {
