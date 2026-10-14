@@ -25,6 +25,10 @@ export const CANONICAL_PROVIDER_ACCESS_CLASSES = [
 export type ProviderAccessClass = (typeof CANONICAL_PROVIDER_ACCESS_CLASSES)[number];
 export type ProviderBillingClass = ProviderAccessClass;
 
+import type { TaskContext, TaskIntent } from './task-policy.js';
+import type { RuntimeSelectionMode } from './runtime-policy.js';
+import type { ModelRole, RuntimeModelSelectionMode } from './runtime-models/types.js';
+
 export interface BrainRoutingDiagnostics {
   routingTimeMs: number;
   providersEvaluated: number;
@@ -32,10 +36,25 @@ export interface BrainRoutingDiagnostics {
   paidApisBlockedCount?: number;
   errorType?: string;
   sanitizedError?: string;
+  taskIntent?: string;
+  modelRole?: string;
+  runtimeSelectionMode?: string;
+  modelSelectionMode?: string;
+  runtimeModelsEvaluated?: number;
+  selectionReason?: string;
+  internalErrorCode?: string;
 }
 
 export interface BrainRouteRequest {
   profileId?: BrainProfileId;
+  taskIntent?: TaskIntent | string;
+  modelRole?: ModelRole;
+  taskContext?: TaskContext;
+  runtimeMode?: RuntimeSelectionMode;
+  modelMode?: RuntimeModelSelectionMode;
+  preferredRuntimeId?: string;
+  lockedRuntimeId?: string;
+  lockedModelId?: string;
   preferredProviderId?: string;
   preferredModelId?: string;
   defaultProviderId?: string;
@@ -91,6 +110,10 @@ export interface BrainRouteDecision {
   model?: ModelDescriptor;
   modelId?: string;
   profileId?: BrainProfileId;
+  taskIntent?: TaskIntent;
+  modelRole?: ModelRole;
+  runtimeSelectionMode?: RuntimeSelectionMode;
+  modelSelectionMode?: RuntimeModelSelectionMode;
   reason: string;
   routeReason?: RouteReason;
   fallbackUsed: boolean;

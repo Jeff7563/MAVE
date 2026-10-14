@@ -293,11 +293,83 @@ BrainRequest.overrides.preferredModelId ──────► selectRuntimeModel
 
 ---
 
-## 9. Future Settings Contract (Design Specification)
+## 9. Task → Runtime → Model Routing Engine (F1.5-S3)
+
+MAVE's intelligence routing engine provides a deterministic, multi-stage pipeline:
+
+```text
+Task Intent
+    ↓
+Brain Profile
+    ↓
+Access / Billing Policy (Subscription First → Local Secondary → Paid API Blocked)
+    ↓
+Provider / Runtime Selection (AUTO | PREFERRED | LOCKED)
+    ↓
+Model Role Selection (FAST | BALANCED | REASONING | CODING | AGENT)
+    ↓
+Concrete Model Selection (RuntimeModelCatalog.selectRuntimeModel)
+    ↓
+Execution Handoff (options.modelId per-invocation)
+```
+
+### 9.1 Task Classification Matrix & Vendor Independence
+Task Policy maps user intent and conversational context into canonical `BrainProfileId` and semantic `ModelRole`:
+
+| Task Intent | Profile ID | Model Role | Context / Notes |
+|:---|:---|:---|:---|
+| `quick_chat` | `fast_conversation` | `FAST` | Ultra-low latency voice or short text interaction |
+| `general_conversation` | `fast_conversation` | `BALANCED` | Default conversational turn |
+| `language` | `fast_conversation` | `FAST` | Interactive language practice |
+| `deep_reasoning` | `deep_reasoning` | `REASONING` | Conversational deep analysis without tool execution |
+| `planning` | `deep_reasoning` / `agent_work` | `REASONING` | Conversational planning → `deep_reasoning`; Project/agent planning → `agent_work` |
+| `coding` | `agent_work` | `CODING` | Code generation, editing, review |
+| `agent_work` | `agent_work` | `AGENT` | Autonomous multi-step tool execution / workflows |
+| `research` | `research` | `REASONING` | Broad information synthesis |
+| `local_private` | `local_offline` | `BALANCED` | Offline-only, local-only privacy guarantee |
+
+**Zero Vendor Leakage:** `TaskPolicy` strictly contains no vendor names (`claude`, `codex`, `antigravity`, `openai`). It operates purely on semantic profiles and model roles.
+
+### 9.2 Runtime Selection Modes (AUTO, PREFERRED, LOCKED)
+For profile candidates (e.g. `agent_work` candidate pool):
+
+1. **AUTO:**
+   Evaluates runtime eligibility based on health and model role support. Sorts candidates by deterministic priority:
+   - `CODING`: `claude-code` → `codex` → `antigravity`
+   - `AGENT`: `antigravity` → `claude-code` → `codex`
+   - `REASONING`: `claude-code` → `codex` → `antigravity`
+   - `BALANCED`: `claude-code` → `antigravity` → `codex`
+   - `FAST`: `claude-code` → `antigravity` → `codex`
+2. **PREFERRED:**
+   Attempts the user's preferred runtime first.
+   - If healthy and role-compatible: selects it.
+   - If unavailable or role-incompatible and `allowFallback: true`: falls back to AUTO priorities with diagnostic flag `fallbackOccurred: true`.
+   - If `allowFallback: false`: fails closed immediately.
+3. **LOCKED:**
+   Pins execution strictly to the specified runtime (`lockedRuntimeId`).
+   - If the runtime is missing, unhealthy, or lacks a model satisfying the role: fails immediately (`provider_not_found`, `no_healthy_provider`, or `capability_not_supported`).
+   - Silent switching is forbidden.
+
+### 9.3 Provider-Kind Architectural Boundaries & Subscription Gaps
+MAVE maintains strict integrity of provider kinds:
+- `fast_conversation`, `deep_reasoning`, `research`, `local_offline` $\to$ strictly `model_provider`.
+- `agent_work` $\to$ strictly `agent_runtime_provider`.
+
+**Honest Subscription Gaps (No Architecture Cheating):**
+1. **`NO CANONICAL SUBSCRIPTION FAST_CONVERSATION ROUTE YET`:**
+   Subscription runtimes (`claude-code`, `codex`, `antigravity`) are agent runtimes executed via CLI subprocesses with ~1.1–1.7s bootstrap latency. They cannot fulfill voice low-latency conversational budgets (~200–500ms). They are not routed into `fast_conversation`. If no direct local or subscription `model_provider` is available, paid APIs remain blocked by default.
+2. **`NO CANONICAL SUBSCRIPTION DEEP_REASONING MODEL_PROVIDER ROUTE YET`:**
+   Pure conversational deep reasoning belongs to `model_provider`. Subscription runtimes are preserved for `agent_work`.
+3. **Zero Contract Expansion:**
+   F1.5-S3 requires 0 public contract changes to `@mave/contracts`. All routing enhancements exist within `@mave/core` internal types and runtime models.
+
+---
+
+## 10. Future Settings Contract (Design Specification)
 
 *(UI implementation deferred to post-Pre-M5 UI Redesign)*
 
-### 9.1 AI Runtimes Panel
+### 10.1 AI Runtimes Panel
 ```text
 ┌──────────────────────────────────────────────────────────────┐
 │ AI Runtimes                                                  │
@@ -319,7 +391,7 @@ BrainRequest.overrides.preferredModelId ──────► selectRuntimeModel
 └──────────────────────────────────────────────────────────────┘
 ```
 
-### 9.2 Task Routing Panel
+### 10.2 Task Routing Panel
 ```text
 ┌──────────────────────────────────────────────────────────────┐
 │ Task Routing Rules                                           │
@@ -334,13 +406,13 @@ BrainRequest.overrides.preferredModelId ──────► selectRuntimeModel
 
 ---
 
-## 10. Quota-Aware Routing & Intent-Preserving Fallback
+## 11. Quota-Aware Routing & Intent-Preserving Fallback
 
-### 10.1 Multi-Factor Routing Inputs
+### 11.1 Multi-Factor Routing Inputs
 Future routing decisions synthesize:
 `Task Profile` + `Runtime Health` + `Runtime Availability` + `Model Availability` + `Subscription Quota State` + `Model Role` + `User Mode (Auto/Preferred/Locked)` + `Billing Policy` + `Privacy Policy`.
 
-### 10.2 Quota Fallback Hierarchy
+### 11.2 Quota Fallback Hierarchy
 When a subscription runtime hits its window quota (e.g. Claude 5-hour limit):
 ```text
 Primary Subscription Runtime (e.g. Claude Code - REASONING)
@@ -356,11 +428,13 @@ Fail Closed / Inform User (Paid APIs remain BLOCKED unless enabled)
 
 ---
 
-## 11. Follow-Up Phasing Plan
+## 12. Follow-Up Phasing Plan
 
-- **F1.5-S (CURRENT):** Subscription-First foundation, access/billing classification, paid API blocking, runtime audits, canonical architecture documentation.
-- **F1.5-S1 (F1.7 Normalization):** Additive subscription runtime adapter normalization (`ClaudeCodeBrainProvider`, `CodexBrainProvider`).
-- **F1.5-S2:** Runtime Model Catalog & Model Role mapping engine.
-- **F1.5-S3:** Task $\to$ Runtime $\to$ Model deterministic routing integration.
-- **F1.5-S4:** Quota-aware subscription fallback and window recovery monitoring.
+- **F1.5-S (COMPLETE):** Subscription-First foundation, access/billing classification, paid API blocking, runtime audits, canonical architecture documentation.
+- **F1.5-S1 (COMPLETE):** Claude Code subscription runtime normalization (`ClaudeCodeBrainProvider`).
+- **F1.5-S2 (COMPLETE):** Runtime Model Catalog & Model Role mapping engine (`RuntimeModelCatalog`, `selectRuntimeModel`).
+- **F1.5-S2.1 (COMPLETE):** Runtime model handoff and availability hardening (`options.modelId` per-invocation).
+- **F1.5-S3 (COMPLETE):** Task $\to$ Runtime $\to$ Model deterministic routing engine (`TaskPolicy`, `RuntimePolicy`, AUTO/PREFERRED/LOCKED).
+- **F1.5-S4 (NEXT):** Quota-aware subscription fallback and window recovery monitoring.
+
 

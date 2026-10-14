@@ -295,12 +295,18 @@ export class BrainProviderRegistry {
       );
     }
 
+    const isAgentRuntime =
+      trimmedId === 'antigravity' ||
+      trimmedId === 'codex' ||
+      trimmedId === 'claude-code' ||
+      trimmedId === 'claude_code';
+
     const kind: ProviderKind =
       entry.metadata?.kind ??
-      (trimmedId === 'antigravity' ? 'agent_runtime_provider' : 'model_provider');
+      (isAgentRuntime ? 'agent_runtime_provider' : 'model_provider');
     const accessPath: ProviderAccessPath =
       entry.metadata?.accessPath ??
-      (trimmedId === 'antigravity' ? 'official_cli' : 'local_runtime');
+      (isAgentRuntime ? 'official_cli' : 'local_runtime');
     const isPaidCloudApi =
       trimmedId === 'openai' ||
       trimmedId === 'anthropic' ||
@@ -309,9 +315,7 @@ export class BrainProviderRegistry {
       accessPath === 'official_api';
 
     const isSubscriptionRuntime =
-      trimmedId === 'antigravity' ||
-      trimmedId === 'codex' ||
-      trimmedId === 'claude_code' ||
+      isAgentRuntime ||
       accessPath === 'official_cli';
 
     const accessClass: ProviderAccessClass =

@@ -16,6 +16,19 @@ import type { BrainProviderRegistry } from './provider-registry.js';
 import { BrainProfilePolicy } from './profile-policy.js';
 import { ModelCatalogRuntime } from './model-catalog.js';
 import { ModelPolicy } from './model-policy.js';
+import { TaskPolicy, type TaskIntent } from './task-policy.js';
+import {
+  DEFAULT_RUNTIME_PRIORITIES,
+  type RuntimeSelectionMode,
+  normalizeRuntimeProviderId
+} from './runtime-policy.js';
+import { RuntimeModelCatalog } from './runtime-models/catalog.js';
+import { selectRuntimeModel } from './runtime-models/selector.js';
+import {
+  type ModelRole,
+  type RuntimeModelSelectionMode,
+  RuntimeModelSelectionError
+} from './runtime-models/types.js';
 import {
   BrainRoutingError,
   ModelCatalogError,
@@ -30,7 +43,10 @@ import {
 export interface BrainRouterOptions {
   registry: BrainProviderRegistry;
   profilePolicy?: BrainProfilePolicy;
+  taskPolicy?: TaskPolicy;
   catalogRuntime?: ModelCatalogRuntime;
+  runtimeModelCatalog?: RuntimeModelCatalog;
+  runtimePriorities?: Record<ModelRole, readonly string[]>;
   defaultProvider?: string;
   fallbackChain?: string[];
   /** Accepted for configuration compatibility and routing timeout budget. Default: 4000ms. */
@@ -107,7 +123,10 @@ async function raceWithDeadlineAndSignal<T>(
 export class BrainRouter {
   private readonly registry: BrainProviderRegistry;
   private readonly profilePolicy: BrainProfilePolicy;
+  private readonly taskPolicy: TaskPolicy;
   private readonly catalogRuntime: ModelCatalogRuntime;
+  private readonly runtimeModelCatalog: RuntimeModelCatalog;
+  private readonly runtimePriorities: Record<ModelRole, readonly string[]>;
   private readonly defaultProvider?: string;
   private readonly fallbackChain: string[];
   private readonly timeoutMs: number;
@@ -121,7 +140,10 @@ export class BrainRouter {
       fallbackChain?: string[];
       timeoutMs?: number;
       profilePolicy?: BrainProfilePolicy;
+      taskPolicy?: TaskPolicy;
       catalogRuntime?: ModelCatalogRuntime;
+      runtimeModelCatalog?: RuntimeModelCatalog;
+      runtimePriorities?: Record<ModelRole, readonly string[]>;
       maxProviderBudget?: number;
       allowPaidApis?: boolean;
     }
@@ -129,8 +151,13 @@ export class BrainRouter {
     if (isRouterOptions(registryOrOptions)) {
       this.registry = registryOrOptions.registry;
       this.profilePolicy = registryOrOptions.profilePolicy ?? new BrainProfilePolicy();
+      this.taskPolicy = registryOrOptions.taskPolicy ?? new TaskPolicy();
       this.catalogRuntime =
         registryOrOptions.catalogRuntime ?? new ModelCatalogRuntime(this.registry);
+      this.runtimeModelCatalog =
+        registryOrOptions.runtimeModelCatalog ?? new RuntimeModelCatalog();
+      this.runtimePriorities =
+        registryOrOptions.runtimePriorities ?? DEFAULT_RUNTIME_PRIORITIES;
       this.defaultProvider = registryOrOptions.defaultProvider;
       this.fallbackChain = registryOrOptions.fallbackChain ?? [];
       this.timeoutMs = registryOrOptions.timeoutMs ?? 4000;
@@ -139,8 +166,13 @@ export class BrainRouter {
     } else {
       this.registry = registryOrOptions;
       this.profilePolicy = defaultOptions?.profilePolicy ?? new BrainProfilePolicy();
+      this.taskPolicy = defaultOptions?.taskPolicy ?? new TaskPolicy();
       this.catalogRuntime =
         defaultOptions?.catalogRuntime ?? new ModelCatalogRuntime(this.registry);
+      this.runtimeModelCatalog =
+        defaultOptions?.runtimeModelCatalog ?? new RuntimeModelCatalog();
+      this.runtimePriorities =
+        defaultOptions?.runtimePriorities ?? DEFAULT_RUNTIME_PRIORITIES;
       this.defaultProvider = defaultOptions?.defaultProvider;
       this.fallbackChain = defaultOptions?.fallbackChain ?? [];
       this.timeoutMs = defaultOptions?.timeoutMs ?? 4000;
@@ -157,8 +189,20 @@ export class BrainRouter {
     return this.profilePolicy;
   }
 
+  getTaskPolicy(): TaskPolicy {
+    return this.taskPolicy;
+  }
+
   getCatalogRuntime(): ModelCatalogRuntime {
     return this.catalogRuntime;
+  }
+
+  getRuntimeModelCatalog(): RuntimeModelCatalog {
+    return this.runtimeModelCatalog;
+  }
+
+  getRuntimePriorities(): Record<ModelRole, readonly string[]> {
+    return this.runtimePriorities;
   }
 
   isPaidApisAllowed(): boolean {
@@ -196,7 +240,10 @@ export class BrainRouter {
     } catch {
       // not probed or metadata missing
     }
-    if (providerId === 'antigravity') return 'agent_runtime_provider';
+    const normalized = normalizeRuntimeProviderId(providerId);
+    if (normalized === 'antigravity' || normalized === 'claude-code' || normalized === 'codex') {
+      return 'agent_runtime_provider';
+    }
     return 'model_provider';
   }
 
@@ -208,7 +255,15 @@ export class BrainRouter {
     startTime: number,
     providersEvaluated: number,
     modelsEvaluated: number,
-    paidApisBlockedCount = 0
+    paidApisBlockedCount = 0,
+    s3Context?: {
+      taskIntent?: TaskIntent;
+      modelRole?: ModelRole;
+      runtimeSelectionMode?: RuntimeSelectionMode;
+      modelSelectionMode?: RuntimeModelSelectionMode;
+      runtimeModelsEvaluated?: number;
+      selectionReason?: string;
+    }
   ): BrainRouteDecision {
     const telemetry: RouteTelemetry = {
       selectedProviderId: candidate.providerId,
@@ -225,7 +280,13 @@ export class BrainRouter {
       routingTimeMs: Math.max(0, Date.now() - startTime),
       providersEvaluated,
       modelsEvaluated,
-      ...(paidApisBlockedCount > 0 ? { paidApisBlockedCount } : {})
+      ...(paidApisBlockedCount > 0 ? { paidApisBlockedCount } : {}),
+      ...(s3Context?.taskIntent ? { taskIntent: s3Context.taskIntent } : {}),
+      ...(s3Context?.modelRole ? { modelRole: s3Context.modelRole } : {}),
+      ...(s3Context?.runtimeSelectionMode ? { runtimeSelectionMode: s3Context.runtimeSelectionMode } : {}),
+      ...(s3Context?.modelSelectionMode ? { modelSelectionMode: s3Context.modelSelectionMode } : {}),
+      ...(s3Context?.runtimeModelsEvaluated !== undefined ? { runtimeModelsEvaluated: s3Context.runtimeModelsEvaluated } : {}),
+      ...(s3Context?.selectionReason ? { selectionReason: s3Context.selectionReason } : {})
     };
 
     return {
@@ -235,6 +296,10 @@ export class BrainRouter {
       model: candidate.model,
       modelId: candidate.modelId,
       profileId,
+      taskIntent: s3Context?.taskIntent,
+      modelRole: s3Context?.modelRole,
+      runtimeSelectionMode: s3Context?.runtimeSelectionMode,
+      modelSelectionMode: s3Context?.modelSelectionMode,
       reason: candidate.reason,
       routeReason: candidate.routeReason,
       fallbackUsed: candidate.fallbackUsed,
@@ -295,8 +360,18 @@ export class BrainRouter {
     // 1. Resolve Privacy Constraint (Fail-closed)
     const effectiveLocalOnly = resolveEffectiveLocalOnly(request);
 
-    // 2. Resolve Profile & Intent
-    const requestedProfileId = request.overrides?.profileId || request.profileId;
+    // 2. Resolve Task Policy & Intent (F1.5-S3)
+    const taskDecision = this.taskPolicy.resolve({
+      taskIntent: request.taskIntent,
+      profileId: request.overrides?.profileId || request.profileId,
+      modelRole: request.modelRole,
+      taskContext: request.taskContext
+    });
+    const taskIntent = taskDecision.taskIntent;
+    const modelRole = taskDecision.modelRole;
+    const requestedProfileId = taskDecision.profileId;
+    const isExplicitProfile = Boolean(request.overrides?.profileId || request.profileId || request.taskIntent);
+
     let resolution: BrainProfileResolution | undefined;
     if (requestedProfileId || this.profilePolicy.getDefaultProfileId()) {
       resolution = this.profilePolicy.resolve(requestedProfileId, {
@@ -309,31 +384,48 @@ export class BrainRouter {
 
     const profileId = resolution?.profileId ?? requestedProfileId;
 
-    // 3. Extract Overrides & Preferences
-    const preferredProvider =
+    // 3. Extract Overrides & Selection Modes (F1.5-S3)
+    const lockedRuntime = request.lockedRuntimeId?.trim() || undefined;
+    const lockedModel = request.lockedModelId?.trim() || undefined;
+
+    const rawPreferredProvider =
+      lockedRuntime ||
       request.overrides?.preferredProviderId?.trim() ||
       request.preferredProviderId?.trim() ||
+      request.preferredRuntimeId?.trim() ||
       resolution?.preferredProviderId?.trim() ||
       undefined;
 
-    const preferredModel =
+    const rawPreferredModel =
+      lockedModel ||
       request.overrides?.preferredModelId?.trim() ||
       request.preferredModelId?.trim() ||
       resolution?.preferredModelId?.trim() ||
       undefined;
 
+    const runtimeMode: RuntimeSelectionMode =
+      request.runtimeMode ?? (lockedRuntime ? 'LOCKED' : (rawPreferredProvider ? 'PREFERRED' : 'AUTO'));
+
+    const modelMode: RuntimeModelSelectionMode =
+      request.modelMode ?? (lockedModel ? 'LOCKED' : (rawPreferredModel ? 'PREFERRED' : 'AUTO'));
+
+    const preferredProvider = rawPreferredProvider;
+    const preferredModel = rawPreferredModel;
+
     const defaultId = request.defaultProviderId?.trim() || this.defaultProvider?.trim();
 
-    // 4. Normalize allowFallback semantics (Section 58)
+    // 4. Normalize allowFallback semantics
     const hasExplicitOverride = Boolean(preferredProvider || preferredModel);
     const allowFallback =
       request.allowFallback !== undefined
         ? request.allowFallback
-        : hasExplicitOverride
-          ? false // Strict by default for explicit overrides
-          : resolution?.allowFallback !== undefined
-            ? resolution.allowFallback
-            : true;
+        : (runtimeMode === 'LOCKED' || modelMode === 'LOCKED')
+          ? false
+          : hasExplicitOverride
+            ? false
+            : resolution?.allowFallback !== undefined
+              ? resolution.allowFallback
+              : true;
 
     // 5. Required capabilities merge
     const requiredCapabilities: Partial<BrainCapabilities> = {
@@ -343,33 +435,74 @@ export class BrainRouter {
 
     // 6. Build raw candidate pool in priority order
     const rawCandidateIds: string[] = [];
-    if (preferredProvider) {
-      rawCandidateIds.push(preferredProvider);
-    }
-
-    if (defaultId) {
-      rawCandidateIds.push(defaultId);
-    }
-
-    const configuredFallbacks =
-      request.fallbackChain ?? resolution?.fallbackChain ?? this.fallbackChain;
-
-    if (allowFallback || rawCandidateIds.length === 0) {
-      if (configuredFallbacks) {
-        for (const fb of configuredFallbacks) {
-          if (typeof fb === 'string' && fb.trim()) {
-            rawCandidateIds.push(fb.trim());
+    if (profileId === 'agent_work') {
+      if (runtimeMode === 'LOCKED') {
+        if (!preferredProvider) {
+          throw new BrainRoutingError(
+            'provider_not_found',
+            'LOCKED runtime selection mode requires a specified runtime ID',
+            []
+          );
+        }
+        rawCandidateIds.push(preferredProvider);
+      } else if (runtimeMode === 'PREFERRED') {
+        if (preferredProvider) {
+          rawCandidateIds.push(preferredProvider);
+        }
+        if (allowFallback) {
+          const rolePriorities = this.runtimePriorities[modelRole] ?? DEFAULT_RUNTIME_PRIORITIES[modelRole];
+          for (const p of rolePriorities) {
+            rawCandidateIds.push(p);
+          }
+          const registeredAgentIds = this.registry
+            .list()
+            .filter((p) => this.getProviderKind(p.id) === 'agent_runtime_provider')
+            .map((p) => p.id)
+            .sort((a, b) => a.localeCompare(b));
+          for (const regId of registeredAgentIds) {
+            rawCandidateIds.push(regId);
           }
         }
+      } else {
+        // AUTO runtime selection
+        const rolePriorities = this.runtimePriorities[modelRole] ?? DEFAULT_RUNTIME_PRIORITIES[modelRole];
+        for (const p of rolePriorities) {
+          rawCandidateIds.push(p);
+        }
+        const registeredAgentIds = this.registry
+          .list()
+          .filter((p) => this.getProviderKind(p.id) === 'agent_runtime_provider')
+          .map((p) => p.id)
+          .sort((a, b) => a.localeCompare(b));
+        for (const regId of registeredAgentIds) {
+          rawCandidateIds.push(regId);
+        }
       }
-
-      // Also include all remaining registered providers in deterministic tie-break order
-      const registeredIds = this.registry
-        .list()
-        .map((p) => p.id)
-        .sort((a, b) => a.localeCompare(b));
-      for (const regId of registeredIds) {
-        rawCandidateIds.push(regId);
+    } else {
+      // Direct model provider profiles
+      if (preferredProvider) {
+        rawCandidateIds.push(preferredProvider);
+      }
+      if (defaultId) {
+        rawCandidateIds.push(defaultId);
+      }
+      const configuredFallbacks =
+        request.fallbackChain ?? resolution?.fallbackChain ?? this.fallbackChain;
+      if (allowFallback || rawCandidateIds.length === 0) {
+        if (configuredFallbacks) {
+          for (const fb of configuredFallbacks) {
+            if (typeof fb === 'string' && fb.trim()) {
+              rawCandidateIds.push(fb.trim());
+            }
+          }
+        }
+        const registeredIds = this.registry
+          .list()
+          .map((p) => p.id)
+          .sort((a, b) => a.localeCompare(b));
+        for (const regId of registeredIds) {
+          rawCandidateIds.push(regId);
+        }
       }
     }
 
@@ -439,6 +572,14 @@ export class BrainRouter {
 
       const provider = this.registry.get(id);
       if (!provider) {
+        if (runtimeMode === 'LOCKED' && (id === preferredProvider || id === lockedRuntime)) {
+          throw new BrainRoutingError(
+            'provider_not_found',
+            `Locked runtime '${id}' is not registered in BrainProviderRegistry`,
+            attemptedProviderIds,
+            attemptedModelIds
+          );
+        }
         continue;
       }
 
@@ -450,6 +591,14 @@ export class BrainRouter {
 
       const capabilities = provider.getCapabilities();
       if (!this.matchesRequiredCapabilities(capabilities, requiredCapabilities)) {
+        if (runtimeMode === 'LOCKED' && (id === preferredProvider || id === lockedRuntime)) {
+          throw new BrainRoutingError(
+            'capability_not_supported',
+            `Locked runtime '${id}' does not meet required capabilities`,
+            attemptedProviderIds,
+            attemptedModelIds
+          );
+        }
         continue;
       }
 
@@ -465,7 +614,7 @@ export class BrainRouter {
       const providerKind = providerMetadata?.kind ?? this.getProviderKind(id);
       const accessClass =
         providerMetadata?.accessClass ??
-        (id === 'antigravity' || id === 'codex' || id === 'claude_code'
+        (id === 'antigravity' || id === 'codex' || id === 'claude_code' || id === 'claude-code'
           ? 'subscription'
           : capabilities.local
             ? 'local'
@@ -476,6 +625,14 @@ export class BrainRouter {
       // Metered/Paid APIs are disabled by default.
       // Credential presence != permission to incur API billing.
       if (accessClass === 'paid_api' && !effectiveAllowPaidApis) {
+        if (runtimeMode === 'LOCKED' && (id === preferredProvider || id === lockedRuntime)) {
+          throw new BrainRoutingError(
+            'provider_unavailable',
+            `Locked provider '${id}' requires paid API billing which is disabled by default policy (allowPaidApis = false). Credential presence does not grant billing permission.`,
+            attemptedProviderIds,
+            attemptedModelIds
+          );
+        }
         paidApisBlockedCount++;
         hasPaidApiBlocked = true;
         continue;
@@ -579,6 +736,14 @@ export class BrainRouter {
         health.status === 'auth_error' ||
         health.status === 'unavailable'
       ) {
+        if (runtimeMode === 'LOCKED' && (id === preferredProvider || id === lockedRuntime)) {
+          throw new BrainRoutingError(
+            'provider_unavailable',
+            `Locked runtime '${id}' is currently '${health.status}'`,
+            attemptedProviderIds,
+            attemptedModelIds
+          );
+        }
         if (maxProviderBudget !== undefined && providersContacted >= maxProviderBudget) {
           break;
         }
@@ -588,11 +753,12 @@ export class BrainRouter {
       const isDegraded = health.status === 'degraded';
       const isHealthy = health.status === 'healthy';
 
-      // Stage B: Model Selection (if catalog capable)
+      // Stage B: Model Selection
       let selectedModel: ModelDescriptor | undefined;
       let selectedModelId: string | undefined;
+      let selectionReason: string | undefined;
 
-      if (isCatalog) {
+      if (isCatalog && providerKind === 'model_provider') {
         const remainingMs = Math.max(0, deadline - Date.now());
         if (remainingMs <= 0) {
           throw new BrainRoutingError(
@@ -680,17 +846,57 @@ export class BrainRouter {
         if (selectedModelId) {
           attemptedModelIds.push(selectedModelId);
         }
+      } else if (providerKind === 'agent_runtime_provider') {
+        const runtimeModels = this.runtimeModelCatalog.getRuntimeModels(id);
+        totalModelsEvaluated += runtimeModels.length;
+
+        if (runtimeModels.length === 0) {
+          // If no models registered for this runtime
+          if (preferredModel || lockedModel) {
+            if (modelMode === 'LOCKED' || runtimeMode === 'LOCKED' || !allowFallback) {
+              throw new BrainRoutingError(
+                'model_unavailable',
+                `No models discovered or registered for runtime '${id}'`,
+                attemptedProviderIds,
+                attemptedModelIds
+              );
+            }
+            continue;
+          }
+          // Backwards compatibility for stub agent runtimes without runtime models
+          selectedModelId = undefined;
+        } else {
+          try {
+            const runtimeSelection = selectRuntimeModel(runtimeModels, {
+              runtimeProviderId: id,
+              role: modelRole,
+              mode: modelMode,
+              preferredModelId: preferredModel,
+              lockedModelId: lockedModel,
+              allowFallback
+            });
+            selectedModel = undefined;
+            selectedModelId = runtimeSelection.selectedModelId;
+            selectionReason = runtimeSelection.reason;
+            if (selectedModelId) {
+              attemptedModelIds.push(selectedModelId);
+            }
+          } catch (err) {
+            if (err instanceof RuntimeModelSelectionError) {
+              if (modelMode === 'LOCKED' || runtimeMode === 'LOCKED' || !allowFallback) {
+                const code: BrainRoutingErrorCode =
+                  err.code.includes('locked') || err.code.includes('unavailable') || err.code.includes('not_found')
+                    ? 'model_unavailable'
+                    : 'capability_not_supported';
+                throw new BrainRoutingError(code, err.message, attemptedProviderIds, attemptedModelIds);
+              }
+            }
+            continue;
+          }
+        }
       } else {
-        // Not a catalog provider.
-        // Direct model provider must have been rejected earlier (if providerKind === 'model_provider' && !isCatalog).
-        // Only agent_runtime_provider reaches here.
-        if (providerKind !== 'agent_runtime_provider') {
-          continue;
-        }
-        if (preferredModel) {
-          // Preferred model was specified, but this candidate provider does not support model catalogs
-          continue;
-        }
+        // Not a catalog provider and not an agent runtime provider
+        continue;
       }
 
       const isPrimary = (id === primaryCandidateId);
@@ -710,7 +916,9 @@ export class BrainRouter {
       }
 
       let reasonText: string;
-      if (isPrimary) {
+      if (selectionReason) {
+        reasonText = selectionReason;
+      } else if (isPrimary) {
         reasonText = isExplicitPreferred
           ? `Selected preferred provider '${id}' (${health.status})`
           : (isDegraded
@@ -756,7 +964,15 @@ export class BrainRouter {
           startTime,
           attemptedProviderIds.length,
           totalModelsEvaluated,
-          paidApisBlockedCount
+          paidApisBlockedCount,
+          {
+            taskIntent,
+            modelRole,
+            runtimeSelectionMode: runtimeMode,
+            modelSelectionMode: modelMode,
+            runtimeModelsEvaluated: totalModelsEvaluated,
+            selectionReason: candidateResult.reason
+          }
         );
       }
 
@@ -799,7 +1015,15 @@ export class BrainRouter {
         startTime,
         attemptedProviderIds.length,
         totalModelsEvaluated,
-        paidApisBlockedCount
+        paidApisBlockedCount,
+        {
+          taskIntent,
+          modelRole,
+          runtimeSelectionMode: runtimeMode,
+          modelSelectionMode: modelMode,
+          runtimeModelsEvaluated: totalModelsEvaluated,
+          selectionReason: firstDegradedCandidate.reason
+        }
       );
     }
 
@@ -822,13 +1046,19 @@ export class BrainRouter {
     ) {
       errorCode = 'provider_unavailable';
       errorMessage = `Candidate provider(s) [${candidateIds.join(', ')}] require paid API billing which is disabled by default policy (allowPaidApis = false). Credential presence does not grant billing permission.`;
-    } else if (profileId === 'fast_conversation') {
+    } else if (runtimeMode === 'LOCKED' && preferredProvider) {
+      errorCode = 'provider_unavailable';
+      errorMessage = `Locked runtime '${preferredProvider}' is unavailable or incompatible`;
+    } else if (modelMode === 'LOCKED' && preferredModel) {
+      errorCode = 'model_unavailable';
+      errorMessage = `Locked model '${preferredModel}' is unavailable or not found`;
+    } else if (isExplicitProfile && profileId === 'fast_conversation') {
       errorCode = 'fast_brain_unavailable';
       errorMessage = 'Fast conversation brain is unavailable';
-    } else if (profileId === 'deep_reasoning') {
+    } else if (isExplicitProfile && profileId === 'deep_reasoning') {
       errorCode = 'profile_unavailable';
       errorMessage = 'Deep reasoning brain is unavailable';
-    } else if (profileId === 'agent_work') {
+    } else if (isExplicitProfile && profileId === 'agent_work') {
       errorCode = 'profile_unavailable';
       errorMessage = 'Agent work runtime is unavailable';
     } else if (preferredModel) {

@@ -547,7 +547,12 @@ export class ConversationRuntime {
       }
 
       // 12. Enforce Direct Model Invariant & Transition Execution Telemetry
-      const isAgentRuntime = routeDecision.providerId === 'antigravity';
+      const isAgentRuntime =
+        routeDecision.providerKind === 'agent_runtime_provider' ||
+        routeDecision.providerId === 'antigravity' ||
+        routeDecision.providerId === 'claude-code' ||
+        routeDecision.providerId === 'codex';
+
       if (!isAgentRuntime && !routeDecision.modelId) {
         const errorMsg = `Direct model provider '${providerId}' requires a resolved modelId for execution`;
         record.terminalEmitted = 'failed';
@@ -602,7 +607,7 @@ export class ConversationRuntime {
 
       const brainOptions: BrainRequestOptions = {
         signal: abortController.signal,
-        modelId: isAgentRuntime ? undefined : routeDecision.modelId
+        modelId: routeDecision.modelId
       };
 
       const chatIterator = provider.chat(brainRequest, brainOptions)[Symbol.asyncIterator]();
