@@ -79,15 +79,16 @@ export class AntigravityBrainProvider implements BrainProvider {
   getCapabilities(): BrainCapabilities {
     return BrainCapabilitiesSchema.parse({
       streaming: true,
-      fastChat: true,
-      reasoning: false,
-      coding: false,
-      toolUse: false,
+      fastChat: false, // agent_runtime_provider cannot fake model_provider for fast_conversation
+      reasoning: true,
+      coding: true,
+      toolUse: false, // Pre-M5 invariant: tool execution strictly blocked
       multimodal: false,
       vision: false,
       webResearch: false,
-      longContext: false,
-      local: false
+      longContext: true,
+      local: false,
+      cancellation: true
     });
   }
 

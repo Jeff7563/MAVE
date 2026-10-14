@@ -74,16 +74,19 @@ describe('AntigravityBrainProvider', () => {
       expect(provider.id).toBe('antigravity');
     });
 
-    it('declares streaming and fastChat capabilities, disallowing tools and coding in M2', () => {
+    it('declares agent_runtime_provider capabilities without faking model_provider', () => {
       const provider = new AntigravityBrainProvider({ cwd: 'C:\\fake\\workspace' });
       const caps = provider.getCapabilities();
 
       expect(caps.streaming).toBe(true);
-      expect(caps.fastChat).toBe(true);
+      expect(caps.reasoning).toBe(true);
+      expect(caps.coding).toBe(true);
+      expect(caps.longContext).toBe(true);
+      expect(caps.cancellation).toBe(true);
+      // HARD INVARIANT: fastChat is false because Antigravity is an agent runtime, not a direct model_provider
+      expect(caps.fastChat).toBe(false);
+      // HARD INVARIANT: Pre-M5 tool execution is strictly blocked
       expect(caps.toolUse).toBe(false);
-      expect(caps.coding).toBe(false);
-      expect(caps.reasoning).toBe(false);
-      expect(caps.multimodal).toBe(false);
       expect(caps.local).toBe(false);
     });
   });
