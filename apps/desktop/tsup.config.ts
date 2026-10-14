@@ -13,7 +13,7 @@ export default defineConfig([
     target: 'node20'
   },
   {
-    entry: ['src/preload/index.ts'],
+    entry: ['src/preload/index.ts', 'src/preload/surface-preload.ts'],
     format: ['cjs'],
     outDir: 'dist/preload',
     external: ['electron'],

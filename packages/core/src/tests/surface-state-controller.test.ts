@@ -982,5 +982,126 @@ describe('SurfaceStateController', () => {
       expect(controller.getSnapshot().mode).toBe('ambient');
     });
   });
+
+  describe('M4.8 Interaction, Focus Lifecycle & User-Origin Security', () => {
+    it('grants focusIntent: request only for user-origin request_focus', () => {
+      const controller = new SurfaceStateController();
+
+      // System origin spoof attempt -> rejected
+      const spoofed = controller.dispatchAction({
+        type: 'request_focus',
+        origin: 'system' as any
+      });
+      expect(spoofed.focusIntent).toBe('preserve');
+
+      // Valid user-origin action -> granted
+      const granted = controller.dispatchAction({
+        type: 'request_focus',
+        origin: 'user'
+      });
+      expect(granted.focusIntent).toBe('request');
+      expect(granted.interactionMode).toBe('interactive');
+    });
+
+    it('releases focus safely on release_focus action', () => {
+      const controller = new SurfaceStateController();
+
+      // Acquire focus
+      controller.dispatchAction({ type: 'request_focus', origin: 'user' });
+      expect(controller.getSnapshot().focusIntent).toBe('request');
+
+      // Release focus
+      const released = controller.dispatchAction({ type: 'release_focus', origin: 'user' });
+      expect(released.focusIntent).toBe('release');
+    });
+
+    it('enforces hard invariant: pin does not equal focus', () => {
+      const controller = new SurfaceStateController();
+
+      // Pinning does NOT grant focus
+      const pinned = controller.dispatchAction({ type: 'toggle_pin', origin: 'user' });
+      expect(pinned.pinned).toBe(true);
+      expect(pinned.focusIntent).toBe('preserve');
+
+      // Requesting focus does NOT pin
+      const focused = controller.dispatchAction({ type: 'request_focus', origin: 'user' });
+      expect(focused.focusIntent).toBe('request');
+      // Unpinning preserves focus state
+      const unpinned = controller.dispatchAction({ type: 'toggle_pin', origin: 'user', pinned: false });
+      expect(unpinned.pinned).toBe(false);
+      expect(unpinned.focusIntent).toBe('preserve');
+    });
+
+    it('preserves intentional user focus when runtime updates arrive', () => {
+      const controller = new SurfaceStateController();
+
+      // User intentionally focuses Surface
+      controller.dispatchAction({ type: 'request_focus', origin: 'user' });
+      expect(controller.getSnapshot().focusIntent).toBe('request');
+
+      // Audio telemetry arrives while speaking
+      const speakingSnap = controller.applyIntent({
+        type: 'voice_activity',
+        voiceState: 'speaking',
+        assistantText: 'Continuing speech...',
+        outputLevel: 0.7
+      });
+      // Focus MUST be preserved
+      expect(speakingSnap.focusIntent).toBe('request');
+
+      // Show response streaming chunk arrives
+      const responseSnap = controller.applyIntent({
+        type: 'show_response',
+        text: 'Streamed chunk'
+      });
+      // Focus MUST be preserved
+      expect(responseSnap.focusIntent).toBe('request');
+    });
+
+    it('releases focus when collapsing expanded panel', () => {
+      const controller = new SurfaceStateController();
+
+      // Expand and focus
+      controller.dispatchAction({ type: 'expand', origin: 'user' });
+      controller.dispatchAction({ type: 'request_focus', origin: 'user' });
+      expect(controller.getSnapshot().focusIntent).toBe('request');
+
+      // Collapse
+      const collapsed = controller.dispatchAction({ type: 'collapse', origin: 'user' });
+      expect(collapsed.focusIntent).toBe('release');
+    });
+
+    it('pauses auto-collapse while surface is focused', () => {
+      const clock = createMockClock();
+      const controller = new SurfaceStateController({ clock, enableTimers: true });
+
+      controller.applyIntent({
+        type: 'show_response',
+        text: 'Short response text'
+      });
+      expect(controller.getSnapshot().mode).toBe('compact_response');
+
+      // Advance 15s (halfway through 30s timeout)
+      clock.tick(15000);
+      expect(controller.getSnapshot().mode).toBe('compact_response');
+
+      // User focuses Surface
+      controller.dispatchAction({ type: 'request_focus', origin: 'user' });
+
+      // Advance another 20s (past original 30s timeout)
+      clock.tick(20000);
+      // Still in compact_response because user is focused!
+      expect(controller.getSnapshot().mode).toBe('compact_response');
+
+      // User releases focus
+      controller.dispatchAction({ type: 'release_focus', origin: 'user' });
+
+      // After release, 30s timeout runs
+      clock.tick(29000);
+      expect(controller.getSnapshot().mode).toBe('compact_response');
+      clock.tick(2000);
+      expect(controller.getSnapshot().mode).toBe('ambient');
+    });
+  });
 });
 

@@ -46,29 +46,91 @@ export const SurfaceView: React.FC<SurfaceViewProps> = ({ initialSnapshot = null
       });
     }
 
-    // 3. Global developer shortcut (Alt+D) to toggle diagnostics overlay
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.altKey && e.key.toLowerCase() === 'd') {
-        setShowDevDiagnostics((prev) => !prev);
+    // 3. Pointer drag & text-selection tracking on window
+    const handlePointerDown = () => {
+      isPointerDownRef.current = true;
+    };
+    const handlePointerUp = () => {
+      isPointerDownRef.current = false;
+      if (pendingUnhoverRef.current) {
+        pendingUnhoverRef.current = false;
+        if (window.mave?.surface?.reportInteractiveHover) {
+          window.mave.surface.reportInteractiveHover(false);
+        }
       }
     };
-    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('pointerdown', handlePointerDown);
+    window.addEventListener('pointerup', handlePointerUp);
 
     return () => {
       unsubscribe?.();
-      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('pointerdown', handlePointerDown);
+      window.removeEventListener('pointerup', handlePointerUp);
     };
   }, []);
 
-  const handleHoverChange = useCallback((isHovering: boolean) => {
-    if (window.mave?.surface?.reportInteractiveHover) {
-      window.mave.surface.reportInteractiveHover(isHovering);
-    }
-  }, []);
+  const isPointerDownRef = React.useRef(false);
+  const pendingUnhoverRef = React.useRef(false);
 
   const handleAction = useCallback((action: SurfaceAction) => {
     if (window.mave?.surface?.dispatchAction) {
       window.mave.surface.dispatchAction(action);
+    }
+  }, []);
+
+  // Global Keyboard Navigation & Escape Policy (M4.8)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.altKey && e.key.toLowerCase() === 'd') {
+        setShowDevDiagnostics((prev) => !prev);
+        return;
+      }
+
+      if (e.key === 'Escape') {
+        // If surface currently owns focus or a DOM element inside surface is focused:
+        const hasFocusedElement = document.activeElement && document.activeElement !== document.body;
+        if (snapshot?.focusIntent === 'request' || hasFocusedElement) {
+          e.preventDefault();
+          e.stopPropagation();
+          handleAction({ type: 'release_focus', origin: 'user' });
+          if (document.activeElement instanceof HTMLElement) {
+            document.activeElement.blur();
+          }
+          return;
+        }
+
+        // If already passive: follow presentation policy
+        if (snapshot?.mode === 'expanded_response' || snapshot?.sizeClass === 'expanded') {
+          e.preventDefault();
+          handleAction({ type: 'collapse', origin: 'user' });
+        } else if (snapshot?.mode === 'compact_response' || snapshot?.sizeClass === 'card') {
+          e.preventDefault();
+          handleAction({ type: 'dismiss', origin: 'user' });
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [snapshot, handleAction]);
+
+  const handleHoverChange = useCallback((isHovering: boolean) => {
+    if (isHovering) {
+      pendingUnhoverRef.current = false;
+      if (window.mave?.surface?.reportInteractiveHover) {
+        window.mave.surface.reportInteractiveHover(true);
+      }
+    } else {
+      // If user is currently dragging / selecting text, defer unhover until pointerup
+      if (isPointerDownRef.current) {
+        pendingUnhoverRef.current = true;
+      } else {
+        if (window.mave?.surface?.reportInteractiveHover) {
+          window.mave.surface.reportInteractiveHover(false);
+        }
+      }
     }
   }, []);
 

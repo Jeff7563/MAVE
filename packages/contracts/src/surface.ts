@@ -290,12 +290,20 @@ export const SurfaceActionSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('submit_text'),
     origin: SurfaceActionOriginSchema.default('user'),
-    text: z.string().min(1)
+    text: z.string().min(1).max(2048)
   }),
   z.object({
     type: z.literal('set_interaction_mode'),
     origin: SurfaceActionOriginSchema.default('user'),
     mode: SurfaceInteractionModeSchema
+  }),
+  z.object({
+    type: z.literal('request_focus'),
+    origin: SurfaceActionOriginSchema.default('user')
+  }),
+  z.object({
+    type: z.literal('release_focus'),
+    origin: SurfaceActionOriginSchema.default('user')
   }),
   z.object({
     type: z.literal('open_link'),

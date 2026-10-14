@@ -88,6 +88,11 @@ export const MaveCapsule: React.FC<MaveCapsuleProps> = ({
     onAction?.({ type: 'collapse', origin: 'user' });
   };
 
+  const handleRequestFocus = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onAction?.({ type: 'request_focus', origin: 'user' });
+  };
+
   return (
     <div
       className={`mave-surface-container mave-capsule ${isResponseMode ? 'mave-response-placeholder' : ''} ${className}`.trim()}
@@ -100,7 +105,7 @@ export const MaveCapsule: React.FC<MaveCapsuleProps> = ({
       aria-label="MAVE Assistant"
     >
       <div className="mave-capsule-header">
-        {/* 1. Luminous Presence Mark */}
+        {/* 1. Luminous Presence Mark (Informational / Decorative) */}
         <PresenceMark
           mode={snapshot.mode}
           inputLevel={snapshot.inputLevel}
@@ -127,6 +132,27 @@ export const MaveCapsule: React.FC<MaveCapsuleProps> = ({
 
         {/* 4. Action Controls Slot (reveals on hover/focus or card/expanded) */}
         <div className="mave-capsule-actions" role="toolbar" aria-label="Surface actions">
+          {/* Explicit Keyboard Navigation Affordance */}
+          <button
+            type="button"
+            className="mave-capsule-action-btn"
+            onClick={handleRequestFocus}
+            aria-label="Focus MAVE keyboard navigation"
+            title="Focus MAVE keyboard navigation"
+            data-testid="mave-action-focus"
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="2" y="4" width="20" height="16" rx="2" />
+              <line x1="6" y1="8" x2="6.01" y2="8" />
+              <line x1="10" y1="8" x2="10.01" y2="8" />
+              <line x1="14" y1="8" x2="14.01" y2="8" />
+              <line x1="18" y1="8" x2="18.01" y2="8" />
+              <line x1="6" y1="12" x2="6.01" y2="12" />
+              <line x1="18" y1="12" x2="18.01" y2="12" />
+              <line x1="9" y1="16" x2="15" y2="16" />
+            </svg>
+          </button>
+
           {/* Adaptive Expand / Collapse Action */}
           {snapshot.sizeClass === 'expanded' ? (
             <button

@@ -696,13 +696,15 @@ Key architectural invariants:
 | Confirmation Card (`SurfaceConfirmationBlock`) | `card` ($360 \times 180$) | `confirmation` | Indefinite until acted upon | High-visibility interactive prompt. |
 | Status Card (`SurfaceStatusBlock`) | `card` ($360 \times 180$) | `compact_response` | $3\text{ s}$ | Short operational acknowledgement. |
 
-### 24.3 Safe React Markdown AST Pipeline (Zero `dangerouslySetInnerHTML`)
-Security against untrusted content and remote code execution is enforced via `marked.lexer()`:
-- **Direct AST Token Mapping**: Markdown tokens (`marked.lexer(markdown)`) are transformed directly into standard React DOM elements (`<p>`, `<h1>`–`<h6>`, `<strong>`, `<em>`, `<code>`, `<pre>`, `<table>`, `<ul>`, `<ol>`).
-- **Zero Raw HTML Injection**: All strings are passed as children to React elements, utilizing standard browser DOM `createTextNode` escaping. Raw HTML tokens (`token.type === 'html'`) are rendered as inert text nodes.
-- **Link Scheme Whitelisting**: The `isSafeWebUrl` validator permits only `http:` and `https:` schemes. Dangerous URI schemes (`javascript:`, `file:`, `data:`, `vbscript:`) are neutralized into disabled spans (`.mave-md-link-disabled`).
+### 24.3 Defense-in-Depth React Markdown Pipeline (Zero `dangerouslySetInnerHTML`)
+Security against untrusted content and remote code execution is enforced via strict defense-in-depth engineering rather than reliance on sanitization alone:
+- **No `dangerouslySetInnerHTML`**: The Surface renderer contains zero usage of `dangerouslySetInnerHTML`.
+- **Direct AST Token Mapping**: Markdown strings are parsed strictly into structured AST tokens via `marked.lexer(markdown)` and mapped directly to type-safe React elements (`<p>`, `<h1>`–`<h6>`, `<strong>`, `<em>`, `<code>`, `<pre>`, `<table>`, `<ul>`, `<ol>`).
+- **Inert HTML Handling**: Raw HTML tokens (`token.type === 'html'`) are never injected into the DOM as active markup. They are rendered inert as React text nodes, relying on standard browser DOM text escaping (`document.createTextNode`).
+- **Strict URL Scheme Validation**: The `isSafeWebUrl` validator permits only `http:` and `https:` schemes. Dangerous URI schemes (`javascript:`, `file:`, `data:`, `vbscript:`) are neutralized into non-clickable spans (`.mave-md-link-disabled`).
 - **External Shell Routing**: Safe anchor clicks trigger an IPC dispatch (`open_link`), which delegates to Electron Main's `shell.openExternal()`. The BrowserWindow itself never executes native in-page navigation.
-- **Tracking Pixel Protection**: Image tags (`token.type === 'image'`) are rendered as accessible textual image captions rather than `<img>` tags, preventing unauthorized outbound network calls or token-leak tracking pixels.
+- **Tracking Pixel Protection**: Image tags (`token.type === 'image'`) are rendered as accessible textual image captions rather than `<img>` tags, preventing unauthorized outbound network requests or token-leak tracking pixels.
+- **Window Navigation Blocking**: `webContents.setWindowOpenHandler` blocks all pop-up creation attempts (`deny`), and `webContents.on('will-navigate')` prevents any unauthorized navigation away from the local application bundle.
 
 ### 24.4 Semantic Rich Content Blocks
 MAVE supports typed content blocks via `MaveContentBlockRenderer`:
@@ -716,6 +718,91 @@ MAVE supports typed content blocks via `MaveContentBlockRenderer`:
 - **Respectful Auto-Scroll**: Streaming tokens append dynamically. The expanded viewport only auto-scrolls down if the user is already near the bottom ($\le 40\text{ px}$). If the user has scrolled up to inspect previous code or text, the viewport stays anchored to their reading position.
 - **Screen Reader Announcer**: To prevent speech synthesizer flood and stutter during high-speed TTS token streaming, token-level live updates are decoupled from ARIA live regions. An off-screen polite announcer (`.mave-sr-announcer` with `role="status"` and `aria-live="polite"`) updates strictly at meaningful completion boundaries (`isSpeakingFinished: true`, mode transitions, idle).
 - **Throttled User Activity Reporting**: User scrolling or pointer interaction inside the expanded panel dispatches a throttled `user_activity` action (interval $\ge 1200\text{ ms}$) to Main, continuously extending the $120\text{ s}$ inactivity timer so long reading sessions are never interrupted.
+
+---
+
+## 25. M4.8 Interaction, Focus Acquisition & Click-Through Architecture
+
+Milestone 4.8 hardens the Ambient Surface for intentional user interaction while maintaining MAVE's primary desktop invariant: **PASSIVE MAVE EVENTS NEVER STEAL KEYBOARD FOCUS.**
+
+### 25.1 Conceptual Interaction Lifecycle
+MAVE establishes a deterministic state machine separating pointer responsiveness from native keyboard focus:
+
+```text
+┌──────────────┐     explicit user pointer enter     ┌──────────────────┐
+│              │ ──────────────────────────────────▶ │                  │
+│   PASSIVE    │                                     │   INTERACTIVE    │
+│              │ ◀────────────────────────────────── │                  │
+└──────────────┘     pointer leaves / click outside  └──────────────────┘
+       ▲                                                       │
+       │                                                       │ user requests keyboard
+       │                                                       │ focus (click / shortcut)
+       │                                                       ▼
+       │               Escape / native blur           ┌──────────────────┐
+       └───────────────────────────────────────────── │                  │
+                                                      │     FOCUSED      │
+                                                      │                  │
+                                                      └──────────────────┘
+```
+
+**Key Architectural Distinction: `interactive != focused`**
+- Clicking **Pin** (`toggle_pin`), **Expand** (`expand`), or **Copy Code** (`copy_text`), or scrolling through an answer panel is purely *interactive*. It does not require and must never acquire native keyboard focus.
+- Native keyboard focus is requested only when genuine keyboard navigation or input is needed.
+
+### 25.2 Main Ownership of Native Window Primitives
+Electron Main remains the sole authority over native OS window capabilities:
+- `BrowserWindow.setFocusable()`
+- `BrowserWindow.focus()`
+- `BrowserWindow.blur()`
+- `BrowserWindow.setIgnoreMouseEvents()`
+- `BrowserWindow.setAlwaysOnTop()`
+
+The Renderer process has zero direct access to Electron or Node primitives. It communicates solely through typed, validated semantic actions (`SurfaceAction`).
+
+### 25.3 Focus Intent Contract & User-Origin Validation
+`SurfaceSnapshot` models focus through the `focusIntent` field (`preserve` | `request` | `release`):
+- **Passive Voice Events (`preserve`)**: `wake`, `listening`, `thinking`, `speaking`, `compact_response`, `expanded_response`, and auto-collapse always emit `focusIntent: 'preserve'`. Even if an answer auto-expands while the user is actively typing in VS Code, keyboard focus remains undisturbed in VS Code.
+- **Intentional Focus Requests (`request`)**: Emitted only via explicit user-origin actions (`request_focus` with `origin: 'user'`). Main strictly verifies `action.origin === 'user'` before granting focus. System-generated events cannot spoof focus acquisition.
+- **Focus Release (`release`)**: Emitted when the user presses `Escape`, clicks outside the window, or when the native window emits a `blur` event.
+
+### 25.4 Dynamic Native Focusability on Windows 11
+Frameless transparent windows on Windows 11 behave unpredictably if focus is requested while `focusable: false`. MAVE enforces a strict transition sequence:
+1. **Focus Acquisition**:
+   - `win.setFocusable(true)`
+   - `win.focus()`
+   - State controller updates `interactionMode: 'interactive'` and `focusIntent: 'request'`.
+2. **Focus Release**:
+   - State controller dispatches `release_focus`.
+   - `win.setFocusable(false)`
+   - `win.blur()`
+   - Native Desktop Window Manager (DWM) immediately restores focus to the previously active application.
+
+### 25.5 Previous Application Focus Restoration Findings
+- **Windows DWM Native Ordering**: When MAVE drops focus via `win.blur()` and `win.setFocusable(false)`, the Windows DWM automatically transfers keyboard focus to the next window in the OS Z-order (the application the user was previously working in, e.g., VS Code or Notepad).
+- **External Native Process Automation Limitation**: Electron does not provide a cross-platform public API to capture and programmatically restore arbitrary external process window handles (HWnd). Attempting to hook raw Win32 `SetForegroundWindow` without OS focus permission introduces race conditions and security fragility. Relying on DWM native Z-order focus fallback via `win.blur()` + `setFocusable(false)` provides the most reliable and non-intrusive behavior.
+
+### 25.6 Click-Through & Hit Region Architecture
+- **Transparent Desktop Passthrough**: Transparent padding around the capsule/panel has `pointer-events: none` in CSS. Main maintains `win.setIgnoreMouseEvents(true, { forward: true })`, completely forwarding clicks to underlying desktop applications.
+- **Visible Container Capture**: When the pointer enters the visible container, the Renderer reports `reportInteractiveHover(true)`. Main switches to `win.setIgnoreMouseEvents(false)` synchronously, allowing immediate interaction with buttons and scrollbars.
+- **Unhover & Drag Safety**: Window-level `pointerdown` and `pointerup` tracking prevents premature unhover during text selection drags or scrollbar manipulation.
+
+### 25.7 Dedicated Preload Boundary (`surface-preload.ts`)
+To enforce strict least privilege natively at the BrowserWindow boundary:
+- The Ambient Surface BrowserWindow loads a dedicated preload script: `surface-preload.ts`.
+- Exposes **strictly** `window.mave.surface` (`getSnapshot`, `subscribe`, `dispatchAction`, `reportInteractiveHover`, `getDiagnostics`).
+- Developer-only capabilities are completely omitted from the Surface runtime:
+  - `window.mave.chat` (absent)
+  - `window.mave.voice` (absent)
+  - `window.mave.sendCommand` (absent)
+  - `window.mave.getStatus` (absent)
+  - `ipcRenderer` / `contextBridge` raw objects (absent)
+  - Node.js `process`, `fs`, `child_process` (absent)
+
+### 25.8 Input & Payload Hardening
+- **Clipboard Bounds**: `copy_text` actions are validated and clamped to a maximum payload size of $100,000$ characters.
+- **User Text Submissions**: `submit_text` actions are strictly bounded to a maximum of $2,048$ characters.
+- **URL Whitelisting**: External links are validated to `http:` and `https:` schemes before being handed to `shell.openExternal()`.
+
 
 
 

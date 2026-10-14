@@ -219,14 +219,34 @@ export class SurfaceWindowManager {
       }
     });
 
+    win.on('blur', () => {
+      this.logger.debug('surface native window blurred');
+      if (this.isFocusableActive) {
+        this.isFocusableActive = false;
+        win.setFocusable(false);
+        this.controller.dispatchAction({ type: 'release_focus', origin: 'user' });
+      }
+    });
+
     win.on('closed', () => {
       this.logger.info('surface BrowserWindow closed');
       this.window = null;
       this.isReadyToShow = false;
+      this.isFocusableActive = false;
+      this.isHovering = false;
+      this.isIgnoringMouse = true;
+      this.currentBounds = null;
+      this.transitionCoordinator.dispose();
     });
 
     win.webContents.on('did-finish-load', () => {
       this.logger.info('surface webContents finished loading, broadcasting active snapshot');
+      // Reload recovery: ensure safety default is passive
+      if (this.isFocusableActive) {
+        this.isFocusableActive = false;
+        win.setFocusable(false);
+        this.controller.dispatchAction({ type: 'release_focus', origin: 'user' });
+      }
       this.broadcastSnapshot(this.controller.getSnapshot());
     });
 
@@ -293,12 +313,17 @@ export class SurfaceWindowManager {
       }
       win.focus();
       this.logger.debug('surface granted native focus on explicit user intent');
-    } else {
+    } else if (snapshot.focusIntent === 'release') {
       if (this.isFocusableActive) {
         win.setFocusable(false);
         this.isFocusableActive = false;
-        this.logger.debug('surface native focusable demoted to false');
+        win.blur();
+        this.logger.debug('surface native focusable released and blurred');
       }
+    } else {
+      // snapshot.focusIntent === 'preserve'
+      // HARD INVARIANT: Zero focus-stealing on passive events.
+      // Preserves current native focus state without stealing or unexpectedly revoking focus.
     }
 
     // 4. Interaction Mode / Hit-Testing Policy
@@ -364,6 +389,20 @@ export class SurfaceWindowManager {
             return { success: false, error: 'Invalid URL' };
           }
         }
+      }
+
+      if (action.type === 'request_focus') {
+        if (action.origin !== 'user') {
+          this.logger.warn({ origin: action.origin }, 'rejected non-user focus request');
+          return { success: false, error: 'Focus request must originate from user' };
+        }
+        this.controller.dispatchAction(action);
+        return { success: true };
+      }
+
+      if (action.type === 'release_focus') {
+        this.controller.dispatchAction(action);
+        return { success: true };
       }
 
       if (action.type === 'copy_text') {
@@ -478,17 +517,9 @@ export class SurfaceWindowManager {
       return;
     }
 
-    // In interactive mode (e.g. expanded response, confirmation modal): capture mouse events
-    if (snapshot.interactionMode === 'interactive') {
-      if (this.isIgnoringMouse) {
-        this.window.setIgnoreMouseEvents(false);
-        this.isIgnoringMouse = false;
-      }
-      return;
-    }
-
-    // Passive mode (ambient / voice capsule):
-    // If user hovers over the visual container, capture mouse; otherwise pass through to desktop
+    // Hit-testing policy:
+    // Only capture mouse events when cursor is directly over the visible container (isHovering === true).
+    // Transparent surface margins/padding forward clicks straight to OS desktop applications below.
     const shouldIgnore = !this.isHovering;
     if (this.isIgnoringMouse !== shouldIgnore) {
       if (shouldIgnore) {

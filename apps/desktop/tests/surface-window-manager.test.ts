@@ -31,6 +31,9 @@ vi.mock('electron', () => {
           if (!this.eventHandlers.has(evt)) this.eventHandlers.set(evt, []);
           this.eventHandlers.get(evt)!.push(fn);
         }),
+        emit: (evt: string, ...args: any[]) => {
+          this.emit(evt, ...args);
+        },
         setWindowOpenHandler: vi.fn(),
         loadURL: vi.fn(),
         loadFile: vi.fn()
@@ -92,6 +95,8 @@ vi.mock('electron', () => {
 
     focus = vi.fn();
 
+    blur = vi.fn();
+
     setFocusable = vi.fn((val: boolean) => {
       this.focusable = val;
     });
@@ -128,6 +133,12 @@ vi.mock('electron', () => {
 
   return {
     BrowserWindow: MockBrowserWindow,
+    shell: {
+      openExternal: vi.fn()
+    },
+    clipboard: {
+      writeText: vi.fn()
+    },
     screen: {
       getCursorScreenPoint: vi.fn(),
       getAllDisplays: vi.fn(),
@@ -345,5 +356,168 @@ describe('SurfaceWindowManager Native Window Runtime Foundation', () => {
     expect(diag.alwaysOnTop).toBe(true);
     expect(diag.mode).toBe('ambient');
     expect(diag.sizeClass).toBe('ambient');
+  });
+
+  describe('M4.8 Window Manager Interaction, Focus & Click-Through Tests', () => {
+    it('grants native focus on user-origin request_focus and releases on release_focus', () => {
+      const win = manager.getWindow() as any;
+
+      // User requests focus
+      const reqResult = manager.dispatchAction({ type: 'request_focus', origin: 'user' });
+      expect(reqResult.success).toBe(true);
+      expect(win.setFocusable).toHaveBeenCalledWith(true);
+      expect(win.focus).toHaveBeenCalled();
+      expect(win.isFocusable()).toBe(true);
+
+      // User releases focus
+      const relResult = manager.dispatchAction({ type: 'release_focus', origin: 'user' });
+      expect(relResult.success).toBe(true);
+      expect(win.setFocusable).toHaveBeenCalledWith(false);
+      expect(win.blur).toHaveBeenCalled();
+      expect(win.isFocusable()).toBe(false);
+    });
+
+    it('rejects focus requests originating from non-user sources', () => {
+      const win = manager.getWindow() as any;
+
+      const result = manager.dispatchAction({
+        type: 'request_focus',
+        origin: 'system' as any
+      });
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('Focus request must originate from user');
+      expect(win.focus).not.toHaveBeenCalled();
+      expect(win.isFocusable()).toBe(false);
+    });
+
+    it('releases focus and demotes focusable when native blur event fires', () => {
+      const win = manager.getWindow() as any;
+
+      // User gains focus
+      manager.dispatchAction({ type: 'request_focus', origin: 'user' });
+      expect(win.isFocusable()).toBe(true);
+
+      // Native blur occurs (e.g. user clicks VS Code or another app)
+      win.emit('blur');
+
+      expect(win.setFocusable).toHaveBeenCalledWith(false);
+      expect(win.isFocusable()).toBe(false);
+      expect(controller.getSnapshot().focusIntent).toBe('release');
+    });
+
+    it('enforces passive default on renderer did-finish-load (reload recovery)', () => {
+      const win = manager.getWindow() as any;
+
+      // Gain focus before reload
+      manager.dispatchAction({ type: 'request_focus', origin: 'user' });
+      expect(win.isFocusable()).toBe(true);
+
+      // Simulate renderer reload
+      win.webContents.emit('did-finish-load');
+
+      expect(win.setFocusable).toHaveBeenCalledWith(false);
+      expect(win.isFocusable()).toBe(false);
+      expect(controller.getSnapshot().focusIntent).toBe('release');
+    });
+
+    it('maintains click-through across ambient, card, and expanded sizes based on isHovering', () => {
+      const win = manager.getWindow() as any;
+
+      // 1. Ambient size (280x80)
+      controller.applyIntent({ type: 'reset_to_ambient', force: true });
+      expect(win.setIgnoreMouseEvents).toHaveBeenCalledWith(true, { forward: true });
+
+      // Hover over capsule -> capture
+      manager.reportInteractiveHover(true);
+      expect(win.setIgnoreMouseEvents).toHaveBeenCalledWith(false);
+      // Unhover -> ignore
+      manager.reportInteractiveHover(false);
+      expect(win.setIgnoreMouseEvents).toHaveBeenCalledWith(true, { forward: true });
+
+      // 2. Card size (360x180)
+      controller.applyIntent({
+        type: 'show_response',
+        text: 'Short answer'
+      });
+      // Not hovering -> must ignore mouse so transparent pad clicks through
+      expect(win.setIgnoreMouseEvents).toHaveBeenCalledWith(true, { forward: true });
+
+      // Hover over card -> capture
+      manager.reportInteractiveHover(true);
+      expect(win.setIgnoreMouseEvents).toHaveBeenCalledWith(false);
+      // Leave card -> ignore
+      manager.reportInteractiveHover(false);
+      expect(win.setIgnoreMouseEvents).toHaveBeenCalledWith(true, { forward: true });
+
+      // 3. Expanded size (440x580)
+      controller.applyIntent({
+        type: 'show_response',
+        text: '```typescript\nconst code = 123;\n```'
+      });
+      // Not hovering -> must ignore mouse so transparent margins click through
+      expect(win.setIgnoreMouseEvents).toHaveBeenCalledWith(true, { forward: true });
+
+      // Hover over panel -> capture
+      manager.reportInteractiveHover(true);
+      expect(win.setIgnoreMouseEvents).toHaveBeenCalledWith(false);
+      // Leave panel -> ignore
+      manager.reportInteractiveHover(false);
+      expect(win.setIgnoreMouseEvents).toHaveBeenCalledWith(true, { forward: true });
+    });
+
+    it('validates external URLs and rejects unsafe protocols', () => {
+      // Safe URLs
+      const safeHttp = manager.dispatchAction({
+        type: 'open_link',
+        origin: 'user',
+        url: 'https://example.com/docs'
+      });
+      expect(safeHttp.success).toBe(true);
+
+      // Unsafe javascript:
+      const unsafeJs = manager.dispatchAction({
+        type: 'open_link',
+        origin: 'user',
+        url: 'javascript:alert(1)'
+      });
+      expect(unsafeJs.success).toBe(false);
+      expect(unsafeJs.error).toContain('Rejected non-http(s)');
+
+      // Unsafe file:
+      const unsafeFile = manager.dispatchAction({
+        type: 'open_link',
+        origin: 'user',
+        url: 'file:///C:/Windows/System32/cmd.exe'
+      });
+      expect(unsafeFile.success).toBe(false);
+      expect(unsafeFile.error).toContain('Rejected non-http(s)');
+
+      // Unsafe data:
+      const unsafeData = manager.dispatchAction({
+        type: 'open_link',
+        origin: 'user',
+        url: 'data:text/html,<script>alert(1)</script>'
+      });
+      expect(unsafeData.success).toBe(false);
+      expect(unsafeData.error).toContain('Rejected non-http(s)');
+    });
+
+    it('safely copies bounded text to clipboard and rejects oversized payloads', () => {
+      const validCopy = manager.dispatchAction({
+        type: 'copy_text',
+        origin: 'user',
+        text: 'const validCode = true;'
+      });
+      expect(validCopy.success).toBe(true);
+
+      // Oversized string > 100,000 characters
+      const oversizedCopy = manager.dispatchAction({
+        type: 'copy_text',
+        origin: 'user',
+        text: 'a'.repeat(100001)
+      });
+      expect(oversizedCopy.success).toBe(false);
+      expect(oversizedCopy.error).toContain('Payload exceeds maximum copy length');
+    });
   });
 });

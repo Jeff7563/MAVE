@@ -192,7 +192,7 @@ export class SurfaceStateController {
             mode: prev.mode === 'expanded_response' ? 'compact_response' : prev.mode,
             sizeClass: 'card',
             interactionMode: 'passive',
-            focusIntent: 'preserve',
+            focusIntent: prev.focusIntent === 'request' ? 'release' : 'preserve',
             autoCollapse,
             updatedAt: now
           });
@@ -202,7 +202,7 @@ export class SurfaceStateController {
             mode: prev.mode === 'compact_response' ? 'ambient' : prev.mode,
             sizeClass: 'compact',
             interactionMode: 'passive',
-            focusIntent: 'preserve',
+            focusIntent: prev.focusIntent === 'request' ? 'release' : 'preserve',
             autoCollapse: undefined,
             updatedAt: now
           });
@@ -283,6 +283,28 @@ export class SurfaceStateController {
         });
       }
 
+      case 'request_focus': {
+        // Explicit user-origin keyboard interaction requested
+        if (action.origin !== 'user') {
+          return prev;
+        }
+        this.resetInactivityTimer();
+        return this.updateSnapshot({
+          interactionMode: 'interactive',
+          focusIntent: 'request',
+          updatedAt: now
+        });
+      }
+
+      case 'release_focus': {
+        this.resetInactivityTimer();
+        return this.updateSnapshot({
+          interactionMode: prev.mode === 'expanded_response' ? 'interactive' : 'passive',
+          focusIntent: 'release',
+          updatedAt: now
+        });
+      }
+
       case 'set_interaction_mode': {
         return this.updateSnapshot({
           interactionMode: action.mode,
@@ -357,6 +379,7 @@ export class SurfaceStateController {
     }
 
     const activeSizeClass = prev.pinned ? prev.sizeClass : 'compact';
+    const activeFocusIntent = prev.focusIntent === 'request' ? 'request' : 'preserve';
 
     switch (intent.voiceState) {
       case 'sleeping': {
@@ -372,7 +395,7 @@ export class SurfaceStateController {
           mode: 'ambient',
           sizeClass: prev.pinned ? prev.sizeClass : 'ambient',
           interactionMode: 'passive',
-          focusIntent: 'preserve', // Zero focus-stealing invariant
+          focusIntent: prev.focusIntent === 'request' ? 'release' : 'preserve', // Clean release on return to ambient
           activity: 'idle',
           source: 'voice',
           priority: 'normal',
@@ -395,7 +418,7 @@ export class SurfaceStateController {
           visibility: 'visible',
           sizeClass: activeSizeClass,
           interactionMode: 'passive',
-          focusIntent: 'preserve',
+          focusIntent: activeFocusIntent,
           activity: 'listening',
           source: 'voice',
           priority: 'normal',
@@ -416,7 +439,7 @@ export class SurfaceStateController {
           visibility: 'visible',
           sizeClass: activeSizeClass,
           interactionMode: 'passive',
-          focusIntent: 'preserve',
+          focusIntent: activeFocusIntent,
           activity: 'listening',
           source: 'voice',
           inputLevel: intent.inputLevel ?? prev.inputLevel,
@@ -435,7 +458,7 @@ export class SurfaceStateController {
           visibility: 'visible',
           sizeClass: activeSizeClass,
           interactionMode: 'passive',
-          focusIntent: 'preserve',
+          focusIntent: activeFocusIntent,
           activity: 'listening',
           source: 'voice',
           inputLevel: intent.inputLevel ?? prev.inputLevel,
@@ -453,7 +476,7 @@ export class SurfaceStateController {
           visibility: 'visible',
           sizeClass: activeSizeClass,
           interactionMode: 'passive',
-          focusIntent: 'preserve',
+          focusIntent: activeFocusIntent,
           activity: 'thinking',
           source: 'voice',
           inputLevel: 0,
@@ -528,7 +551,7 @@ export class SurfaceStateController {
             visibility: 'visible',
             sizeClass: targetSizeClass,
             interactionMode: classification?.isExpanded ? 'interactive' : 'passive',
-            focusIntent: 'preserve',
+            focusIntent: activeFocusIntent,
             activity: 'idle',
             source: 'voice',
             inputLevel: 0,
@@ -546,7 +569,7 @@ export class SurfaceStateController {
           visibility: 'visible',
           sizeClass: targetSizeClass,
           interactionMode: 'passive',
-          focusIntent: 'preserve',
+          focusIntent: activeFocusIntent,
           activity: 'speaking',
           source: 'voice',
           inputLevel: 0,
@@ -570,7 +593,7 @@ export class SurfaceStateController {
           visibility: 'visible',
           sizeClass: activeSizeClass,
           interactionMode: 'passive',
-          focusIntent: 'preserve',
+          focusIntent: activeFocusIntent,
           activity: 'listening',
           source: 'voice',
           inputLevel: intent.inputLevel ?? 0,
@@ -665,7 +688,7 @@ export class SurfaceStateController {
       mode,
       sizeClass,
       interactionMode: classification.isExpanded ? 'interactive' : 'passive',
-      focusIntent: 'preserve', // Response presentation never steals OS focus
+      focusIntent: prev.focusIntent === 'request' ? 'request' : 'preserve', // Response presentation never steals OS focus
       activity: 'idle',
       source: intent.source ?? 'conversation',
       priority: intent.priority || 'normal',
@@ -862,8 +885,8 @@ export class SurfaceStateController {
       if (this.activeTimerRevision !== scheduledRevision) {
         return;
       }
-      // Hover protection: do not collapse while user is reading / hovering
-      if (this.isUserHovering) {
+      // Hover and focus protection: do not collapse while user is reading, hovering, or focused
+      if (this.isUserHovering || this.currentSnapshot.focusIntent === 'request') {
         return;
       }
       if (!this.currentSnapshot.pinned) {

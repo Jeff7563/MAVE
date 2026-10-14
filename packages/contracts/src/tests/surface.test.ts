@@ -302,6 +302,57 @@ describe('Surface Contracts & Schemas', () => {
       expect(act.type).toBe('confirm_action');
     });
 
+    it('parses request_focus and release_focus actions with origin validation', () => {
+      const req = SurfaceActionSchema.parse({
+        type: 'request_focus',
+        origin: 'user'
+      });
+      expect(req).toEqual({ type: 'request_focus', origin: 'user' });
+
+      const rel = SurfaceActionSchema.parse({
+        type: 'release_focus',
+        origin: 'user'
+      });
+      expect(rel).toEqual({ type: 'release_focus', origin: 'user' });
+    });
+
+    it('enforces payload boundaries on submit_text and copy_text', () => {
+      expect(
+        SurfaceActionSchema.parse({
+          type: 'submit_text',
+          origin: 'user',
+          text: 'hello'
+        })
+      ).toBeDefined();
+
+      // submit_text empty string rejected
+      expect(() =>
+        SurfaceActionSchema.parse({
+          type: 'submit_text',
+          origin: 'user',
+          text: ''
+        })
+      ).toThrow();
+
+      // copy_text within 100k accepted
+      expect(
+        SurfaceActionSchema.parse({
+          type: 'copy_text',
+          origin: 'user',
+          text: 'some code'
+        })
+      ).toBeDefined();
+
+      // copy_text > 100k rejected
+      expect(() =>
+        SurfaceActionSchema.parse({
+          type: 'copy_text',
+          origin: 'user',
+          text: 'a'.repeat(100001)
+        })
+      ).toThrow();
+    });
+
     it('parses voice_activity presentation intent', () => {
       const intent = SurfacePresentationIntentSchema.parse({
         type: 'voice_activity',

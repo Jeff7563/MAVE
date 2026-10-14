@@ -224,7 +224,7 @@ app.whenReady().then(async () => {
       });
     }
 
-    const surfacePreloadPath = path.join(__dirname, '../preload/index.js');
+    const surfacePreloadPath = path.join(__dirname, '../preload/surface-preload.js');
     const surfaceUrl = process.env['VITE_DEV_SERVER_URL']
       ? `${process.env['VITE_DEV_SERVER_URL']}?view=surface`
       : path.join(__dirname, '../renderer/index.html');

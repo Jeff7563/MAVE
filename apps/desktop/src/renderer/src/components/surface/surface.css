@@ -266,9 +266,21 @@
   color: var(--mave-surface-text);
 }
 
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
 .mave-capsule-action-btn:focus-visible {
   outline: 2px solid var(--mave-accent-idle);
   outline-offset: 1px;
+}
+
+.mave-block-code-copy-btn:focus-visible,
+.mave-confirm-btn:focus-visible,
+.mave-source-card:focus-visible,
+.mave-expanded-viewport:focus-visible {
+  outline: 2px solid var(--mave-accent-idle);
+  outline-offset: 2px;
 }
 
 /* ==========================================================================
