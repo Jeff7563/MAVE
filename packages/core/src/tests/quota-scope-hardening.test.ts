@@ -170,6 +170,72 @@ describe('F1.5-S4.1 Quota Scope & Blocked-State Hardening', () => {
       expect(store.isBlocked('claude-code')).toBe(false);
       expect(store.get('claude-code').status).toBe('available');
     });
+
+    it('cross-model coexistence: Opus quota_limited and Sonnet available coexist without collision (F1.5-S5)', () => {
+      const catalog = new RuntimeModelCatalog();
+      const quotaStore = new RuntimeQuotaStore();
+
+      catalog.registerRuntimeModels('claude-code', [
+        {
+          modelId: 'claude-3-opus',
+          runtimeProviderId: 'claude-code',
+          displayName: 'Claude 3 Opus',
+          supportedRoles: ['REASONING', 'CODING'],
+          discoverySource: 'runtime_enumerated',
+          availability: 'available',
+          discoveredAt: 1000
+        },
+        {
+          modelId: 'claude-3-5-sonnet',
+          runtimeProviderId: 'claude-code',
+          displayName: 'Claude 3.5 Sonnet',
+          supportedRoles: ['BALANCED', 'CODING'],
+          discoverySource: 'runtime_enumerated',
+          availability: 'available',
+          discoveredAt: 1000
+        }
+      ]);
+
+      // 1. Mark Opus as quota_limited (model-scoped)
+      catalog.updateRuntimeModel('claude-code', 'claude-3-opus', {
+        availability: 'quota_limited',
+        metadata: { scope: 'model', resetAt: Date.now() + 60000 }
+      });
+      quotaStore.record({
+        providerId: 'claude-code',
+        status: 'quota_limited',
+        scope: 'model',
+        modelId: 'claude-3-opus'
+      });
+
+      // Verification: Opus is quota_limited, Sonnet remains available
+      const opus = catalog.getRuntimeModel('claude-code', 'claude-3-opus');
+      const sonnet = catalog.getRuntimeModel('claude-code', 'claude-3-5-sonnet');
+      expect(opus?.availability).toBe('quota_limited');
+      expect(sonnet?.availability).toBe('available');
+
+      // Verification: Opus quota_limited does NOT block the Claude runtime
+      expect(quotaStore.isBlocked('claude-code')).toBe(false);
+
+      // 2. Sonnet executes successfully (status: 'available')
+      catalog.updateRuntimeModel('claude-code', 'claude-3-5-sonnet', {
+        availability: 'available'
+      });
+      quotaStore.record({
+        providerId: 'claude-code',
+        status: 'available',
+        source: 'successful_execution',
+        scope: 'model',
+        modelId: 'claude-3-5-sonnet'
+      });
+
+      // Verification: Sonnet success does NOT clear Opus quota_limited
+      expect(catalog.getRuntimeModel('claude-code', 'claude-3-opus')?.availability).toBe('quota_limited');
+      expect(catalog.getRuntimeModel('claude-code', 'claude-3-5-sonnet')?.availability).toBe('available');
+
+      // Verification: Claude runtime remains unblocked
+      expect(quotaStore.isBlocked('claude-code')).toBe(false);
+    });
   });
 
   describe('RuntimeModelCatalog Reset Expiration Hardening', () => {

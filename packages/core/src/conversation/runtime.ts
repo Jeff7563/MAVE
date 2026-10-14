@@ -772,7 +772,7 @@ export class ConversationRuntime {
               status: 'available',
               source: 'successful_execution',
               observedAt: this.clock(),
-              scope: 'model',
+              scope: 'runtime',
               modelId: executedModelId
             });
 

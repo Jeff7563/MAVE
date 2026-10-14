@@ -582,6 +582,29 @@ When all candidate runtimes are blocked before execution:
 
 ---
 
+### 11.7 Authoritative State Ownership & Model Rotation (F1.5-S5 Closeout)
+
+#### 1. Authoritative State Partitioning
+- **Runtime-Wide Quota:** Authoritatively owned by `RuntimeQuotaStore`, keyed strictly by `providerId`. Only `scope: 'runtime'` states can actively block a provider runtime (`isQuotaBlocked(state) === true`).
+- **Model-Specific Quota:** Authoritatively owned by `RuntimeModelCatalog`, keyed by `[runtimeProviderId, modelId]`. Each model descriptor maintains its own independent `availability` (`quota_limited`, `rate_limited`, `available`, `unknown`) and optional `metadata.resetAt`.
+- **Unknown-Scope Diagnostics:** Non-authoritative diagnostics. Fails the immediate execution turn cleanly without claiming account-wide exhaustion, leaving provider unblocked for subsequent turns.
+- **Zero Collision Guarantee (Design A):** Model-scoped observations are not stored in `RuntimeQuotaStore.states` under provider-level keys. Thus, Model A (`claude-3-opus`) being `quota_limited` cannot overwrite or clear Model B (`claude-3-5-sonnet`) being `available`, and Model B's successful execution cannot clear Model A's quota block.
+
+#### 2. Vendor-Neutral Model Rotation
+- `@mave/core` contains zero concrete vendor model generation names or hardcoded entitlement lists.
+- Model mapping flows dynamically: `TaskIntent` $\to$ `BrainProfile` $\to$ `ModelRole` $\to$ `selectRuntimeModel()` via `RuntimeModelCatalog`.
+- When vendors release new models, aliases, or revisions tomorrow (e.g., `gpt-5`, `claude-4`, `gemini-3`):
+  - `TaskPolicy`, `BrainProfile`, access/billing policies, and quota architecture require **ZERO changes**.
+  - Only provider-private discovery adapters or configuration mappings require additive updates.
+
+#### 3. Honest Route Gap Accounting
+- **`fast_conversation`:** Requires direct `model_provider` with interactive latency ($\approx 1\text{--}3\text{s}$ voice TTFT). Agent runtimes (`Claude Code`, `Codex`, `Antigravity`) are **NOT** model providers and must never be routed to `fast_conversation`. Direct subscription route gap remains open.
+- **`deep_reasoning`:** Requires direct `model_provider` with deep reasoning quality. Direct subscription route gap remains open.
+- **`language`:** Task policy and role mappings are ready; direct conversational subscription route gap remains open.
+- **`research`:** Task policy ready; full truth/retrieval architecture is scheduled for Milestone F1.8.
+
+---
+
 ## 12. Follow-Up Phasing Plan
 
 - **F1.5-S (COMPLETE):** Subscription-First foundation, access/billing classification, paid API blocking, runtime audits, canonical architecture documentation.
@@ -594,6 +617,8 @@ When all candidate runtimes are blocked before execution:
 - **F1.5-S3.3 (COMPLETE):** Tri-runtime live smoke verification (Claude Code, OpenAI Codex, Google Antigravity).
 - **F1.5-S4 (COMPLETE):** Quota-aware subscription runtime routing & next-turn fallback engine (`RuntimeQuotaStore`, pre-execution routing skip, fail-closed boundaries).
 - **F1.5-S4.1 (COMPLETE):** Quota scope & blocked-state hardening (`scope: 'runtime' | 'model' | 'unknown'`, `RuntimeModelCatalog` model quota integration, resetAt expiration to unknown, scope-aware overwrite protection).
+- **F1.5-S5 (COMPLETE):** Subscription Intelligence final closeout audit (Authoritative state ownership, cross-model collision safety, model rotation readiness, documentation alignment, and tri-runtime closeout).
+
 
 
 

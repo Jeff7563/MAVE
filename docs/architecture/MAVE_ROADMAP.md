@@ -160,9 +160,12 @@ Program Sequence:
   - **F1.5-S2.1 Runtime Model Handoff & Availability Hardening** ✅ COMPLETE
   - **F1.5-S3 Task → Runtime → Model Routing Engine** ✅ COMPLETE
   - **F1.5-S3.1 Routing Telemetry & Executable Provider Hardening** ✅ COMPLETE
-  - **F1.5-S3.2 Codex Subscription Runtime Normalization** ✅ CURRENT / COMPLETE
-  - **F1.5-S4 Quota-Aware Subscription Fallback & Window Recovery** ← NEXT
-- **F1.6 Production Deep Brain**
+  - **F1.5-S3.2 Codex Subscription Runtime Normalization** ✅ COMPLETE
+  - **F1.5-S3.3 Tri-Runtime Live Smoke Verification** ✅ COMPLETE
+  - **F1.5-S4 Quota-Aware Subscription Fallback & Window Recovery** ✅ COMPLETE
+  - **F1.5-S4.1 Quota Scope & Blocked-State Hardening** ✅ COMPLETE
+  - **F1.5-S5 Subscription Intelligence Final Closeout Audit** ✅ COMPLETE
+- **F1.6 Production Deep Brain** ← NEXT
 - **F1.7 Agent Runtime Normalization (`ClaudeCode` / `Antigravity` / `Codex`)**
 - **F1.8 Research / Truth Routing**
 - **F1.9 Diagnostics, Quota & Reliability**

@@ -150,7 +150,14 @@ export class RuntimeQuotaStore {
       modelId: observation.modelId
     });
 
-    this.states.set(normalizedId, newState);
+    // Invariant (Design A - Authoritative State Ownership):
+    // RuntimeQuotaStore is authoritative strictly for runtime-wide quota (scope: 'runtime').
+    // Model-scoped states live exclusively and authoritatively in RuntimeModelCatalog.
+    // To prevent cross-model collision where model A overwrites model B under providerId,
+    // model-scoped observations are not stored in this.states.
+    if (scope !== 'model') {
+      this.states.set(normalizedId, newState);
+    }
     return newState;
   }
 
