@@ -918,6 +918,44 @@ The Pre-M5 intelligence foundation is divided into ten disciplined phases:
    - **Rejection Diagnostics:**
      - Typed, structured diagnostic rejection reasons recorded per model without exposing prompts or credentials.
 
+### 21.4 Phase F1.4 Implemented Runtime Architecture (Intelligence Routing & Fallback Pipeline)
+
+1. **Two-Stage Deterministic Routing Architecture:**
+   - **Stage A: Provider Selection & Health Eligibility:**
+     - Builds candidate pool in deterministic priority order: (1) explicit caller `preferredProviderId`, (2) requested or default provider (`defaultProvider`), (3) configured fallback chain (`fallbackChain`), and (4) remaining registered providers in stable lexicographical order if `allowFallback === true`.
+     - Probes unprobed candidates on demand via `BrainProviderRegistry.health(id)` without redundant probes for already cached health.
+     - Automatically skips unusable candidate providers with status `unhealthy`, `unconfigured`, `quota_limited`, `rate_limited`, `auth_error`, or `unavailable`.
+     - Enforces deterministic Health Degradation Ordering: Healthy Primary $\to$ Healthy Fallback $\to$ Degraded Primary $\to$ Degraded Fallback. Degraded candidates are used strictly as a last resort when no healthy candidate is available.
+   - **Stage B: Model Catalog Retrieval & Deterministic ModelPolicy Selection:**
+     - For candidates implementing `ModelCatalogProvider`, loads inventory snapshot via `ModelCatalogRuntime.getCatalog(id)` and evaluates `ModelPolicy.select`.
+     - If catalog fetch fails (timeout, error) or yields zero eligible models, the router automatically skips to the next candidate in the fallback chain without failing the entire routing operation unless explicit overrides forbid fallback.
+     - Preserves full backward compatibility with non-catalog providers (stubs, legacy providers), routing them with `model: undefined` and `modelId: undefined`.
+
+2. **Agent Runtime vs Direct Model Provider Boundary:**
+   - Catalog-capable direct model providers and catalog-free agent runtimes (`AntigravityBrainProvider`, kind: `agent_runtime_provider`) maintain strict separation of concerns.
+   - Forbids silent conversational drift: conversational profiles (`fast_conversation` and `deep_reasoning`) strictly forbid falling back into agent runtimes, deterministically failing with canonical error codes (`fast_brain_unavailable` and `profile_unavailable`).
+   - Project workflow profile (`agent_work`) routes Antigravity cleanly without synthesizing fake `ModelId` strings.
+
+3. **Privacy Invariant & Fail-Closed Enforcement:**
+   - Resolves effective privacy constraint using canonical `resolveEffectiveLocalOnly(request)`.
+   - Security invariant: overrides can NEVER weaken `localOnly === true`. If either request or override specifies `localOnly === true`, cloud models/providers (`privacyClass !== 'local_only'`) are rejected.
+   - If no compliant local route exists, routing strictly fails closed by throwing `BrainRoutingError('local_provider_unavailable')`.
+
+4. **Overrides & Fallback Normalization:**
+   - Explicit caller overrides (`preferredProviderId` or `preferredModelId`) default to STRICT (`allowFallback = false`), preventing unintended model hopping or provider drift.
+   - Fallback is enabled only when explicitly permitted (`allowFallback: true`).
+   - Provider + model override mismatches (requesting a model not belonging to the requested provider's catalog) strictly fail closed.
+
+5. **Budgets, Timeouts, Cancellation & Race Protection:**
+   - **Maximum Provider Budget:** Enforces `maxProviderBudget` (configured on router or passed per request), capping the number of distinct providers contacted or probed during routing. Evaluation terminates immediately once budget is exhausted.
+   - **Cumulative Routing Timeout:** Enforces pre-execution routing budget (default `timeoutMs: 4000ms`). Checks elapsed time both during candidate evaluation and before returning decisions, throwing `BrainRoutingError('routing_timeout')` if exceeded.
+   - **Universal Cancellation:** Accepts standard `AbortSignal`. Aborted signals immediately abort routing and throw `BrainRoutingError('cancelled')`.
+   - **Provider Lifecycle Race Guard:** Validates provider instance identity and registry lifecycle tokens (`getLifecycleToken`) against concurrent replacement or unregistration during routing, throwing `BrainRoutingError('provider_unavailable')` if a race condition is detected.
+
+6. **Telemetry & Normalized Error Diagnostics:**
+   - Decisions emit canonical `RouteTelemetry` containing `selectedProviderId`, `selectedModelId`, `profileId`, `routeReason`, `fallbackUsed`, `attemptedProviderIds`, `attemptedModelIds`, `routeAttempts`, `routingTimeMs`, `providersEvaluated`, and `modelsEvaluated`.
+   - Guaranteed secret sanitization: zero API keys, bearer tokens, or internal filesystem paths are exposed in decision telemetry or error messages.
+
 ---
 
 # 22. F2 Boundary & UI Redesign Boundary

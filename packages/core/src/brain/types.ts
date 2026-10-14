@@ -8,8 +8,18 @@ import type {
   ModelContextClass,
   ModelCostClass,
   ModelDescriptor,
-  ModelLatencyClass
+  ModelLatencyClass,
+  RouteReason,
+  RouteTelemetry as ContractsRouteTelemetry
 } from '@mave/contracts';
+
+export interface RouteTelemetry extends ContractsRouteTelemetry {
+  routingTimeMs?: number;
+  providersEvaluated?: number;
+  modelsEvaluated?: number;
+  errorType?: string;
+  sanitizedError?: string;
+}
 
 export interface BrainRouteRequest {
   profileId?: BrainProfileId;
@@ -19,6 +29,16 @@ export interface BrainRouteRequest {
   fallbackChain?: string[];
   requiredCapabilities?: Partial<BrainCapabilities>;
   localOnly?: boolean;
+  overrides?: BrainRouteOverrides;
+  maxCostClass?: ModelCostClass;
+  maxLatencyClass?: ModelLatencyClass;
+  requiredContextTokens?: number;
+  requiredContextClass?: ModelContextClass;
+  strictLanguageCheck?: boolean;
+  allowFallback?: boolean;
+  maxProviderBudget?: number;
+  signal?: AbortSignal;
+  timeoutMs?: number;
 }
 
 export interface BrainProfileResolution {
@@ -48,33 +68,51 @@ export class BrainProfilePolicyError extends Error {
 export interface BrainRouteDecision {
   provider: BrainProvider;
   providerId: string;
+  model?: ModelDescriptor;
   modelId?: string;
+  profileId?: BrainProfileId;
   reason: string;
+  routeReason?: RouteReason;
   fallbackUsed: boolean;
   attemptedProviderIds: string[];
   attemptedModelIds?: string[];
   routeAttempts?: number;
+  telemetry?: RouteTelemetry;
 }
 
 export type BrainRoutingErrorCode =
   | 'no_usable_provider'
   | 'provider_not_found'
   | 'no_healthy_provider'
-  | 'capability_not_supported';
+  | 'capability_not_supported'
+  | 'fast_brain_unavailable'
+  | 'profile_unavailable'
+  | 'model_unavailable'
+  | 'provider_unconfigured'
+  | 'provider_unavailable'
+  | 'quota_limited'
+  | 'rate_limited'
+  | 'auth_required'
+  | 'local_provider_unavailable'
+  | 'routing_timeout'
+  | 'cancelled';
 
 export class BrainRoutingError extends Error {
   readonly code: BrainRoutingErrorCode;
   readonly attemptedProviderIds: string[];
+  readonly attemptedModelIds?: string[];
 
   constructor(
     code: BrainRoutingErrorCode,
     message: string,
-    attemptedProviderIds: string[] = []
+    attemptedProviderIds: string[] = [],
+    attemptedModelIds: string[] = []
   ) {
     super(message);
     this.name = 'BrainRoutingError';
     this.code = code;
     this.attemptedProviderIds = attemptedProviderIds;
+    this.attemptedModelIds = attemptedModelIds;
   }
 }
 

@@ -398,8 +398,12 @@ export class ConversationRuntime {
       try {
         routeDecision = await this.router.route({
           preferredProviderId: request.preferredProviderId,
+          preferredModelId: request.preferredModelId,
           profileId: request.profileId,
-          requiredCapabilities
+          requiredCapabilities,
+          overrides: request.overrides,
+          localOnly: request.localOnly,
+          signal: abortController.signal
         });
       } catch (err) {
         const errorMsg = err instanceof Error ? err.message : String(err);
@@ -537,7 +541,14 @@ export class ConversationRuntime {
         sessionId,
         intent: 'conversation',
         messages: contextBundle.messages,
-        context: contextBundle.context
+        context: contextBundle.context,
+        overrides: {
+          profileId: routeDecision.profileId,
+          preferredProviderId: routeDecision.providerId,
+          preferredModelId: routeDecision.modelId,
+          localOnly: request.localOnly === true || request.overrides?.localOnly === true
+        },
+        localOnly: request.localOnly
       };
 
       // 13. Consume BrainEvent stream from provider

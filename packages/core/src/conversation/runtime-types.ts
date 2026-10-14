@@ -1,12 +1,19 @@
-import type { BrainCapabilities, BrainProfileId } from '@mave/contracts';
+import type {
+  BrainCapabilities,
+  BrainProfileId,
+  BrainRouteOverrides
+} from '@mave/contracts';
 
 export interface ConversationRequest {
   requestId?: string;
   sessionId?: string;
   message: string;
   preferredProviderId?: string;
+  preferredModelId?: string;
   profileId?: BrainProfileId;
   requiredCapabilities?: Partial<BrainCapabilities>;
+  overrides?: BrainRouteOverrides;
+  localOnly?: boolean;
 }
 
 export interface ConversationRequestOptions {
