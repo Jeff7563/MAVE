@@ -6,6 +6,7 @@ import {
   BrainErrorSchema,
   BrainEventSchema,
   BrainProfileIdSchema,
+  BrainRequestOptionsSchema,
   BrainRequestSchema,
   BrainResponseSchema,
   BrainRouteOverridesSchema,
@@ -50,6 +51,7 @@ import {
   type BrainCapabilities,
   type BrainEvent,
   type BrainProvider,
+  type BrainRequestOptions,
   type BrainTelemetry,
   type ModelCatalogProvider,
   type ModelCatalogSnapshot,
@@ -310,6 +312,61 @@ describe('BrainRequest & BrainResponse Contracts', () => {
     const provider: BrainProvider = new TestMockProvider();
     expect(provider.id).toBe('test-mock');
     expect(provider.getCapabilities().fastChat).toBe(true);
+  });
+
+  describe('BrainRequestOptions Contract (F1.4.1 Execution Contract Bridge)', () => {
+    it('accepts valid options without modelId for full backward compatibility', () => {
+      const opts = BrainRequestOptionsSchema.parse({
+        temperature: 0.7,
+        maxTokens: 1024,
+        timeoutMs: 5000
+      });
+      expect(opts.temperature).toBe(0.7);
+      expect(opts.maxTokens).toBe(1024);
+      expect(opts.timeoutMs).toBe(5000);
+      expect(opts.modelId).toBeUndefined();
+    });
+
+    it('accepts valid options with normalized modelId', () => {
+      const opts = BrainRequestOptionsSchema.parse({
+        modelId: 'mock-fast-v1',
+        temperature: 0.2
+      });
+      expect(opts.modelId).toBe('mock-fast-v1');
+      expect(opts.temperature).toBe(0.2);
+    });
+
+    it('rejects empty or whitespace modelId according to ModelIdSchema', () => {
+      expect(() =>
+        BrainRequestOptionsSchema.parse({
+          modelId: ''
+        })
+      ).toThrow();
+
+      expect(() =>
+        BrainRequestOptionsSchema.parse({
+          modelId: '   '
+        })
+      ).toThrow();
+    });
+
+    it('rejects invalid non-string modelId types', () => {
+      expect(() =>
+        BrainRequestOptionsSchema.parse({
+          modelId: 12345
+        })
+      ).toThrow();
+    });
+
+    it('verifies type inference exposes modelId?: ModelId', () => {
+      const options: BrainRequestOptions = {
+        modelId: 'openai-gpt4o-mini',
+        temperature: 0.5,
+        signal: new AbortController().signal
+      };
+      expect(options.modelId).toBe('openai-gpt4o-mini');
+      expect(options.signal).toBeDefined();
+    });
   });
 });
 

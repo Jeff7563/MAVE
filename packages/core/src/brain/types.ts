@@ -9,6 +9,7 @@ import type {
   ModelCostClass,
   ModelDescriptor,
   ModelLatencyClass,
+  ProviderKind,
   RouteReason,
   RouteTelemetry
 } from '@mave/contracts';
@@ -70,6 +71,7 @@ export class BrainProfilePolicyError extends Error {
 export interface BrainRouteDecision {
   provider: BrainProvider;
   providerId: string;
+  providerKind?: ProviderKind;
   model?: ModelDescriptor;
   modelId?: string;
   profileId?: BrainProfileId;

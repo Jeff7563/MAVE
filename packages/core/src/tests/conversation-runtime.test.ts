@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import type {
   BrainCapabilities,
   BrainErrorCode,
@@ -17,7 +17,8 @@ import {
   ContextManager,
   ConversationRuntime,
   ConversationRuntimeError,
-  type ConversationRuntimeEvent
+  type ConversationRuntimeEvent,
+  type RequestFailedEvent
 } from '../conversation/index.js';
 
 interface TestProviderStubOptions {
@@ -29,6 +30,7 @@ interface TestProviderStubOptions {
   errorMessage?: string;
   delayMs?: number;
   healthStatus?: ProviderHealthStatus;
+  modelCatalog?: ModelCatalogSnapshot;
   onChatCalled?: (req: BrainRequest) => void;
   onCancelCalled?: (requestId: string) => void;
 }
@@ -36,6 +38,7 @@ interface TestProviderStubOptions {
 function createStubProvider(options: TestProviderStubOptions): BrainProvider & {
   getChatCallCount: () => number;
   getLastRequest: () => BrainRequest | undefined;
+  getLastOptions: () => BrainRequestOptions | undefined;
   getCancelCallCount: () => number;
   getCatalog?: () => Promise<ModelCatalogSnapshot>;
   getDescriptor?: () => ProviderDescriptor;
@@ -44,6 +47,7 @@ function createStubProvider(options: TestProviderStubOptions): BrainProvider & {
   let chatCount = 0;
   let cancelCount = 0;
   let lastRequest: BrainRequest | undefined;
+  let lastOptions: BrainRequestOptions | undefined;
 
   const caps: BrainCapabilities = {
     streaming: true,
@@ -70,6 +74,7 @@ function createStubProvider(options: TestProviderStubOptions): BrainProvider & {
     async *chat(request: BrainRequest, chatOptions?: BrainRequestOptions): AsyncIterable<BrainEvent> {
       chatCount++;
       lastRequest = request;
+      lastOptions = chatOptions;
       options.onChatCalled?.(request);
 
       if (options.failureMode === 'throw') {
@@ -154,38 +159,41 @@ function createStubProvider(options: TestProviderStubOptions): BrainProvider & {
       options.onCancelCalled?.(requestId);
     },
     async getCatalog(): Promise<ModelCatalogSnapshot> {
-      return {
-        providerId: options.id,
-        models: [
-          {
-            id: `${options.id}-default`,
-            providerId: options.id,
-            displayName: `${options.id}-default`,
-            status: 'available',
-            latencyClass: 'interactive',
-            qualityClass: 'fast',
-            costClass: 'low',
-            contextClass: 'standard',
-            contextWindowTokens: 8192,
-            privacyClass: 'standard_cloud',
-            capabilities: { ...caps }
-          }
-        ],
-        refreshedAt: Date.now()
-      };
+      return (
+        options.modelCatalog ?? {
+          providerId: options.id,
+          models: [
+            {
+              id: `${options.id}-default`,
+              providerId: options.id,
+              displayName: `${options.id}-default`,
+              status: 'available',
+              latencyClass: 'interactive',
+              qualityClass: 'fast',
+              costClass: 'low',
+              contextClass: 'standard',
+              contextWindowTokens: 8192,
+              privacyClass: 'standard_cloud',
+              capabilities: { ...caps }
+            }
+          ],
+          refreshedAt: Date.now()
+        }
+      );
     },
     getDescriptor(): ProviderDescriptor {
       return {
         id: options.id,
-        kind: 'model_provider',
+        kind: options.id === 'antigravity' ? 'agent_runtime_provider' : 'model_provider',
         displayName: options.id,
-        accessPath: 'official_api',
+        accessPath: options.id === 'antigravity' ? 'official_cli' : 'official_api',
         capabilities: { ...caps },
-        health: { status: 'healthy', checkedAt: Date.now() }
+        health: { status: options.healthStatus ?? 'healthy', checkedAt: Date.now() }
       };
     },
     getChatCallCount: () => chatCount,
     getLastRequest: () => lastRequest,
+    getLastOptions: () => lastOptions,
     getCancelCallCount: () => cancelCount
   };
 }
@@ -837,8 +845,10 @@ describe('ConversationRuntime — Concurrency', () => {
     expect(lastReqA).toBeDefined();
     // Overrides passed to provider must reflect caller's original input, NOT synthesized router decisions
     expect(lastReqA!.overrides).toBeUndefined();
-    // Execution context carries selected model ID
-    expect(lastReqA!.context?.selectedModelId).toBe('mock-primary-default');
+    // Execution options carries selected model ID (F1.4.1 execution contract bridge)
+    expect(stubProvider.getLastOptions()?.modelId).toBe('mock-primary-default');
+    // Context does NOT carry selectedModelId
+    expect(lastReqA!.context?.selectedModelId).toBeUndefined();
 
     // Scenario B: Caller specified explicit preferred provider X, but fallback was used
     const sessionManager = new SessionManager();
@@ -873,5 +883,341 @@ describe('ConversationRuntime — Concurrency', () => {
     expect(lastReqB).toBeDefined();
     // Caller provenance must be preserved as 'unregistered-prov'
     expect(lastReqB!.overrides?.preferredProviderId).toBe('unregistered-prov');
+    // Execution options carries selected model ID
+    expect(healthyFallback.getLastOptions()?.modelId).toBe('healthy-fallback-default');
+  });
+
+  it('7. preserves caller context immutability and never injects selectedModelId into caller context', async () => {
+    const { runtime, stubProvider } = setupTestEnvironment();
+
+    const callerContext = { project: 'MAVE', customKey: 42 };
+    const req = {
+      message: 'Testing caller context immutability',
+      context: callerContext
+    };
+
+    for await (const _ of runtime.send(req)) {}
+
+    // Caller's original context object must be completely untouched
+    expect(callerContext).toEqual({ project: 'MAVE', customKey: 42 });
+    expect((callerContext as any).selectedModelId).toBeUndefined();
+
+    // Request context forwarded to provider must contain caller metadata but NOT selectedModelId
+    const lastReq = stubProvider.getLastRequest();
+    expect(lastReq).toBeDefined();
+    expect(lastReq!.context?.project).toBe('MAVE');
+    expect(lastReq!.context?.customKey).toBe(42);
+    expect(lastReq!.context?.selectedModelId).toBeUndefined();
+
+    // Execution model must travel via options.modelId
+    const lastOpts = stubProvider.getLastOptions();
+    expect(lastOpts?.modelId).toBe('mock-primary-default');
+  });
+
+  it('8. preserves caller preferredModelId provenance when fallback model is resolved', async () => {
+    const sessionManager = new SessionManager();
+    const contextManager = new ContextManager();
+    const registry = new BrainProviderRegistry();
+
+    const providerWithModels = createStubProvider({
+      id: 'multi-model-provider',
+      healthStatus: 'healthy',
+      modelCatalog: {
+        providerId: 'multi-model-provider',
+        models: [
+          {
+            id: 'preferred-model-x',
+            providerId: 'multi-model-provider',
+            displayName: 'Model X (Unavailable)',
+            status: 'unavailable',
+            latencyClass: 'interactive',
+            qualityClass: 'fast',
+            costClass: 'low',
+            contextClass: 'standard',
+            contextWindowTokens: 8192,
+            privacyClass: 'standard_cloud',
+            capabilities: { streaming: true, fastChat: true, reasoning: false, coding: false, toolUse: false, multimodal: false, vision: false, webResearch: false, longContext: false, local: false }
+          },
+          {
+            id: 'fallback-model-y',
+            providerId: 'multi-model-provider',
+            displayName: 'Model Y (Available)',
+            status: 'available',
+            latencyClass: 'interactive',
+            qualityClass: 'fast',
+            costClass: 'low',
+            contextClass: 'standard',
+            contextWindowTokens: 8192,
+            privacyClass: 'standard_cloud',
+            capabilities: { streaming: true, fastChat: true, reasoning: false, coding: false, toolUse: false, multimodal: false, vision: false, webResearch: false, longContext: false, local: false }
+          }
+        ],
+        refreshedAt: Date.now()
+      }
+    });
+    registry.register(providerWithModels);
+
+    const router = new BrainRouter({
+      registry,
+      defaultProvider: 'multi-model-provider'
+    });
+    const runtime = new ConversationRuntime({ sessionManager, contextManager, router });
+
+    // Caller requested preferredModelId: 'preferred-model-x', but explicitly allowed fallback
+    const req = {
+      message: 'Testing model fallback provenance',
+      preferredModelId: 'preferred-model-x',
+      allowFallback: true,
+      overrides: {
+        preferredModelId: 'preferred-model-x',
+        localOnly: false
+      }
+    };
+
+    for await (const _ of runtime.send(req)) {}
+
+    const lastReq = providerWithModels.getLastRequest();
+    const lastOpts = providerWithModels.getLastOptions();
+
+    // 1. Caller provenance strictly preserved in request.overrides
+    expect(lastReq?.overrides?.preferredModelId).toBe('preferred-model-x');
+
+    // 2. Resolved execution target travels in BrainRequestOptions.modelId
+    expect(lastOpts?.modelId).toBe('fallback-model-y');
+  });
+
+  it('9. guarantees concurrency safety: simultaneous invocations carry distinct modelId without cross-contamination', async () => {
+    const sessionManager = new SessionManager();
+    const contextManager = new ContextManager();
+    const registry = new BrainProviderRegistry();
+
+    const invocationRecords: Array<{ requestId: string; modelId?: string }> = [];
+
+    const concurrentProvider = createStubProvider({
+      id: 'concurrent-provider',
+      healthStatus: 'healthy',
+      delayMs: 25,
+      modelCatalog: {
+        providerId: 'concurrent-provider',
+        models: [
+          {
+            id: 'model-alpha',
+            providerId: 'concurrent-provider',
+            displayName: 'Model Alpha',
+            status: 'available',
+            latencyClass: 'interactive',
+            qualityClass: 'fast',
+            costClass: 'low',
+            contextClass: 'standard',
+            contextWindowTokens: 8192,
+            privacyClass: 'standard_cloud',
+            capabilities: { streaming: true, fastChat: true, reasoning: false, coding: false, toolUse: false, multimodal: false, vision: false, webResearch: false, longContext: false, local: false }
+          },
+          {
+            id: 'model-beta',
+            providerId: 'concurrent-provider',
+            displayName: 'Model Beta',
+            status: 'available',
+            latencyClass: 'interactive',
+            qualityClass: 'fast',
+            costClass: 'low',
+            contextClass: 'standard',
+            contextWindowTokens: 8192,
+            privacyClass: 'standard_cloud',
+            capabilities: { streaming: true, fastChat: true, reasoning: false, coding: false, toolUse: false, multimodal: false, vision: false, webResearch: false, longContext: false, local: false }
+          }
+        ],
+        refreshedAt: Date.now()
+      }
+    });
+
+    // Hook into chat to record per-invocation options
+    const originalChat = concurrentProvider.chat.bind(concurrentProvider);
+    concurrentProvider.chat = async function* (req: BrainRequest, opts?: BrainRequestOptions) {
+      invocationRecords.push({ requestId: req.requestId, modelId: opts?.modelId });
+      for await (const evt of originalChat(req, opts)) {
+        yield evt;
+      }
+    };
+
+    registry.register(concurrentProvider);
+
+    const router = new BrainRouter({
+      registry,
+      defaultProvider: 'concurrent-provider'
+    });
+    const runtime = new ConversationRuntime({ sessionManager, contextManager, router });
+
+    // Fire two concurrent requests simultaneously with different preferred models
+    const taskA = (async () => {
+      const events = [];
+      for await (const evt of runtime.send({
+        requestId: 'req-alpha',
+        message: 'Request Alpha',
+        preferredModelId: 'model-alpha',
+        overrides: { preferredModelId: 'model-alpha', localOnly: false }
+      })) {
+        events.push(evt);
+      }
+      return events;
+    })();
+
+    const taskB = (async () => {
+      const events = [];
+      for await (const evt of runtime.send({
+        requestId: 'req-beta',
+        message: 'Request Beta',
+        preferredModelId: 'model-beta',
+        overrides: { preferredModelId: 'model-beta', localOnly: false }
+      })) {
+        events.push(evt);
+      }
+      return events;
+    })();
+
+    await Promise.all([taskA, taskB]);
+
+    // Both requests ran on the exact same singleton provider instance
+    expect(invocationRecords).toHaveLength(2);
+    const recordA = invocationRecords.find(r => r.requestId === 'req-alpha');
+    const recordB = invocationRecords.find(r => r.requestId === 'req-beta');
+
+    expect(recordA).toBeDefined();
+    expect(recordA?.modelId).toBe('model-alpha');
+
+    expect(recordB).toBeDefined();
+    expect(recordB?.modelId).toBe('model-beta');
+
+    // Concurrency safety verified: zero cross-contamination
+    expect(recordA?.modelId).not.toBe(recordB?.modelId);
+  });
+
+  it('10. direct model provider invocation requires resolved modelId and fails safely if missing', async () => {
+    const sessionManager = new SessionManager();
+    const contextManager = new ContextManager();
+    const registry = new BrainProviderRegistry();
+
+    const providerWithoutModels = createStubProvider({
+      id: 'provider-no-model',
+      healthStatus: 'healthy'
+    });
+    registry.register(providerWithoutModels);
+
+    // Mock a router that abnormally resolves without a modelId on a direct model provider
+    const badRouter = {
+      route: vi.fn().mockResolvedValue({
+        provider: providerWithoutModels,
+        providerId: 'provider-no-model',
+        providerKind: 'model_provider',
+        modelId: undefined, // Missing!
+        fallbackUsed: false,
+        reason: 'Faulty route',
+        attemptedProviderIds: [],
+        attemptedModelIds: [],
+        routeAttempts: 0,
+        telemetry: {
+          selectedProviderId: 'provider-no-model',
+          selectedModelId: undefined,
+          fallbackUsed: false,
+          attemptedProviderIds: [],
+          attemptedModelIds: [],
+          routeAttempts: 0
+        }
+      })
+    } as unknown as BrainRouter;
+
+    const runtime = new ConversationRuntime({ sessionManager, contextManager, router: badRouter });
+
+    const events: ConversationRuntimeEvent[] = [];
+    for await (const evt of runtime.send({ message: 'Trigger invariant check' })) {
+      events.push(evt);
+    }
+
+    const failedEvt = events.find(e => e.type === 'request_failed') as RequestFailedEvent;
+    expect(failedEvt).toBeDefined();
+    expect(failedEvt.error.code).toBe('routing_error');
+    expect(failedEvt.error.message).toContain("requires a resolved modelId for execution");
+    // Provider.chat should NEVER have been called
+    expect(providerWithoutModels.getChatCallCount()).toBe(0);
+  });
+
+  it('11. agent runtime invocation passes modelId: undefined and leaves attemptedModelIds empty', async () => {
+    const sessionManager = new SessionManager();
+    const contextManager = new ContextManager();
+    const registry = new BrainProviderRegistry();
+
+    const antigravityProvider = createStubProvider({
+      id: 'antigravity',
+      healthStatus: 'healthy',
+      capabilities: {
+        streaming: true,
+        fastChat: false,
+        reasoning: true,
+        coding: true,
+        toolUse: true
+      }
+    });
+    registry.register(antigravityProvider);
+
+    const router = new BrainRouter({
+      registry,
+      defaultProvider: 'antigravity'
+    });
+    const runtime = new ConversationRuntime({ sessionManager, contextManager, router });
+
+    let capturedOptions: BrainRequestOptions | undefined;
+    const origChat = antigravityProvider.chat.bind(antigravityProvider);
+    antigravityProvider.chat = async function* (req: BrainRequest, opts?: BrainRequestOptions) {
+      capturedOptions = opts;
+      for await (const evt of origChat(req, opts)) {
+        yield evt;
+      }
+    };
+
+    const requestId = 'antigravity-test-req';
+    for await (const _ of runtime.send({
+      requestId,
+      message: 'Agent task',
+      profileId: 'agent_work',
+      preferredProviderId: 'antigravity'
+    })) {}
+
+    // modelId must be undefined for Antigravity in F1.4
+    expect(capturedOptions).toBeDefined();
+    expect(capturedOptions?.modelId).toBeUndefined();
+
+    // Telemetry transition: 1 provider attempt, but 0 model attempts
+    const telemetry = runtime.getExecutionTelemetry(requestId);
+    expect(telemetry).toBeDefined();
+    expect(telemetry?.routeAttempts).toBe(1);
+    expect(telemetry?.attemptedProviderIds).toEqual(['antigravity']);
+    expect(telemetry?.attemptedModelIds).toEqual([]);
+  });
+
+  it('12. execution telemetry tracks routeAttempts = 0 before invocation, and 1 when invocation starts', async () => {
+    const { runtime, stubProvider } = setupTestEnvironment();
+
+    const requestId = 'telemetry-lifecycle-req';
+
+    // Hook provider to inspect runtime telemetry right as provider.chat begins
+    let telemetryDuringChat: RouteTelemetry | undefined;
+    const origChat = stubProvider.chat.bind(stubProvider);
+    stubProvider.chat = async function* (req: BrainRequest, opts?: BrainRequestOptions) {
+      telemetryDuringChat = runtime.getExecutionTelemetry(req.requestId);
+      for await (const evt of origChat(req, opts)) {
+        yield evt;
+      }
+    };
+
+    for await (const _ of runtime.send({
+      requestId,
+      message: 'Checking telemetry transitions'
+    })) {}
+
+    // During chat invocation: routeAttempts = 1, attemptedProviderIds contains providerId, attemptedModelIds contains modelId
+    expect(telemetryDuringChat).toBeDefined();
+    expect(telemetryDuringChat?.routeAttempts).toBe(1);
+    expect(telemetryDuringChat?.attemptedProviderIds).toEqual(['mock-primary']);
+    expect(telemetryDuringChat?.attemptedModelIds).toEqual(['mock-primary-default']);
   });
 });

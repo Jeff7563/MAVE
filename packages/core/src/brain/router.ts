@@ -201,8 +201,8 @@ export class BrainRouter {
       profileId,
       routeReason: candidate.routeReason,
       fallbackUsed: candidate.fallbackUsed,
-      attemptedProviderIds: [...attemptedProviderIds],
-      attemptedModelIds: [...attemptedModelIds],
+      attemptedProviderIds: [],
+      attemptedModelIds: [],
       routeAttempts: 0
     };
 
@@ -215,6 +215,7 @@ export class BrainRouter {
     return {
       provider: candidate.provider,
       providerId: candidate.providerId,
+      providerKind: this.getProviderKind(candidate.providerId),
       model: candidate.model,
       modelId: candidate.modelId,
       profileId,

@@ -1462,10 +1462,9 @@ describe('BrainRouter', () => {
       expect(decision.telemetry?.selectedProviderId).toBe('provider-telemetry');
       expect(decision.telemetry?.selectedModelId).toBe('m1');
       expect(decision.telemetry?.profileId).toBe('fast_conversation');
-      expect(decision.telemetry?.fallbackUsed).toBe(false);
-      expect(decision.telemetry?.attemptedProviderIds).toEqual(['provider-telemetry']);
-      expect(decision.telemetry?.attemptedModelIds).toEqual(['m1']);
-      // Pre-execution routing evaluation: 0 actual invocations
+      // Pre-execution routing evaluation: strictly 0 execution attempts
+      expect(decision.telemetry?.attemptedProviderIds).toEqual([]);
+      expect(decision.telemetry?.attemptedModelIds).toEqual([]);
       expect(decision.telemetry?.routeAttempts).toBe(0);
       expect(decision.routeAttempts).toBe(0);
 

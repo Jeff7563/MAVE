@@ -415,7 +415,8 @@ export type BrainRouteOverrides = z.infer<typeof BrainRouteOverridesSchema>;
 export const BrainRequestOptionsSchema = z.object({
   temperature: z.number().min(0).max(2).optional(),
   maxTokens: z.number().positive().optional(),
-  timeoutMs: z.number().positive().optional()
+  timeoutMs: z.number().positive().optional(),
+  modelId: ModelIdSchema.optional()
 });
 export interface BrainRequestOptions extends z.infer<typeof BrainRequestOptionsSchema> {
   signal?: AbortSignal;

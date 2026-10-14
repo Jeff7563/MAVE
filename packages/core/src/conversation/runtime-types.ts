@@ -14,6 +14,8 @@ export interface ConversationRequest {
   requiredCapabilities?: Partial<BrainCapabilities>;
   overrides?: BrainRouteOverrides;
   localOnly?: boolean;
+  context?: Record<string, unknown>;
+  allowFallback?: boolean;
 }
 
 export interface ConversationRequestOptions {

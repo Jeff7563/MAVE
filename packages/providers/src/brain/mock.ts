@@ -58,10 +58,20 @@ export class MockBrainProvider implements BrainProvider {
   readonly id: string;
   private options: MockBrainOptions;
   private activeControllers = new Map<string, AbortController>();
+  private lastRequest?: BrainRequest;
+  private lastInvocationOptions?: BrainRequestOptions;
 
   constructor(options?: MockBrainOptions) {
     this.options = { ...options };
     this.id = this.options.id || 'mock';
+  }
+
+  getLastRequest(): BrainRequest | undefined {
+    return this.lastRequest;
+  }
+
+  getLastInvocationOptions(): BrainRequestOptions | undefined {
+    return this.lastInvocationOptions;
   }
 
   getCapabilities(): BrainCapabilities {
@@ -139,6 +149,9 @@ export class MockBrainProvider implements BrainProvider {
     request: BrainRequest,
     options?: BrainRequestOptions
   ): AsyncIterable<BrainEvent> {
+    this.lastRequest = request;
+    this.lastInvocationOptions = options;
+
     const controller = new AbortController();
     const externalSignal = options?.signal;
 

@@ -961,10 +961,18 @@ The Pre-M5 intelligence foundation is divided into ten disciplined phases:
 
 6. **Execution Boundary, Provenance & Generation Fallback:**
    - **Route Attempts Semantics:** Telemetry records `routeAttempts: 0` before execution. An atomic `routeAttempt` represents an actual execution invocation of `provider.chat()`.
-   - **Caller Provenance Preservation:** `ConversationRuntime` preserves caller `request.overrides` intact without mutating user directives with router decisions. Selected model handoff is transmitted via execution route context (`BrainRequest.context?.selectedModelId`) for clean F1.5 vendor model mapping.
+   - **Caller Provenance & Context Immutability:** `ConversationRuntime` preserves caller `request.overrides` intact without mutating user directives with router decisions. Caller `request.context` remains pristine for caller-supplied metadata with zero internal framework contamination.
+   - **F1.4.1 Typed Model Execution Bridge:** Router-selected model handoff is transmitted cleanly and safely via `BrainRequestOptions.modelId?: ModelId` (an additive, backward-compatible field on `BrainRequestOptionsSchema`), eliminating intermediate mutable state or context pollution:
+     - *User Requested:* `BrainRequest.overrides.preferredModelId` (caller preference/provenance).
+     - *MAVE Resolved:* `BrainRouteDecision.modelId` (deterministic routing resolution).
+     - *MAVE Executes:* `BrainRequestOptions.modelId` (per-invocation execution target).
+   - **Direct Model Invariant:** A direct model route (`providerKind === 'model_provider'`) strictly requires a resolved `routeDecision.modelId !== undefined` prior to invoking `provider.chat()`. If missing, execution fails safely with a deterministic `routing_error`.
+   - **Agent Runtime Invariant:** Agent runtimes (e.g. `antigravity`) do not consume direct model options; invocation passes `modelId: undefined` and records `attemptedModelIds: []`.
+   - **Concurrency Safety:** Singleton provider instances handle concurrent requests safely because `modelId` travels strictly per-call in `BrainRequestOptions`.
    - **Generation-Time Fallback Policy (Option A):** Pre-execution routing fallback only. No generation-time fallback; once the first assistant-visible delta is emitted, the route stream is committed.
    - **Telemetry vs Diagnostics Separation:** Canonical `RouteTelemetry` adheres strictly to frozen `@mave/contracts` schema (`RouteTelemetrySchema.safeParse`). Evaluation metrics (`routingTimeMs`, `providersEvaluated`, `modelsEvaluated`) are isolated in internal `BrainRoutingDiagnostics` on `BrainRouteDecision`.
    - **Guaranteed Sanitization:** Zero API keys, bearer tokens, or internal filesystem paths are exposed in decision telemetry or error messages.
+   - **Phase Status:** F1.4 & F1.4.1 FULLY CLOSED — READY FOR F1.5.
 
 ---
 

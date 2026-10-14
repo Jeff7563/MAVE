@@ -3,7 +3,9 @@ import type {
   BrainCapabilities,
   BrainProvider,
   BrainRequest,
+  BrainRequestOptions,
   ConversationStore,
+  RouteTelemetry,
   Session
 } from '@mave/contracts';
 import type { BrainRouter } from '../brain/router.js';
@@ -36,6 +38,7 @@ interface ActiveRequestRecord {
   isTimedOut: boolean;
   isExplicitlyCancelled: boolean;
   terminalEmitted: 'completed' | 'cancelled' | 'failed' | null;
+  executionTelemetry?: RouteTelemetry;
 }
 
 const DEFAULT_REQUIRED_CAPABILITIES: Partial<BrainCapabilities> = {
@@ -53,6 +56,11 @@ export class ConversationRuntime {
   private readonly defaultTimeoutMs: number;
 
   private readonly activeRequests = new Map<string, ActiveRequestRecord>();
+  private readonly lastExecutionTelemetry = new Map<string, RouteTelemetry>();
+
+  getExecutionTelemetry(requestId: string): RouteTelemetry | undefined {
+    return this.activeRequests.get(requestId)?.executionTelemetry ?? this.lastExecutionTelemetry.get(requestId);
+  }
 
   constructor(options: ConversationRuntimeOptions) {
     this.sessionManager = options.sessionManager;
@@ -389,10 +397,12 @@ export class ConversationRuntime {
       const contextBundle = this.contextManager.build(session, turns);
 
       // 10. Route to BrainProvider
-      const requiredCapabilities: Partial<BrainCapabilities> = {
-        ...DEFAULT_REQUIRED_CAPABILITIES,
-        ...request.requiredCapabilities
-      };
+      const requiredCapabilities: Partial<BrainCapabilities> | undefined =
+        request.requiredCapabilities !== undefined
+          ? request.requiredCapabilities
+          : request.profileId !== undefined
+            ? undefined
+            : DEFAULT_REQUIRED_CAPABILITIES;
 
       let routeDecision;
       try {
@@ -403,6 +413,7 @@ export class ConversationRuntime {
           requiredCapabilities,
           overrides: request.overrides,
           localOnly: request.localOnly,
+          allowFallback: request.allowFallback,
           signal: abortController.signal
         });
       } catch (err) {
@@ -535,7 +546,43 @@ export class ConversationRuntime {
         }
       }
 
-      // 12. Construct canonical BrainRequest preserving caller provenance
+      // 12. Enforce Direct Model Invariant & Transition Execution Telemetry
+      const isAgentRuntime = routeDecision.providerId === 'antigravity';
+      if (!isAgentRuntime && !routeDecision.modelId) {
+        const errorMsg = `Direct model provider '${providerId}' requires a resolved modelId for execution`;
+        record.terminalEmitted = 'failed';
+        yield {
+          type: 'request_failed',
+          requestId,
+          sessionId,
+          error: {
+            code: 'routing_error',
+            message: errorMsg
+          },
+          timestamp: this.clock()
+        };
+        if (options?.throwOnError) {
+          throw new ConversationRuntimeError('routing_error', errorMsg, { requestId, sessionId });
+        }
+        return;
+      }
+
+      const executionTelemetry: RouteTelemetry = {
+        selectedProviderId: routeDecision.providerId,
+        selectedModelId: routeDecision.modelId,
+        profileId: routeDecision.profileId,
+        routeReason: routeDecision.routeReason,
+        fallbackUsed: routeDecision.fallbackUsed,
+        attemptedProviderIds: [routeDecision.providerId],
+        attemptedModelIds: isAgentRuntime || !routeDecision.modelId
+          ? []
+          : [routeDecision.modelId],
+        routeAttempts: 1
+      };
+      record.executionTelemetry = executionTelemetry;
+      this.lastExecutionTelemetry.set(requestId, executionTelemetry);
+
+      // 13. Construct canonical BrainRequest preserving caller context and provenance
       const brainRequest: BrainRequest = {
         requestId,
         sessionId,
@@ -543,17 +590,22 @@ export class ConversationRuntime {
         messages: contextBundle.messages,
         context: {
           ...contextBundle.context,
-          selectedModelId: routeDecision.modelId
+          ...request.context
         },
         overrides: request.overrides,
         localOnly: request.localOnly
       };
 
-      // 13. Consume BrainEvent stream from provider
+      // 14. Consume BrainEvent stream from provider with typed invocation options
       let accumulatedText = '';
       let hasStarted = false;
 
-      const chatIterator = provider.chat(brainRequest, { signal: abortController.signal })[Symbol.asyncIterator]();
+      const brainOptions: BrainRequestOptions = {
+        signal: abortController.signal,
+        modelId: isAgentRuntime ? undefined : routeDecision.modelId
+      };
+
+      const chatIterator = provider.chat(brainRequest, brainOptions)[Symbol.asyncIterator]();
 
       try {
         while (true) {
