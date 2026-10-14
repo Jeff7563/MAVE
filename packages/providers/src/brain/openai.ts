@@ -36,12 +36,15 @@ const OPENAI_CONCRETE_MODEL_MAP: Record<string, string> = {
   [OPENAI_BALANCED_MODEL_ID]: 'gpt-4o'
 };
 
+export type OpenAIApiMode = 'responses' | 'chat_completions';
+
 export interface OpenAIBrainProviderOptions {
   apiKey?: string;
   baseUrl?: string;
   timeoutMs?: number;
   fetchFn?: typeof fetch;
   models?: ModelDescriptor[];
+  apiMode?: OpenAIApiMode;
 }
 
 /**
@@ -58,8 +61,10 @@ export function sanitizeErrorMessage(message: string): string {
 /**
  * Production Fast Brain Candidate Provider: OpenAI Direct ModelProvider.
  *
- * Implements MAVE's vendor-neutral ModelCatalogProvider interface over the official
- * OpenAI REST and SSE streaming APIs.
+ * Implements MAVE's vendor-neutral ModelCatalogProvider interface over official
+ * OpenAI endpoints:
+ * - Default: Modern Responses API (POST /v1/responses) with store: false for stateless privacy
+ * - Optional: Legacy Chat Completions API (POST /v1/chat/completions)
  *
  * Core Guarantees:
  * - Kind: model_provider, AccessPath: official_api
@@ -69,6 +74,11 @@ export function sanitizeErrorMessage(message: string): string {
  * - Instant AbortSignal cancellation honoring M3 barge-in requirements
  * - M5 permission boundary: tool execution is strictly blocked
  * - Zero external vendor SDK dependencies (uses native fetch)
+ *
+ * Verification Status:
+ * - Implementation / Transport / Contracts: VERIFIED
+ * - Live MAVE TTFT: UNVERIFIED (credential pending, live calls deferred to F2)
+ * - Live Thai / English Quality: UNVERIFIED (candidate capability, live testing deferred)
  */
 export class OpenAIBrainProvider implements ModelCatalogProvider {
   readonly id = OPENAI_PROVIDER_ID;
@@ -78,6 +88,7 @@ export class OpenAIBrainProvider implements ModelCatalogProvider {
   private readonly timeoutMs: number;
   private readonly fetchFn: typeof fetch;
   private readonly customModels?: ModelDescriptor[];
+  private readonly apiMode: OpenAIApiMode;
 
   constructor(options?: OpenAIBrainProviderOptions) {
     this.apiKey = options?.apiKey ?? process.env['OPENAI_API_KEY'];
@@ -85,10 +96,15 @@ export class OpenAIBrainProvider implements ModelCatalogProvider {
     this.timeoutMs = options?.timeoutMs ?? 30000;
     this.fetchFn = options?.fetchFn ?? globalThis.fetch;
     this.customModels = options?.models;
+    this.apiMode = options?.apiMode ?? 'responses';
   }
 
   isConfigured(): boolean {
     return typeof this.apiKey === 'string' && this.apiKey.trim().length > 0;
+  }
+
+  getApiMode(): OpenAIApiMode {
+    return this.apiMode;
   }
 
   getCapabilities(): BrainCapabilities {
@@ -205,7 +221,7 @@ export class OpenAIBrainProvider implements ModelCatalogProvider {
 
   /**
    * Performs a lightweight presence and metadata health check WITHOUT consuming generation quota.
-   * Dispatches GET /v1/models metadata endpoint. Never calls chat/completions.
+   * Dispatches GET /v1/models metadata endpoint. Never calls generation endpoints.
    */
   async health(): Promise<ProviderHealth> {
     const checkedAt = Date.now();
@@ -360,22 +376,36 @@ export class OpenAIBrainProvider implements ModelCatalogProvider {
     // 5. Build canonical request payload
     const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [];
 
-    if (request.systemPrompt) {
-      messages.push({ role: 'system', content: request.systemPrompt });
-    }
-
     for (const msg of request.messages) {
       if (msg.role === 'system' || msg.role === 'user' || msg.role === 'assistant') {
         messages.push({ role: msg.role, content: msg.content });
       }
     }
 
-    const payload = {
-      model: concreteModel,
-      messages,
-      stream: true,
-      stream_options: { include_usage: true }
-    };
+    let url: string;
+    let payload: Record<string, unknown>;
+
+    if (this.apiMode === 'responses') {
+      url = `${this.baseUrl}/responses`;
+      payload = {
+        model: concreteModel,
+        instructions: request.systemPrompt,
+        input: messages,
+        stream: true,
+        store: false // Explicitly stateless: preserves MAVE SessionManager as sole canonical store!
+      };
+    } else {
+      url = `${this.baseUrl}/chat/completions`;
+      const chatMessages = request.systemPrompt
+        ? [{ role: 'system', content: request.systemPrompt }, ...messages]
+        : messages;
+      payload = {
+        model: concreteModel,
+        messages: chatMessages,
+        stream: true,
+        stream_options: { include_usage: true }
+      };
+    }
 
     // 6. Emit canonical 'started' event
     yield {
@@ -391,7 +421,7 @@ export class OpenAIBrainProvider implements ModelCatalogProvider {
     const dispatchStartTime = Date.now();
 
     try {
-      response = await this.fetchFn(`${this.baseUrl}/chat/completions`, {
+      response = await this.fetchFn(url, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${this.apiKey}`,
@@ -486,7 +516,7 @@ export class OpenAIBrainProvider implements ModelCatalogProvider {
       return;
     }
 
-    // 9. Stream and parse SSE chunks
+    // 9. Stream and parse SSE chunks (Supporting both Responses API and Chat Completions formats)
     let accumulatedText = '';
     let timeToFirstTokenMs: number | undefined;
     let finalUsage: GenerationUsage | undefined;
@@ -527,6 +557,16 @@ export class OpenAIBrainProvider implements ModelCatalogProvider {
 
             try {
               const chunk = JSON.parse(dataStr) as {
+                type?: string;
+                delta?: string;
+                response?: {
+                  status?: string;
+                  usage?: {
+                    input_tokens?: number;
+                    output_tokens?: number;
+                    total_tokens?: number;
+                  };
+                };
                 choices?: Array<{
                   delta?: { content?: string; role?: string; tool_calls?: unknown[] };
                   finish_reason?: string;
@@ -535,11 +575,19 @@ export class OpenAIBrainProvider implements ModelCatalogProvider {
                   prompt_tokens?: number;
                   completion_tokens?: number;
                   total_tokens?: number;
+                  input_tokens?: number;
+                  output_tokens?: number;
                 };
               };
 
-              // Extract text delta
-              const deltaContent = chunk.choices?.[0]?.delta?.content;
+              // 1. Extract text delta from Responses API or Chat Completions
+              let deltaContent: string | undefined;
+              if (chunk.type === 'response.output_text.delta' || chunk.type === 'response.text.delta') {
+                deltaContent = chunk.delta;
+              } else if (typeof chunk.choices?.[0]?.delta?.content === 'string') {
+                deltaContent = chunk.choices[0].delta.content;
+              }
+
               if (typeof deltaContent === 'string' && deltaContent.length > 0) {
                 if (timeToFirstTokenMs === undefined) {
                   timeToFirstTokenMs = Date.now() - dispatchStartTime;
@@ -552,17 +600,37 @@ export class OpenAIBrainProvider implements ModelCatalogProvider {
                 };
               }
 
-              // Extract finish reason if present
+              // 2. Extract finish reason if present
               if (chunk.choices?.[0]?.finish_reason) {
                 finishReason = chunk.choices[0].finish_reason;
+              } else if (chunk.type === 'response.completed' || chunk.type === 'response.done') {
+                finishReason = chunk.response?.status ?? 'stop';
               }
 
-              // Extract usage telemetry if present
-              if (chunk.usage) {
+              // 3. Extract usage telemetry from Responses API or Chat Completions
+              const rawUsage = (chunk.response?.usage ?? chunk.usage) as
+                | {
+                    input_tokens?: number;
+                    output_tokens?: number;
+                    total_tokens?: number;
+                    prompt_tokens?: number;
+                    completion_tokens?: number;
+                  }
+                | undefined;
+
+              if (rawUsage) {
+                const promptTokens = rawUsage.input_tokens ?? rawUsage.prompt_tokens;
+                const completionTokens = rawUsage.output_tokens ?? rawUsage.completion_tokens;
+                const totalTokens =
+                  rawUsage.total_tokens ??
+                  (promptTokens !== undefined && completionTokens !== undefined
+                    ? promptTokens + completionTokens
+                    : undefined);
+
                 finalUsage = {
-                  promptTokens: chunk.usage.prompt_tokens,
-                  completionTokens: chunk.usage.completion_tokens,
-                  totalTokens: chunk.usage.total_tokens
+                  promptTokens,
+                  completionTokens,
+                  totalTokens
                 };
               }
             } catch {

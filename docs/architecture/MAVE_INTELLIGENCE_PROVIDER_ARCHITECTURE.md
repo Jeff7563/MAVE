@@ -976,18 +976,33 @@ The Pre-M5 intelligence foundation is divided into ten disciplined phases:
 
 7. **F1.5 Production Fast Brain Integration (OpenAI Direct Model Provider):**
    - **Selected First Integration Candidate:** OpenAI (`OpenAIBrainProvider`).
-   - **Selection Rationale:** Industry-standard REST & SSE streaming, zero external vendor SDK dependencies (uses native `fetch` and `ReadableStream`), non-generation metadata endpoint (`GET /v1/models`) consuming zero generation tokens for health checks, low TTFT ($\le 0.5\text{--}1.2\text{s}$), premier bilingual Thai/English conversational fluency and language tutoring capability, and clean AbortSignal cancellation.
-   - **Non-Permanent Candidate Status:** OpenAI is the *first production candidate to integrate* to prove direct ModelProvider architecture; it is NOT declared the permanent winner. F2 performs broader live empirical benchmarking and tuning across candidate providers.
-   - **Normalized Model IDs:**
-     - `openai-fast-primary`: fast interactive conversational model candidate.
-     - `openai-balanced-primary`: balanced multimodal reasoning model candidate.
+   - **Selection Rationale:** Modern unified Responses API (`POST /v1/responses`) with native SSE streaming, zero external vendor SDK dependencies (uses native `fetch` and `ReadableStream`), non-generation metadata endpoint (`GET /v1/models`) consuming zero generation tokens for health checks, documented low-cost/interactive model tier, expected bilingual Thai/English conversational fluency, clean AbortSignal cancellation, and `.env.example` pre-alignment.
+   - **Non-Permanent Candidate Status:** OpenAI is the *first production candidate to integrate* to prove direct ModelProvider architecture and execution handoff; it is NOT declared the permanent winner. F2 performs broader live empirical benchmarking and tuning across candidate providers.
+   - **Current Recommended Endpoint Architecture:**
+     - **Primary:** OpenAI Responses API (`POST /v1/responses`) with `instructions` and `input`, and explicitly setting `store: false` to ensure stateless requests and prevent server-side conversation retention, preserving MAVE `SessionManager` as the sole canonical store.
+     - **Fallback/Compatibility:** Supports legacy Chat Completions API (`POST /v1/chat/completions`) via configurable `apiMode: 'chat_completions'`.
+     - **Streaming Event Protocol:** Decodes both modern Responses SSE (`response.output_text.delta`, `response.completed` with `response.usage`) and Chat Completions SSE (`choices[0].delta.content`, `[DONE]`).
+   - **Normalized Model IDs & Concrete Mapping:**
+     - `openai-fast-primary` $\to$ `gpt-4o-mini` (fast interactive conversational model candidate, 128k context, low cost class).
+     - `openai-balanced-primary` $\to$ `gpt-4o` (balanced multimodal reasoning model candidate, 128k context, medium cost class).
    - **Adapter-Private Model Boundary:** Concrete vendor revision strings (`gpt-4o-mini`, `gpt-4o`) remain strictly private to `packages/providers/src/brain/openai.ts`. `@mave/core` contains zero vendor strings.
-   - **Non-Generation Health Check:** Dispatches `GET /v1/models` without consuming generation tokens. Differentiates `healthy`, `unconfigured`, `auth_error`, `quota_limited`, `rate_limited`, and `unavailable`. If unconfigured, returns `status: 'unconfigured'` without network traffic.
+   - **Non-Generation Health Check:** Dispatches `GET /v1/models` without consuming generation tokens. Differentiates `healthy`, `unconfigured`, `auth_error`, `quota_limited`, `rate_limited`, and `unavailable`. If unconfigured, returns `status: 'unconfigured'` without network traffic. Provider health verifies API accessibility; it does not guarantee model-level quota or live latency.
    - **Execution Contract Integration:** Consumes normalized `options.modelId` passed from `ConversationRuntime`. Fails deterministically with `model_unavailable` if `options.modelId` is omitted or unmapped.
    - **Progressive Streaming & Barge-in:** SSE chunks are normalized to canonical `started`, `delta`, `completed`, `cancelled`, `error` events. Text deltas emit immediately upon receipt, recording `timeToFirstTokenMs` (TTFT). `AbortSignal` cancellation terminates HTTP stream and reader instantly upon barge-in.
    - **M5 Permission Boundary:** Tool execution requests by the provider are strictly blocked.
-   - **Credential Audit & Live Verification State:** Credential audit confirms `OPENAI_API_KEY` is not configured in current environment. Implementation and mocked transport tests are 100% complete and passing. Live official-provider verification is pending credential configuration.
-   - **Status:** F1.5 IMPLEMENTATION COMPLETE — LIVE VERIFICATION PENDING.
+   - **Latency & Benchmark State:**
+     - **MAVE TTFT:** **UNVERIFIED** (No live API credential configured; 0 live runs executed. Mock transport verified timing calculation only).
+     - **Thai/English Quality:** **UNVERIFIED LIVE** (Candidate capability based on vendor documentation; empirical testing deferred to credential configuration / F2).
+   - **Compact Provider Comparison (Audited October 2026):**
+
+     | Provider | Current Fast Candidate | Official Endpoint / API | Streaming | Credential | Implementation Status | Live Benchmark Status |
+     | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+     | **OpenAI** | `gpt-4o-mini` | Responses API (`/v1/responses`) | SSE (`response.output_text.delta`) | `OPENAI_API_KEY` | **Integrated (Candidate #1)** | **Pending Credential** |
+     | **Google Gemini** | `gemini-2.5-flash` / `gemini-2.0-flash` | Interactions / `generateContent` | SSE | `GEMINI_API_KEY` | Candidate for F2 | Deferred to F2 |
+     | **Anthropic** | `claude-haiku-5-5` | Messages API (`/v1/messages`) | Custom SSE (`content_block_delta`) | `ANTHROPIC_API_KEY` | Candidate for F2 | Deferred to F2 |
+     | **Groq** | `llama-3.1-8b-instant` / `llama-3.3-70b` | OpenAI-compatible completions | SSE | `GROQ_API_KEY` | Candidate for F2 | Deferred to F2 |
+
+   - **Status:** F1.5 IMPLEMENTATION CURRENT — LIVE VERIFICATION PENDING.
 
 ---
 

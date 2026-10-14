@@ -17,6 +17,7 @@ export {
   type SpawnFactory,
   OpenAIBrainProvider,
   type OpenAIBrainProviderOptions,
+  type OpenAIApiMode,
   OPENAI_PROVIDER_ID,
   OPENAI_FAST_MODEL_ID,
   OPENAI_BALANCED_MODEL_ID,

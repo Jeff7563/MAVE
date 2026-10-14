@@ -79,10 +79,18 @@ describe('OpenAIBrainProvider (F1.5 Production Fast Brain Candidate)', () => {
       expect(sanitized).toContain('sk-[REDACTED]');
       expect(sanitized).toContain('[PATH_REDACTED]');
     });
+
+    it('4. default apiMode is responses and can be configured to chat_completions', () => {
+      const defaultProvider = new OpenAIBrainProvider({ apiKey: 'test' });
+      expect(defaultProvider.getApiMode()).toBe('responses');
+
+      const chatProvider = new OpenAIBrainProvider({ apiKey: 'test', apiMode: 'chat_completions' });
+      expect(chatProvider.getApiMode()).toBe('chat_completions');
+    });
   });
 
   describe('Health Checks (Zero Generation Quota Guarantees)', () => {
-    it('4. health returns unconfigured with zero network calls when apiKey is missing', async () => {
+    it('5. health returns unconfigured with zero network calls when apiKey is missing', async () => {
       const mockFetch = vi.fn();
       const provider = new OpenAIBrainProvider({ apiKey: '', fetchFn: mockFetch });
 
@@ -92,7 +100,7 @@ describe('OpenAIBrainProvider (F1.5 Production Fast Brain Candidate)', () => {
       expect(mockFetch).not.toHaveBeenCalled();
     });
 
-    it('5. health calls GET /models (metadata endpoint, never /chat/completions)', async () => {
+    it('6. health calls GET /models (metadata endpoint, never generation endpoint)', async () => {
       let requestedUrl = '';
       let requestedMethod = '';
       const mockFetch = vi.fn().mockImplementation(async (url: string, init?: RequestInit) => {
@@ -112,9 +120,10 @@ describe('OpenAIBrainProvider (F1.5 Production Fast Brain Candidate)', () => {
       expect(requestedUrl).toBe('https://api.openai.com/v1/models');
       expect(requestedMethod).toBe('GET');
       expect(requestedUrl).not.toContain('chat/completions');
+      expect(requestedUrl).not.toContain('responses');
     });
 
-    it('6. health translates 401/403 into auth_error without leaking auth headers', async () => {
+    it('7. health translates 401/403 into auth_error without leaking auth headers', async () => {
       const mockFetch = vi.fn().mockResolvedValue(
         createJsonResponse({ error: { message: 'Incorrect API key provided: sk-secret' } }, 401)
       );
@@ -130,7 +139,7 @@ describe('OpenAIBrainProvider (F1.5 Production Fast Brain Candidate)', () => {
       expect(health.message).not.toContain('sk-invalid-key');
     });
 
-    it('7. health translates 429 quota into quota_limited and rate limit into rate_limited', async () => {
+    it('8. health translates 429 quota into quota_limited and rate limit into rate_limited', async () => {
       // Quota check
       const mockFetchQuota = vi.fn().mockResolvedValue(
         createJsonResponse({ error: { code: 'insufficient_quota', message: 'You exceeded your current quota' } }, 429)
@@ -148,7 +157,7 @@ describe('OpenAIBrainProvider (F1.5 Production Fast Brain Candidate)', () => {
       expect(healthRate.status).toBe('rate_limited');
     });
 
-    it('8. health translates 5xx and network failures into unavailable', async () => {
+    it('9. health translates 5xx and network failures into unavailable', async () => {
       const mockFetch500 = vi.fn().mockResolvedValue(new Response('Internal Server Error', { status: 500 }));
       const provider500 = new OpenAIBrainProvider({ apiKey: 'sk-key', fetchFn: mockFetch500 });
       const health500 = await provider500.health();
@@ -163,7 +172,7 @@ describe('OpenAIBrainProvider (F1.5 Production Fast Brain Candidate)', () => {
   });
 
   describe('Model Catalog & Descriptors', () => {
-    it('9. exposes canonical ModelCatalogSnapshot with normalized ModelIds', async () => {
+    it('10. exposes canonical ModelCatalogSnapshot with normalized ModelIds and documented context/cost', async () => {
       const provider = new OpenAIBrainProvider({ apiKey: 'test-key' });
       const catalog = await provider.getCatalog();
 
@@ -175,6 +184,8 @@ describe('OpenAIBrainProvider (F1.5 Production Fast Brain Candidate)', () => {
       expect(fastModel?.providerId).toBe(OPENAI_PROVIDER_ID);
       expect(fastModel?.latencyClass).toBe('interactive');
       expect(fastModel?.qualityClass).toBe('fast');
+      expect(fastModel?.costClass).toBe('low');
+      expect(fastModel?.contextWindowTokens).toBe(128000);
       expect(fastModel?.status).toBe('available');
       expect(fastModel?.capabilities.fastChat).toBe(true);
       expect(fastModel?.capabilities.streaming).toBe(true);
@@ -185,9 +196,11 @@ describe('OpenAIBrainProvider (F1.5 Production Fast Brain Candidate)', () => {
       expect(balancedModel).toBeDefined();
       expect(balancedModel?.qualityClass).toBe('balanced');
       expect(balancedModel?.latencyClass).toBe('balanced');
+      expect(balancedModel?.costClass).toBe('medium');
+      expect(balancedModel?.contextWindowTokens).toBe(128000);
     });
 
-    it('10. catalog models show unavailable when unconfigured', async () => {
+    it('11. catalog models show unavailable when unconfigured', async () => {
       const provider = new OpenAIBrainProvider({ apiKey: '' });
       const catalog = await provider.getCatalog();
       for (const m of catalog.models) {
@@ -197,7 +210,7 @@ describe('OpenAIBrainProvider (F1.5 Production Fast Brain Candidate)', () => {
   });
 
   describe('Execution & Invariants', () => {
-    it('11. direct model route strictly requires options.modelId', async () => {
+    it('12. direct model route strictly requires options.modelId', async () => {
       const provider = new OpenAIBrainProvider({ apiKey: 'test-key' });
 
       // Missing options
@@ -219,7 +232,7 @@ describe('OpenAIBrainProvider (F1.5 Production Fast Brain Candidate)', () => {
       expect(events2[0].error.code).toBe('model_unavailable');
     });
 
-    it('12. unknown options.modelId fails with model_unavailable', async () => {
+    it('13. unknown options.modelId fails with model_unavailable', async () => {
       const provider = new OpenAIBrainProvider({ apiKey: 'test-key' });
 
       const events: any[] = [];
@@ -231,7 +244,7 @@ describe('OpenAIBrainProvider (F1.5 Production Fast Brain Candidate)', () => {
       expect(events[0].error.message).toContain("Unknown or unmapped model 'non-existent-model'");
     });
 
-    it('13. chat fails safely when apiKey is unconfigured', async () => {
+    it('14. chat fails safely when apiKey is unconfigured', async () => {
       const provider = new OpenAIBrainProvider({ apiKey: '' });
 
       const events: any[] = [];
@@ -242,19 +255,21 @@ describe('OpenAIBrainProvider (F1.5 Production Fast Brain Candidate)', () => {
       expect(events[0].error.code).toBe('provider_unconfigured');
     });
 
-    it('14. streaming happy path emits started, deltas, and completed with timing/usage', async () => {
-      const sseChunks = [
-        'data: {"choices":[{"delta":{"content":"สวัสดี"}}]}\n\n',
-        'data: {"choices":[{"delta":{"content":"ครับ MAVE พร้อม"}}]}\n\n',
-        'data: {"choices":[{"delta":{"content":"ให้บริการ"}}]}\n\n',
-        'data: {"choices":[{"delta":{},"finish_reason":"stop"}],"usage":{"prompt_tokens":12,"completion_tokens":8,"total_tokens":20}}\n\n',
-        'data: [DONE]\n\n'
+    it('15. modern Responses API streaming happy path (default apiMode)', async () => {
+      const responsesSseChunks = [
+        'data: {"type": "response.created"}\n\n',
+        'data: {"type": "response.output_text.delta", "delta": "สวัสดี"}\n\n',
+        'data: {"type": "response.output_text.delta", "delta": "ครับ MAVE พร้อม"}\n\n',
+        'data: {"type": "response.output_text.delta", "delta": "ให้บริการ"}\n\n',
+        'data: {"type": "response.completed", "response": {"status": "completed", "usage": {"input_tokens": 12, "output_tokens": 8, "total_tokens": 20}}}\n\n'
       ];
 
+      let capturedUrl = '';
       let capturedBody: any;
-      const mockFetch = vi.fn().mockImplementation(async (_url: string, init?: RequestInit) => {
+      const mockFetch = vi.fn().mockImplementation(async (url: string, init?: RequestInit) => {
+        capturedUrl = url;
         capturedBody = JSON.parse(init?.body as string);
-        return createMockSseResponse(sseChunks);
+        return createMockSseResponse(responsesSseChunks);
       });
 
       const provider = new OpenAIBrainProvider({
@@ -267,13 +282,15 @@ describe('OpenAIBrainProvider (F1.5 Production Fast Brain Candidate)', () => {
         events.push(evt);
       }
 
-      // Check request payload mapping
+      // Check Responses API endpoint & payload
+      expect(capturedUrl).toContain('/responses');
       expect(capturedBody.model).toBe('gpt-4o-mini'); // Adapter-private mapping verified!
-      expect(capturedBody.messages).toEqual([
-        { role: 'system', content: 'You are MAVE.' },
+      expect(capturedBody.instructions).toBe('You are MAVE.');
+      expect(capturedBody.input).toEqual([
         { role: 'user', content: 'สวัสดี MAVE' }
       ]);
       expect(capturedBody.stream).toBe(true);
+      expect(capturedBody.store).toBe(false); // Stateless privacy confirmed!
 
       // Check events stream
       expect(events[0].type).toBe('started');
@@ -293,21 +310,66 @@ describe('OpenAIBrainProvider (F1.5 Production Fast Brain Candidate)', () => {
       });
       expect(completed.timing.timeToFirstTokenMs).toBeGreaterThanOrEqual(0);
       expect(completed.timing.totalDurationMs).toBeGreaterThanOrEqual(0);
-      expect(completed.finishReason).toBe('stop');
+      expect(completed.finishReason).toBe('completed');
     });
 
-    it('15. AbortSignal cancellation aborts stream promptly', async () => {
+    it('16. legacy Chat Completions API streaming happy path (apiMode = chat_completions)', async () => {
+      const chatSseChunks = [
+        'data: {"choices":[{"delta":{"content":"Hello"}}]}\n\n',
+        'data: {"choices":[{"delta":{"content":" World"}}]}\n\n',
+        'data: {"choices":[{"delta":{},"finish_reason":"stop"}],"usage":{"prompt_tokens":10,"completion_tokens":4,"total_tokens":14}}\n\n',
+        'data: [DONE]\n\n'
+      ];
+
+      let capturedUrl = '';
+      let capturedBody: any;
+      const mockFetch = vi.fn().mockImplementation(async (url: string, init?: RequestInit) => {
+        capturedUrl = url;
+        capturedBody = JSON.parse(init?.body as string);
+        return createMockSseResponse(chatSseChunks);
+      });
+
+      const provider = new OpenAIBrainProvider({
+        apiKey: 'sk-test-key-12345',
+        apiMode: 'chat_completions',
+        fetchFn: mockFetch
+      });
+
+      const events: any[] = [];
+      for await (const evt of provider.chat(sampleRequest, { modelId: OPENAI_FAST_MODEL_ID })) {
+        events.push(evt);
+      }
+
+      expect(capturedUrl).toContain('/chat/completions');
+      expect(capturedBody.messages).toEqual([
+        { role: 'system', content: 'You are MAVE.' },
+        { role: 'user', content: 'สวัสดี MAVE' }
+      ]);
+
+      const deltas = events.filter(e => e.type === 'delta').map(e => e.text);
+      expect(deltas.join('')).toBe('Hello World');
+
+      const completed = events.find(e => e.type === 'completed');
+      expect(completed?.usage).toEqual({
+        promptTokens: 10,
+        completionTokens: 4,
+        totalTokens: 14
+      });
+      expect(completed?.finishReason).toBe('stop');
+    });
+
+    it('17. AbortSignal cancellation aborts stream promptly', async () => {
       const controller = new AbortController();
 
       const encoder = new TextEncoder();
       let streamCancelled = false;
       const slowStream = new ReadableStream({
         async start(streamController) {
-          streamController.enqueue(encoder.encode('data: {"choices":[{"delta":{"content":"Part 1"}}]}\n\n'));
+          streamController.enqueue(encoder.encode('data: {"type":"response.output_text.delta","delta":"Part 1"}\n\n'));
           // Wait briefly, abort, and attempt next
           await new Promise(r => setTimeout(r, 20));
           if (!streamCancelled) {
-            streamController.enqueue(encoder.encode('data: {"choices":[{"delta":{"content":"Part 2"}}]}\n\n'));
+            streamController.enqueue(encoder.encode('data: {"type":"response.output_text.delta","delta":"Part 2"}\n\n'));
             streamController.close();
           }
         },
@@ -343,7 +405,7 @@ describe('OpenAIBrainProvider (F1.5 Production Fast Brain Candidate)', () => {
       expect(types).not.toContain('completed');
     });
 
-    it('16. provider handles 401 authentication error safely in chat', async () => {
+    it('18. provider handles 401 authentication error safely in chat', async () => {
       const mockFetch = vi.fn().mockResolvedValue(
         createJsonResponse({ error: { message: 'Invalid API key' } }, 401)
       );
@@ -360,7 +422,7 @@ describe('OpenAIBrainProvider (F1.5 Production Fast Brain Candidate)', () => {
       expect(events[1].error.message).toContain('authentication failed');
     });
 
-    it('17. provider handles 429 quota and rate limit errors safely in chat', async () => {
+    it('19. provider handles 429 quota and rate limit errors safely in chat', async () => {
       const mockFetchQuota = vi.fn().mockResolvedValue(
         createJsonResponse({ error: { code: 'insufficient_quota', message: 'Quota exceeded' } }, 429)
       );
@@ -382,13 +444,13 @@ describe('OpenAIBrainProvider (F1.5 Production Fast Brain Candidate)', () => {
       expect(eventsRate[1].error.code).toBe('rate_limited');
     });
 
-    it('18. concurrency safety: concurrent invocations with distinct modelIds execute independently', async () => {
+    it('20. concurrency safety: concurrent invocations with distinct modelIds execute independently', async () => {
       const mockFetch = vi.fn().mockImplementation(async (_url: string, init?: RequestInit) => {
         const body = JSON.parse(init?.body as string);
         const modelName = body.model;
         const sse = [
-          `data: {"choices":[{"delta":{"content":"Response from ${modelName}"}}]}\n\n`,
-          'data: [DONE]\n\n'
+          `data: {"type":"response.output_text.delta","delta":"Response from ${modelName}"}\n\n`,
+          'data: {"type":"response.completed"}\n\n'
         ];
         return createMockSseResponse(sse);
       });
