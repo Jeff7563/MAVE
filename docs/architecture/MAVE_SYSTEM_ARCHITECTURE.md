@@ -87,6 +87,32 @@ AudioOutput (speaker playback + 50Hz amplitude telemetry)
 ```
 Complete specification & closeout records: [`MAVE_VOICE_ARCHITECTURE.md`](MAVE_VOICE_ARCHITECTURE.md), [`MAVE_MILESTONE_3_SPEC.md`](MAVE_MILESTONE_3_SPEC.md), and [`MAVE_MILESTONE_3_CLOSEOUT.md`](MAVE_MILESTONE_3_CLOSEOUT.md).
 
+### 3.2 Ambient Adaptive Surface Subsystem (Milestone 4 — Completed)
+
+The Ambient Adaptive Surface is MAVE's primary visual desktop presence, providing an anchored, morphing overlay that reflects assistant state without disrupting the user's desktop workflow:
+
+```text
+Voice / Assistant State Telemetry (Core)
+               ↓
+SurfacePresentationModel (Core state machine & envelope logic)
+               ↓ IPC (SurfaceEvent / Snapshot)
+SurfaceWindowManager (Electron Main native window & bounds coordinator)
+               ↓ Native Win32 SetWindowPos / SetIgnoreMouseEvents
+Surface BrowserWindow (Transparent, always-on-top, frameless)
+               ↓ Preload (Least-privilege window.mave.surface bridge)
+Surface Renderer (React, framer-motion, lucide-react)
+```
+
+Key Architectural Invariants:
+- **No Passive Focus Stealing**: Passive state transitions (wake, listening, thinking, speaking, compact/expanded presentation) never steal OS focus (`focusable: false`, `showInactive()`). Focus is acquired strictly upon intentional user interaction (`focus-acquire` IPC) and released cleanly back to the previous desktop application (`focus-release` / blur).
+- **Zero Raw Audio in Renderer**: Surface renderer only consumes normalized amplitude/band telemetry (0.0–1.0) and presentation state snapshots. Audio capture and playback remain in Electron Main / Python services.
+- **Single Ambient Window**: One native BrowserWindow instance hosts all visual envelope sizes (ambient capsule, compact response, expanded context panel, and transient toast notifications) via smooth layout animations and native coordinate adjustments.
+- **Click-Through Outside Content**: Transparent hit-testing regions pass desktop mouse clicks directly through to underlying applications (`setIgnoreMouseEvents(true, { forward: true })`) when the cursor is outside visible surface cards.
+- **Safe Content Rendering**: Markdown and rich cards rely on AST-based token parsing and strict React text escaping with URL scheme whitelisting; raw HTML injection is strictly inert.
+- **Display Topology & Multi-Monitor Resilience**: Bounds coordinator handles DPI scaling, taskbar repositioning, display reconnects, and off-screen recovery with atomic bounds clamping and persistent user preferences.
+
+Complete specification & closeout records: [`MAVE_AMBIENT_ADAPTIVE_SURFACE.md`](MAVE_AMBIENT_ADAPTIVE_SURFACE.md), [`MAVE_AMBIENT_SURFACE_RUNTIME.md`](MAVE_AMBIENT_SURFACE_RUNTIME.md), [`MAVE_MILESTONE_4_SPEC.md`](MAVE_MILESTONE_4_SPEC.md), and [`MAVE_MILESTONE_4_CLOSEOUT.md`](MAVE_MILESTONE_4_CLOSEOUT.md).
+
 ## 4. Assistant Runtime
 
 Responsibilities:

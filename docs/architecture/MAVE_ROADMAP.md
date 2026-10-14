@@ -112,32 +112,33 @@ Result: Real spoken voice loop with zero mic overlap, bilingual transcription, p
 > 1. Fast Brain evaluation to bridge the ~9s TTFT gap to sub-2s conversational turn-taking.
 > 2. Wake V2 retraining for enhanced single-syllable "MAVE" recall under M1.3.
 
-## Milestone 4 — MAVE Surface ← CURRENT
+## Milestone 4 — MAVE Surface ✅
 
-Goal: Ambient Adaptive Surface — MAVE quietly exists near the user and expands only when visual complexity is useful.
+Goal: Ambient Adaptive Surface — MAVE quietly exists near the user and expands only when visual complexity is useful (COMPLETED in Phases M4.0–M4.10).
 
-Detailed Architecture & Implementation Spec:
+Detailed Architecture & Closeout Records:
 - [`MAVE_AMBIENT_SURFACE_RUNTIME.md`](MAVE_AMBIENT_SURFACE_RUNTIME.md)
 - [`MAVE_MILESTONE_4_SPEC.md`](MAVE_MILESTONE_4_SPEC.md)
+- [`MAVE_MILESTONE_4_CLOSEOUT.md`](MAVE_MILESTONE_4_CLOSEOUT.md)
 - [`MAVE_AMBIENT_ADAPTIVE_SURFACE.md`](MAVE_AMBIENT_ADAPTIVE_SURFACE.md)
 - [`MAVE_UI_SURFACE_ARCHITECTURE.md`](MAVE_UI_SURFACE_ARCHITECTURE.md)
 
 Phased Implementation Roadmap:
 - **M4.0 — Architecture & Milestone Specification** ✅
-- **M4.1 — Surface Contracts & Presentation Model**
-- **M4.2 — Surface Window Runtime Foundation**
-- **M4.3 — Compact Ambient Surface (Capsule)**
-- **M4.4 — Voice-Reactive States & Visualizers**
-- **M4.5 — Adaptive Envelope & Morph System**
-- **M4.6 — Compact Response Surface (Quick Info)**
-- **M4.7 — Expanded Context Panel (Rich Content)**
-- **M4.8 — Interaction, Focus & Click-Through**
-- **M4.9 — Multi-Monitor, Persistence & Reliability**
-- **M4.10 — End-to-End Surface Closeout**
+- **M4.1 — Surface Contracts & Presentation Model** ✅
+- **M4.2 — Surface Window Runtime Foundation** ✅
+- **M4.3 — Compact Ambient Surface (Capsule)** ✅
+- **M4.4 — Voice-Reactive States & Visualizers** ✅
+- **M4.5 — Adaptive Envelope & Morph System** ✅
+- **M4.6 — Compact Response Surface (Quick Info)** ✅
+- **M4.7 — Expanded Context Panel (Rich Content)** ✅
+- **M4.8 — Interaction, Focus & Click-Through** ✅
+- **M4.9 — Multi-Monitor, Persistence & Reliability** ✅
+- **M4.10 — End-to-End Surface Closeout** ✅
 
-Initial card types: Message, Translation, Vocabulary, Source, Image, File, Code, Task, Progress, Approval, Error.
+Result: Real Ambient Adaptive Surface with zero focus stealing, hybrid adaptive envelopes, voice-reactive PresenceMark, compact quick info card, expanded rich context panel with safe Markdown/code, click-through hit-testing, dedicated least-privilege preload, multi-monitor reliability, settings persistence, and 100% test pass rate.
 
-## Milestone 5 — Agent Runtime & Tools
+## Milestone 5 — Agent Runtime & Tools ← CURRENT / NEXT
 
 Goal: จาก “ตอบได้” → “ทำงานได้”
 

@@ -17,7 +17,8 @@
 11. `MAVE_AMBIENT_ADAPTIVE_SURFACE.md`
 12. `MAVE_AMBIENT_SURFACE_RUNTIME.md`
 13. `MAVE_MILESTONE_4_SPEC.md`
-14. `MAVE_LEARNING_ENGINE.md`
+14. `MAVE_MILESTONE_4_CLOSEOUT.md`
+15. `MAVE_LEARNING_ENGINE.md`
 
 ## Current Project State
 
@@ -28,7 +29,8 @@
 - Wake service: Python + openWakeWord (`assets/wake/mave.onnx`)
 - Milestone 2 Complete: Provider-independent Conversation Runtime, sessions, persistence, typed IPC streaming, official Antigravity CLI adapter
 - Milestone 3 Complete: End-to-end Voice Loop (Audio Input, faster-whisper STT, EdgeTTS, sounddevice playback, progressive synthesis, programmatic barge-in, developer diagnostics)
-- Current focus: Milestone 4 — MAVE Surface (Floating UI, Ambient Adaptive Surface) + parallel Fast Brain & Wake V2 evaluation
+- Milestone 4 Complete: Ambient Adaptive Surface (Capsule, Voice Visualizer, Adaptive Envelopes, Quick Info Card, Expanded Context Panel, Safe Markdown, Click-Through, Least-Privilege Preload, Multi-Monitor Reliability, Settings Persistence)
+- Current focus: Milestone 5 — Agent Runtime & Tools (Tool Execution Engine, Typed Permissions, Local Security Boundary) + parallel Fast Brain & Wake V2 evaluation
 
 ## Core Direction
 
