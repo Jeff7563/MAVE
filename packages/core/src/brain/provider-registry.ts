@@ -330,11 +330,15 @@ export class BrainProviderRegistry {
       entry.metadata?.displayName ??
       (trimmedId === 'antigravity'
         ? 'Google Antigravity'
-        : trimmedId === 'mock'
-          ? 'Mock Brain Provider'
-          : trimmedId === 'openai'
-            ? 'OpenAI API Provider'
-            : trimmedId);
+        : trimmedId === 'claude-code' || trimmedId === 'claude_code'
+          ? 'Claude Code'
+          : trimmedId === 'codex'
+            ? 'OpenAI Codex'
+            : trimmedId === 'mock'
+              ? 'Mock Brain Provider'
+              : trimmedId === 'openai'
+                ? 'OpenAI API Provider'
+                : trimmedId);
 
     return Object.freeze({
       id: entry.id,

@@ -358,7 +358,7 @@ MAVE maintains strict integrity of provider kinds:
 **Honest Subscription Status & Gaps (No Architecture Cheating):**
 1. **`fast_conversation`:**
    **NO CANONICAL SUBSCRIPTION MODEL_PROVIDER ROUTE YET.**
-   Subscription runtimes (`claude-code`, `codex`, `antigravity`) are agent runtimes executed via CLI subprocesses with ~1.1–1.7s bootstrap latency. They cannot fulfill voice low-latency conversational budgets (~200–500ms). They are not routed into `fast_conversation`. If no direct local or subscription `model_provider` is available, paid APIs remain blocked by default.
+   Subscription runtimes (`claude-code`, `codex`, `antigravity`) are agent runtimes executed via CLI subprocesses with ~1.1–1.7s bootstrap latency. They cannot fulfill voice low-latency conversational budgets (~1–3s TTFT under `model_provider` semantics). They are not routed into `fast_conversation` due to provider-kind architectural boundaries (they are `agent_runtime_provider`, not `model_provider`). If no direct local or subscription `model_provider` is available, paid APIs remain blocked by default.
 2. **`deep_reasoning`:**
    **NO CANONICAL SUBSCRIPTION MODEL_PROVIDER ROUTE YET.**
    Pure conversational deep reasoning belongs to `model_provider`. Subscription runtimes are preserved for `agent_work`.
@@ -396,16 +396,26 @@ MAVE strictly restores and enforces canonical F1.4 routing telemetry semantics:
    - Once `provider.chat()` begins, cross-provider retry is strictly prohibited.
    - If the selected provider fails midstream, the request fails immediately; no secondary provider is attempted.
 
-### 9.5 Cataloged Runtime != Executable Runtime (Codex Executability Status)
-1. **Audit Finding:**
-   - OpenAI Codex is currently **catalog-only**. While model metadata and roles are cataloged in `RuntimeModelCatalog`, no executable `CodexBrainProvider` implementation or registration exists in the runtime environment.
-2. **Priority List Membership != Eligibility:**
-   - Inclusion in `DEFAULT_RUNTIME_PRIORITIES` indicates role preference, NOT executable availability.
-   - The routing engine verifies provider presence in `BrainProviderRegistry`.
-3. **Selection Behavior:**
-   - In **AUTO** mode: Unregistered Codex is safely skipped with internal diagnostic reason `runtime_not_executable`. The router deterministically falls through to the next eligible executable candidate (e.g. `antigravity`).
-   - In **PREFERRED** mode: If `allowFallback: true`, unregistered Codex is skipped with `runtime_not_executable` and the router falls back to AUTO priorities. If `allowFallback: false`, routing fails closed with `provider_not_found`.
-   - In **LOCKED** mode: Unregistered Codex fails immediately with `provider_not_found`.
+### 9.5 Codex Subscription Runtime Normalization (F1.5-S3.2)
+1. **Executable Provider Status:**
+   - OpenAI Codex is normalized into a first-class, executable `agent_runtime_provider` implemented by `CodexBrainProvider`.
+   - Before registration in `BrainProviderRegistry`, Codex safely reports as `runtime_not_executable` during routing candidate evaluation.
+   - After registration, Codex is fully executable when health and auth checks pass.
+2. **ChatGPT Subscription Authentication & Billing Isolation:**
+   - Authenticated via official ChatGPT subscription auth stored in `~/.codex/auth.json` (`auth_mode: "chatgpt"`).
+   - Strict Billing Safety: Child process environment explicitly strips `OPENAI_API_KEY`, `OPENAI_KEY`, `OPENAI_BASE_URL`, `OPENAI_API_BASE`, `OPENAI_ORG_ID`, `OPENAI_ORGANIZATION`, `OPENAI_PROJECT_ID`, and `CODEX_API_KEY`.
+   - Parent process environment is never modified globally. Credential presence != billing permission.
+3. **Pre-M5 Tool Suppression & Headless Non-interactive Execution:**
+   - Enforces `--sandbox read-only` and terminates process immediately if any tool execution (`command_execution`, `file_change`, `tool_call`, etc.) is attempted. Zero dangerous approval bypass.
+   - Piped non-interactive execution: uses `exec --json --ephemeral --sandbox read-only --skip-git-repo-check -` with prompt written to stdin and stdin closed immediately.
+   - Stream event normalization: maps NDJSON `item.completed` (`agent_message`) and `item.delta` to MAVE `delta`, `turn.completed` to `BrainUsage`, and error/exit codes to canonical `BrainErrorCode`.
+4. **Model Execution Handoff:**
+   - Receives resolved runtime model strictly through `options.modelId` (with fallback to default configured provider model). Never reads `request.overrides.preferredModelId` directly.
+5. **Selection & Routing Integration:**
+   - S3 CODING fallback priority: `Claude Code` $\to$ `Codex` $\to$ `Antigravity`.
+   - In AUTO mode: Codex participates as an eligible executable candidate.
+   - In PREFERRED mode: Codex is prioritized, falling back to priority list if allowed.
+   - In LOCKED mode: Codex is exclusively selected; if unavailable, routing fails closed without silent fallback.
 
 ---
 
@@ -479,6 +489,8 @@ Fail Closed / Inform User (Paid APIs remain BLOCKED unless enabled)
 - **F1.5-S2 (COMPLETE):** Runtime Model Catalog & Model Role mapping engine (`RuntimeModelCatalog`, `selectRuntimeModel`).
 - **F1.5-S2.1 (COMPLETE):** Runtime model handoff and availability hardening (`options.modelId` per-invocation).
 - **F1.5-S3 (COMPLETE):** Task $\to$ Runtime $\to$ Model deterministic routing engine (`TaskPolicy`, `RuntimePolicy`, AUTO/PREFERRED/LOCKED).
+- **F1.5-S3.1 (COMPLETE):** Routing telemetry & executable provider hardening (`attemptedProviderIds` vs evaluated candidates).
+- **F1.5-S3.2 (CURRENT / COMPLETE):** Codex subscription runtime normalization (`CodexBrainProvider`, ChatGPT auth, billing isolation, headless execution, tool suppression).
 - **F1.5-S4 (NEXT):** Quota-aware subscription fallback and window recovery monitoring.
 
 

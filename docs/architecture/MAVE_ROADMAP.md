@@ -155,7 +155,14 @@ Program Sequence:
 - **F1.4.1 Typed Model Execution Handoff** ✅ COMPLETE
 - **F1.5-P Optional Paid API Adapter (`OpenAIBrainProvider`)** ✅ IMPLEMENTED (OPTIONAL / DISABLED BY DEFAULT)
 - **F1.5-S Subscription Runtime Foundation & Billing Policy** ✅ COMPLETE (SUBSCRIPTION-FIRST ADOPTED)
-- **F1.6 Production Deep Brain** ← NEXT
+  - **F1.5-S1 Claude Code Subscription Runtime Normalization** ✅ COMPLETE
+  - **F1.5-S2 Runtime Model Catalog & Model Role Engine** ✅ COMPLETE
+  - **F1.5-S2.1 Runtime Model Handoff & Availability Hardening** ✅ COMPLETE
+  - **F1.5-S3 Task → Runtime → Model Routing Engine** ✅ COMPLETE
+  - **F1.5-S3.1 Routing Telemetry & Executable Provider Hardening** ✅ COMPLETE
+  - **F1.5-S3.2 Codex Subscription Runtime Normalization** ✅ CURRENT / COMPLETE
+  - **F1.5-S4 Quota-Aware Subscription Fallback & Window Recovery** ← NEXT
+- **F1.6 Production Deep Brain**
 - **F1.7 Agent Runtime Normalization (`ClaudeCode` / `Antigravity` / `Codex`)**
 - **F1.8 Research / Truth Routing**
 - **F1.9 Diagnostics, Quota & Reliability**
