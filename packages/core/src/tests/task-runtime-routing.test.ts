@@ -15,10 +15,19 @@ import { BrainRouter } from '../brain/router.js';
 import { BrainRoutingError } from '../brain/types.js';
 import { RuntimeModelCatalog } from '../brain/runtime-models/catalog.js';
 
-function createMockDirectModelProvider(id: string, opts?: { local?: boolean; health?: ProviderHealth['status'] }): ModelCatalogProvider {
+function createMockDirectModelProvider(
+  id: string,
+  opts?: {
+    local?: boolean;
+    health?: ProviderHealth['status'];
+    fastChat?: boolean;
+    models?: ModelCatalogSnapshot['models'];
+  }
+): ModelCatalogProvider {
+  const fastChat = opts?.fastChat ?? true;
   const caps: BrainCapabilities = {
     streaming: true,
-    fastChat: true,
+    fastChat,
     reasoning: true,
     coding: false,
     toolUse: false,
@@ -32,7 +41,7 @@ function createMockDirectModelProvider(id: string, opts?: { local?: boolean; hea
   const modelId = `${id}-fast-model`;
   const catalog: ModelCatalogSnapshot = {
     providerId: id,
-    models: [
+    models: opts?.models ?? [
       {
         id: modelId,
         providerId: id,
@@ -746,6 +755,132 @@ describe('Task -> Runtime -> Model Routing Engine (F1.5-S3)', () => {
       const localDecision = await router.route({ profileId: 'local_offline', localOnly: true });
       expect(localDecision.providerId).toBe('ollama');
       expect(localDecision.modelId).toBe('ollama-fast-model');
+    });
+
+    it('24. unqualified discovered local models (fastChat=false) fail-closed under fast_conversation AUTO routing', async () => {
+      const registry = new BrainProviderRegistry();
+
+      // Subscription agent runtimes are registered
+      const claude = createMockAgentRuntime('claude-code');
+      registry.register(claude, {
+        kind: 'agent_runtime_provider',
+        accessPath: 'official_cli',
+        accessClass: 'subscription'
+      });
+
+      // Local provider discovered unbenchmarked model: fastChat=false
+      const unbenchmarkedLocal = createMockDirectModelProvider('ollama', {
+        local: true,
+        fastChat: false,
+        health: 'healthy'
+      });
+      registry.register(unbenchmarkedLocal, {
+        kind: 'model_provider',
+        accessPath: 'local_runtime',
+        accessClass: 'local'
+      });
+
+      const catalog = new RuntimeModelCatalog();
+      seedRuntimeCatalog(catalog);
+
+      const router = new BrainRouter({
+        registry,
+        runtimeModelCatalog: catalog,
+        defaultProvider: 'ollama'
+      });
+
+      // In AUTO mode, fast_conversation requires fastChat: true and rejects unqualified local model.
+      // Also agent_runtime cannot satisfy fast_conversation, so router fails closed.
+      await expect(router.route({ profileId: 'fast_conversation' })).rejects.toThrow(BrainRoutingError);
+      await expect(router.route({ profileId: 'fast_conversation' })).rejects.toMatchObject({
+        code: 'fast_brain_unavailable'
+      });
+    });
+
+    it('25. explicitly qualified local models (fastChat=true) are selected for fast_conversation', async () => {
+      const registry = new BrainProviderRegistry();
+
+      const claude = createMockAgentRuntime('claude-code');
+      registry.register(claude, {
+        kind: 'agent_runtime_provider',
+        accessPath: 'official_cli',
+        accessClass: 'subscription'
+      });
+
+      // Local provider with C2 benchmarked/qualified model: fastChat=true
+      const qualifiedLocal = createMockDirectModelProvider('ollama', {
+        local: true,
+        fastChat: true,
+        health: 'healthy'
+      });
+      registry.register(qualifiedLocal, {
+        kind: 'model_provider',
+        accessPath: 'local_runtime',
+        accessClass: 'local'
+      });
+
+      const catalog = new RuntimeModelCatalog();
+      seedRuntimeCatalog(catalog);
+
+      const router = new BrainRouter({
+        registry,
+        runtimeModelCatalog: catalog,
+        defaultProvider: 'ollama'
+      });
+
+      const decision = await router.route({ profileId: 'fast_conversation' });
+      expect(decision.providerId).toBe('ollama');
+      expect(decision.modelId).toBe('ollama-fast-model');
+    });
+
+    it('26. non-generative / embedding-only models are never selected for conversational profiles', async () => {
+      const registry = new BrainProviderRegistry();
+
+      // Only an embedding model is available
+      const embeddingOnlyProvider = createMockDirectModelProvider('ollama', {
+        local: true,
+        fastChat: false,
+        health: 'healthy',
+        models: [
+          {
+            id: 'ollama-nomic-embed-text',
+            providerId: 'ollama',
+            displayName: 'nomic-embed-text:latest (Embedding)',
+            status: 'available',
+            latencyClass: 'interactive',
+            qualityClass: 'fast',
+            costClass: 'free',
+            contextClass: 'standard',
+            privacyClass: 'local_only',
+            capabilities: {
+              streaming: false,
+              fastChat: false,
+              reasoning: false,
+              coding: false,
+              toolUse: false,
+              multimodal: false,
+              vision: false,
+              webResearch: false,
+              longContext: false,
+              local: true
+            }
+          }
+        ]
+      });
+      registry.register(embeddingOnlyProvider, {
+        kind: 'model_provider',
+        accessPath: 'local_runtime',
+        accessClass: 'local'
+      });
+
+      const catalog = new RuntimeModelCatalog();
+      const router = new BrainRouter({
+        registry,
+        runtimeModelCatalog: catalog,
+        defaultProvider: 'ollama'
+      });
+
+      await expect(router.route({ profileId: 'fast_conversation' })).rejects.toThrow(BrainRoutingError);
     });
   });
 });

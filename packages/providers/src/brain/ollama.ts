@@ -6,6 +6,8 @@ import type {
   ModelCatalogProvider,
   ModelCatalogSnapshot,
   ModelDescriptor,
+  ModelLatencyClass,
+  ModelQualityClass,
   ProviderDescriptor,
   ProviderHealth
 } from '@mave/contracts';
@@ -68,15 +70,60 @@ export function sanitizeOllamaErrorMessage(message?: string): string {
     .replace(/(?:\/[a-zA-Z0-9_.-]+)+/g, '<path>');
 }
 
+/**
+ * Internal qualification descriptor for local models.
+ * Decouples discovery/availability from verified production promotion.
+ * Prepares the ground for C2 benchmarking without public contract changes.
+ */
+export interface LocalModelQualification {
+  /**
+   * Raw tag (e.g. 'qwen2.5:1.5b') or normalized model ID ('ollama-qwen2.5-1.5b').
+   */
+  readonly modelIdOrTag: string;
+  /**
+   * Whether this model has been empirically evaluated and approved for MAVE production routing.
+   * Default: false in C1.1. C2 will set this to true for selected models.
+   */
+  readonly productionApproved: boolean;
+  /**
+   * Whether this model is verified suitable for fast conversational voice (TTFT <= 1-3s).
+   */
+  readonly fastChatSuitable?: boolean;
+  /**
+   * Whether this model has passed empirical Thai conversational quality evaluation.
+   */
+  readonly thaiQualified?: boolean;
+  /**
+   * Whether this model has passed empirical English conversational quality evaluation.
+   */
+  readonly englishQualified?: boolean;
+  /**
+   * Target role if approved: 'FAST' | 'BALANCED' | 'REASONING'.
+   */
+  readonly targetRole?: 'FAST' | 'BALANCED' | 'REASONING';
+  /**
+   * Optional empirical benchmark evidence collected during C2.
+   */
+  readonly benchmarkEvidence?: {
+    readonly measuredWarmTtftMs?: number;
+    readonly measuredPromptEvalTokPerSec?: number;
+    readonly measuredEvalTokPerSec?: number;
+    readonly measuredTotalLatencyMs?: number;
+    readonly measuredVramBytes?: number;
+    readonly benchmarkDate?: string;
+  };
+}
+
 export interface OllamaBrainProviderOptions {
   baseUrl?: string;
   timeoutMs?: number;
   fetchFn?: typeof fetch;
   models?: ModelDescriptor[];
   keepAlive?: string | number;
+  qualifications?: LocalModelQualification[];
 }
 
-interface OllamaTagModel {
+export interface OllamaTagModel {
   name: string;
   model?: string;
   size?: number;
@@ -88,8 +135,37 @@ interface OllamaTagModel {
     parameter_size?: string;
     quantization_level?: string;
     context_length?: number;
+    embedding_length?: number;
   };
   capabilities?: string[];
+}
+
+/**
+ * Detects whether an Ollama model is capable of generative text/chat completion.
+ * Excludes embedding-only models (e.g. nomic-embed-text) from conversational catalogs.
+ */
+export function isGenerativeChatModel(raw: OllamaTagModel): boolean {
+  const caps = (raw.capabilities ?? []).map((c) => c.toLowerCase());
+  const name = raw.name.toLowerCase();
+  const family = (raw.details?.family ?? '').toLowerCase();
+
+  if (caps.length > 0) {
+    // If Ollama explicitly lists capabilities, embedding-only models have ['embedding'] but lack ['completion']
+    if (caps.includes('embedding') && !caps.includes('completion')) {
+      return false;
+    }
+    if (!caps.includes('completion')) {
+      return false;
+    }
+    return true;
+  }
+
+  // Fallback heuristic for older Ollama versions omitting capabilities array
+  if (name.includes('embed') || family.includes('bert')) {
+    return false;
+  }
+
+  return true;
 }
 
 interface OllamaTagsResponse {
@@ -142,6 +218,7 @@ export class OllamaBrainProvider implements ModelCatalogProvider {
   private readonly customModels?: ModelDescriptor[];
   private readonly keepAlive?: string | number;
   private readonly rawTagByModelId = new Map<string, string>();
+  private readonly qualifications = new Map<string, LocalModelQualification>();
 
   constructor(options?: OllamaBrainProviderOptions) {
     const rawUrl = (options?.baseUrl ?? 'http://127.0.0.1:11434').replace(/\/+$/, '');
@@ -151,28 +228,53 @@ export class OllamaBrainProvider implements ModelCatalogProvider {
     this.fetchFn = options?.fetchFn ?? globalThis.fetch;
     this.customModels = options?.models;
     this.keepAlive = options?.keepAlive;
+
+    if (options?.qualifications) {
+      for (const qual of options.qualifications) {
+        this.setQualification(qual);
+      }
+    }
   }
 
   getBaseUrl(): string {
     return this.baseUrl;
   }
 
+  getQualification(modelIdOrTag: string): LocalModelQualification | undefined {
+    const direct = this.qualifications.get(modelIdOrTag.toLowerCase());
+    if (direct) return direct;
+    const normalized = normalizeOllamaModelId(modelIdOrTag);
+    return this.qualifications.get(normalized);
+  }
+
+  setQualification(qualification: LocalModelQualification): void {
+    const raw = qualification.modelIdOrTag.trim().toLowerCase();
+    const normalized = normalizeOllamaModelId(raw);
+    this.qualifications.set(raw, qualification);
+    this.qualifications.set(normalized, qualification);
+  }
+
+  /**
+   * Returns provider-level transport and runtime capabilities.
+   * Semantic suitability (fastChat, reasoning, bilingual) belongs to model descriptors,
+   * NOT global provider claims.
+   */
   getCapabilities(): BrainCapabilities {
     return BrainCapabilitiesSchema.parse({
       streaming: true,
-      fastChat: true,
+      fastChat: false, // Provider host does not globally guarantee all hosted models are fastChat
       reasoning: false,
       coding: false,
       toolUse: false, // Invariant: no tool execution authority in Pre-M5
       multimodal: false,
       vision: false,
       webResearch: false,
-      longContext: true,
+      longContext: false,
       local: true,
       structuredOutput: true,
       cancellation: true,
-      supportsThai: true,
-      supportsEnglish: true
+      supportsThai: false, // Unverified at provider level until C2
+      supportsEnglish: false // Unverified at provider level until C2
     });
   }
 
@@ -297,33 +399,67 @@ export class OllamaBrainProvider implements ModelCatalogProvider {
         if (!raw.name || !raw.name.trim()) continue;
 
         const rawTag = raw.name.trim();
-        const modelId = normalizeOllamaModelId(rawTag);
+
+        // 1. Generative model filtering (exclude embedding-only models)
+        if (!isGenerativeChatModel(raw)) {
+          logger.debug({ rawTag }, 'Excluding non-generative/embedding-only model from conversational catalog');
+          continue;
+        }
+
+        // 2. Collision-safe ModelId normalization and mapping
+        const baseModelId = normalizeOllamaModelId(rawTag);
+        let modelId = baseModelId;
+        let collisionIndex = 1;
+        while (this.rawTagByModelId.has(modelId) && this.rawTagByModelId.get(modelId) !== rawTag) {
+          modelId = `${baseModelId}-c${collisionIndex++}`;
+        }
         this.rawTagByModelId.set(modelId, rawTag);
         this.rawTagByModelId.set(rawTag, rawTag);
 
         const lowerName = rawTag.toLowerCase();
         const paramSizeStr = raw.details?.parameter_size ?? '';
         const paramNum = parseFloat(paramSizeStr.replace(/[^0-9.]/g, '')) || 0;
-        const family = (raw.details?.family ?? '').toLowerCase();
         const families = (raw.details?.families ?? []).map((f) => f.toLowerCase());
+        const ollamaCaps = (raw.capabilities ?? []).map((c) => c.toLowerCase());
 
-        // Derived classifications
-        const isFast = paramNum <= 8 || lowerName.includes('1.5b') || lowerName.includes('3b') || lowerName.includes('7b') || lowerName.includes('8b');
-        const isReasoning = lowerName.includes('r1') || lowerName.includes('reasoning') || paramNum > 14;
-        const isCoding = lowerName.includes('coder') || lowerName.includes('code');
-        const isVision = families.includes('clip') || lowerName.includes('llava') || lowerName.includes('vision');
-        const isThai = family === 'qwen2' || family === 'gemma2' || families.includes('qwen2') || families.includes('gemma2') || lowerName.includes('qwen') || lowerName.includes('gemma') || lowerName.includes('typhoon');
+        // 3. Qualification resolution (C1.1 unbenchmarked default vs C2 qualification)
+        const qual = this.qualifications.get(rawTag.toLowerCase()) ?? this.qualifications.get(modelId);
+        const isApproved = qual?.productionApproved === true;
+
+        const hasVision = ollamaCaps.includes('vision') || families.includes('clip') || lowerName.includes('llava');
+        const hasThinking = ollamaCaps.includes('thinking');
+
+        // Capability derivation:
+        // In C1.1, unbenchmarked discovered models do NOT claim fastChat, reasoning, or language qualification.
+        // Qualification must be established empirically in C2.
+        const fastChat = isApproved ? Boolean(qual?.fastChatSuitable) : false;
+        const supportsThai = isApproved ? Boolean(qual?.thaiQualified) : false;
+        const supportsEnglish = isApproved ? Boolean(qual?.englishQualified) : false;
+        const reasoning = isApproved && qual?.targetRole === 'REASONING';
+        const coding = false; // Invariant: no tool authority in Pre-M5
 
         const contextLength = raw.details?.context_length ?? 32768;
         const contextClass = contextLength >= 65536 ? 'massive' : contextLength >= 32768 ? 'large' : 'standard';
 
-        const latencyClass = paramNum <= 3 ? 'interactive' : paramNum <= 8 ? 'balanced' : 'heavy';
-        const qualityClass = isReasoning ? 'reasoning' : isFast ? 'fast' : 'balanced';
+        const latencyClass: ModelLatencyClass = paramNum <= 3 ? 'interactive' : paramNum <= 8 ? 'balanced' : 'heavy';
+        const qualityClass: ModelQualityClass = isApproved
+          ? qual?.targetRole === 'FAST'
+            ? 'fast'
+            : qual?.targetRole === 'REASONING'
+              ? 'reasoning'
+              : 'balanced'
+          : hasThinking
+            ? 'reasoning'
+            : 'balanced';
+
+        const displayName = isApproved
+          ? `${rawTag} (Local Ollama - Qualified)`
+          : `${rawTag} (Local Ollama - Candidate)`;
 
         const desc: ModelDescriptor = {
           id: modelId,
           providerId: this.id,
-          displayName: `${rawTag} (Local Ollama)`,
+          displayName,
           status: 'available',
           latencyClass,
           qualityClass,
@@ -332,19 +468,19 @@ export class OllamaBrainProvider implements ModelCatalogProvider {
           contextWindowTokens: contextLength,
           capabilities: {
             streaming: true,
-            fastChat: isFast,
-            reasoning: isReasoning,
-            coding: isCoding,
+            fastChat,
+            reasoning,
+            coding,
             toolUse: false,
-            multimodal: isVision,
-            vision: isVision,
+            multimodal: hasVision,
+            vision: hasVision,
             webResearch: false,
             longContext: contextLength >= 32768,
             local: true,
             structuredOutput: true,
             cancellation: true,
-            supportsThai: isThai,
-            supportsEnglish: true
+            supportsThai,
+            supportsEnglish
           },
           privacyClass: 'local_only'
         };
@@ -377,6 +513,7 @@ export class OllamaBrainProvider implements ModelCatalogProvider {
    * Resolves a normalized ModelId back to an Ollama concrete tag.
    */
   resolveConcreteModelTag(modelIdOrTag: string): string | undefined {
+    // 1. Direct hit in authoritative catalog map
     const direct = this.rawTagByModelId.get(modelIdOrTag);
     if (direct) return direct;
 
@@ -384,10 +521,14 @@ export class OllamaBrainProvider implements ModelCatalogProvider {
     const fromNorm = this.rawTagByModelId.get(normalized);
     if (fromNorm) return fromNorm;
 
-    // Fallback: if tag has a colon (e.g. 'qwen2.5:7b') or stripped 'ollama-' prefix
+    // 2. Direct Ollama tag syntax (contains colon or slash)
+    if (modelIdOrTag.includes(':') || modelIdOrTag.includes('/')) {
+      return modelIdOrTag;
+    }
+
+    // 3. Fallback: if tag has a stripped 'ollama-' prefix
     if (modelIdOrTag.startsWith('ollama-')) {
       const candidate = modelIdOrTag.slice('ollama-'.length);
-      // Try restoring the last hyphen to colon (e.g. 'qwen2.5-7b' -> 'qwen2.5:7b')
       const lastHyphen = candidate.lastIndexOf('-');
       if (lastHyphen !== -1) {
         return `${candidate.slice(0, lastHyphen)}:${candidate.slice(lastHyphen + 1)}`;

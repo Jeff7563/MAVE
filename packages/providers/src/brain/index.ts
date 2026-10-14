@@ -31,6 +31,9 @@ export {
 export {
   OllamaBrainProvider,
   type OllamaBrainProviderOptions,
+  type LocalModelQualification,
+  type OllamaTagModel,
+  isGenerativeChatModel,
   OLLAMA_PROVIDER_ID,
   assertLoopbackEndpoint,
   normalizeOllamaModelId,

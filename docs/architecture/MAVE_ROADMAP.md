@@ -167,7 +167,11 @@ Program Sequence:
   - **F1.5-S5 Subscription Intelligence Final Closeout Audit** ✅ COMPLETE
 - **F1.5-C0 Conversational Brain Feasibility Audit** ✅ COMPLETE (DECISION: LOCAL FAST BRAIN RECOMMENDED)
 - **F1.5-C1 Local Model Provider Foundation (`OllamaBrainProvider`)** ✅ COMPLETE
-- **F1.6 Production Deep Brain** ← NEXT
+- **F1.5-C1.1 Local Provider Qualification & Catalog Hardening** ✅ COMPLETE
+- **F1.5-C2 Local Fast Brain Empirical Benchmarking & Model Qualification** ← NEXT
+- **F1.5-C3 Local Model Lifecycle & Resident Memory Management**
+- **F1.5-C4 Conversational Brain Closeout Audit**
+- **F1.6 Production Deep Brain** (Deferred after Local Fast Brain Closeout)
 - **F1.7 Agent Runtime Normalization (`ClaudeCode` / `Antigravity` / `Codex`)**
 - **F1.8 Research / Truth Routing**
 - **F1.9 Diagnostics, Quota & Reliability**

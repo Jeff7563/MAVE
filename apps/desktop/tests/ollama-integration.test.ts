@@ -62,7 +62,7 @@ describe('Ollama Desktop Integration (F1.5-C1 Local Model Provider)', () => {
     expect(meta.accessPath).toBe('local_runtime');
     expect(meta.accessClass).toBe('local');
     expect(meta.capabilities.local).toBe(true);
-    expect(meta.capabilities.fastChat).toBe(true);
+    expect(meta.capabilities.fastChat).toBe(false);
     expect(meta.capabilities.toolUse).toBe(false);
 
     const ollama = manager.getOllamaProvider();

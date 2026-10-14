@@ -620,6 +620,10 @@ When all candidate runtimes are blocked before execution:
 - **F1.5-S5 (COMPLETE):** Subscription Intelligence final closeout audit (Authoritative state ownership, cross-model collision safety, model rotation readiness, documentation alignment, and tri-runtime closeout).
 - **F1.5-C0 (COMPLETE):** Subscription Conversational Brain feasibility audit (evaluated subscription CLIs vs local model provider for fast_conversation and deep_reasoning; recommended Local Fast Brain).
 - **F1.5-C1 (COMPLETE):** Local Model Provider Foundation (`OllamaBrainProvider` direct model provider, loopback localhost security, non-generation health check, dynamic catalog introspection, progressive NDJSON streaming, and zero paid API billing).
+- **F1.5-C1.1 (COMPLETE):** Local Provider Qualification & Catalog Hardening (decoupled transport capabilities, non-generative embedding filter, unbenchmarked candidate isolation, tag collision safety, and qualification decoupling).
+- **F1.5-C2 (NEXT):** Local Fast Brain Empirical Benchmarking & Model Qualification (latency, bilingual Thai/English quality, resident VRAM measurement, empirical threshold evaluation).
+- **F1.5-C3:** Local Model Lifecycle & Resident Memory Management.
+- **F1.5-C4:** Conversational Brain Closeout Audit.
 
 ---
 
@@ -711,18 +715,55 @@ This establishes a production-grade local fast conversational brain running on h
 
 ### 14.3 Host Hardware & Resident Performance Profile
 - **Host GPU:** NVIDIA GeForce RTX 3060 Ti (8GB GDDR6 VRAM, 4864 CUDA cores).
-- **Installed Verified Models:**
-  - `qwen2.5:1.5b` (0.92 GB VRAM footprint) $\to$ **Warm TTFT: 202 ms** (Total generation latency: 961 ms for 144 tokens).
-  - `qwen2.5:7b` (4.36 GB VRAM footprint) $\to$ Bilingual Thai/English balanced conversation.
-  - `deepseek-r1:7b` (4.36 GB VRAM footprint, 128k context) $\to$ Local deep reasoning.
-- **VRAM Lifecycle Management:** Models are loaded into VRAM on first request and kept resident via Ollama's 5-minute `keep_alive` window. When idle, memory automatically frees to 0 bytes VRAM.
+- **Installed Verified Models & File Footprints:**
+  - `qwen2.5:1.5b` (0.92 GB on-disk weight file) $\to$ **Warm TTFT: 202 ms** (eval duration: 759 ms for 144 tokens $\to$ 189.7 tok/s generation throughput; total end-to-end latency: 961 ms $\to$ 149.8 tok/s overall throughput).
+  - `qwen2.5:7b` (4.36 GB on-disk weight file) $\to$ Installed candidate on disk; bilingual Thai/English conversational quality and runtime VRAM footprint pending empirical qualification in F1.5-C2.
+  - `deepseek-r1:7b` (4.36 GB on-disk weight file, 128k context) $\to$ Installed candidate on disk; local deep reasoning and runtime VRAM footprint pending empirical qualification in F1.5-C2.
+- **Disk Size vs. Runtime VRAM Clarification:**
+  - The reported 0.92 GB and 4.36 GB values represent physical model weight file sizes stored on disk, **not** dynamic runtime VRAM footprint.
+  - Runtime VRAM usage includes base weights loaded into GPU memory, KV cache allocation (proportional to active context length), and scratchpad activation buffers. Precise VRAM metrics will be empirically captured during F1.5-C2 benchmarking.
+- **VRAM Lifecycle Management:** Models are loaded into VRAM on request and kept resident via Ollama's 5-minute `keep_alive` window. When idle, memory automatically frees to 0 bytes VRAM.
 
 ### 14.4 Desktop & Routing Pipeline Integration
 - **`apps/desktop/src/main/conversation-manager.ts`:** Instantiates `OllamaBrainProvider` as a registered `model_provider` with `accessPath: 'local_runtime'` and `accessClass: 'local'`. App startup is fully decoupled and never crashes if the local Ollama daemon is offline.
 - **`packages/core/src/brain/brain-router.ts`:**
-  - Resolves `fast_conversation` and `language` to `ollama` when present and healthy.
+  - Resolves `fast_conversation` and `language` to `ollama` when present and healthy with qualified models.
   - Rejects `agent_runtime_provider` candidates fail-closed for direct conversational profiles.
   - Enforces `localOnly: true` privacy constraints, routing solely to local providers and rejecting cloud services.
+
+### 14.5 Local Provider Qualification & Catalog Hardening (F1.5-C1.1)
+
+#### 1. Transport Capabilities vs. Model Capabilities Decoupling
+- `OllamaBrainProvider.getCapabilities()` represents transport/host capabilities only:
+  - `streaming: true`, `local: true`, `structuredOutput: true`, `cancellation: true`.
+  - Content/task capabilities (`fastChat: false`, `reasoning: false`, `coding: false`, `supportsThai: false`, `supportsEnglish: false`) remain `false` at the provider level until models are qualified.
+
+#### 2. Non-Generative Discovery Filtering (`isGenerativeChatModel`)
+- Ollama's `GET /api/tags` returns embedding, vision, and tool capabilities per model.
+- Embedding-only models (such as `nomic-embed-text:latest` with `capabilities: ['embedding']`) lack generative text capabilities (`'completion'`).
+- `isGenerativeChatModel()` strictly filters out embedding-only models, preventing them from appearing in MAVE's conversational model catalog.
+
+#### 3. Unbenchmarked Discovered Candidate Isolation
+- Auto-discovered models from local Ollama are registered with `(Local Ollama - Candidate)` in their display name.
+- By default, unbenchmarked discovered models receive:
+  - `fastChat: false`, `supportsThai: false`, `supportsEnglish: false`, `reasoning: false`, `qualityClass: 'balanced'`.
+- This ensures that discovered models **cannot win AUTO routing** for `fast_conversation` or `language` tasks prior to empirical benchmarking in F1.5-C2.
+
+#### 4. Explicit Model Qualification Decoupling
+- Model qualifications are tracked via `LocalModelQualification` records.
+- Only when a model has been empirically benchmarked and granted `productionApproved: true` are production capabilities (`fastChat: true`, `supportsThai: true`, etc.) assigned in the model catalog.
+- If no qualified local models exist, `BrainRouter` fails closed with `fast_brain_unavailable` rather than selecting unbenchmarked or non-conversational models.
+
+#### 5. Tag Collision Safety & Direct Syntax Fallback
+- Unique Model IDs (`ollama-<normalized-slug>`) are disambiguated with incremental counters if multiple tags collide to the same base name.
+- `resolveConcreteModelTag()` verifies the authoritative model ID mapping first, supports direct tag syntax (`<name>:<tag>`, `<org>/<model>:<tag>`), and provides fallback.
+
+### 14.6 Future Teacher / Escalation Architecture Notes ("Similarity != Permission")
+- While local models and cloud subscription models may share similar conversational interfaces, **similarity does not confer permission**.
+- Local Fast Brain (`model_provider`) operates strictly in a zero-privilege, stateless conversational context with zero tool authority.
+- Heavyweight subscription runtimes (`agent_runtime_provider`: Claude Code, Codex, Antigravity) operate as autonomous software engineering agents under strict user review and Pre-M5 tool suppression.
+- Local models must **never** be granted tool execution authority or impersonate agent runtimes.
+- Any future escalation from Local Fast Brain to Subscription Agent Runtime must pass through MAVE's explicit routing policies, intent boundaries, and user confirmation gates.
 
 
 
