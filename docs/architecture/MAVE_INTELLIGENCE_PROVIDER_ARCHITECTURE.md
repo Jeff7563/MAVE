@@ -806,7 +806,7 @@ The Pre-M5 intelligence foundation is divided into ten disciplined phases:
    - Marketing terms like `frontier` or `pro` are rejected.
 9. **Model ContextClass vs Numeric Limits:**
    - `ModelContextClass` (`standard`, `large`, `massive`): Qualitative tier for fast router rule matching.
-   - `contextWindowTokens` & `maxOutputTokens`: Exact integer token limits for context packing, sliding window truncation, and generation budgeting.
+   - `contextWindowTokens`: Exact integer context window token limit for prompt packing, sliding window truncation, and generation budgeting.
 10. **PrivacyClass Non-Contractual Tiers:**
     - Canonical `ModelPrivacyClass`: `'local_only' | 'private_cloud' | 'standard_cloud'`.
     - `local_only`: On-device execution, zero external network traffic.
