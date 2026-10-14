@@ -21,7 +21,16 @@ export {
   OPENAI_PROVIDER_ID,
   OPENAI_FAST_MODEL_ID,
   OPENAI_BALANCED_MODEL_ID,
-  sanitizeErrorMessage
+  sanitizeErrorMessage,
+  ClaudeCodeBrainProvider,
+  type ClaudeCodeBrainProviderOptions,
+  CLAUDE_CODE_PROVIDER_ID,
+  type ClaudeRuntimeModelSnapshot,
+  type ClaudeModelAlias,
+  type ClaudeSupportedRole,
+  CLAUDE_ROLE_MAPPING,
+  resolveClaudeModelForRole,
+  getClaudeDefaultRuntimeModels
 } from './brain/index.js';
 export * from './audio/index.js';
 export * from './stt/index.js';

@@ -145,35 +145,54 @@ Each subscription runtime maps MAVE model roles to its supported model inventory
 Audited October 2026 on local development environment:
 
 ### 6.1 OpenAI Codex
-- **Local Executable:** `C:\Users\Jeffy\AppData\Local\OpenAI\Codex\bin\9614f1d9b40d9c4f\codex.exe` (`0.162.0-alpha.17.2`).
-- **Official Auth:** ChatGPT subscription OAuth stored in `~/.codex/auth.json` (`auth mode: chatgpt`, zero stored API keys).
+- **Local Executable:** `C:\Users\Jeffy\AppData\Local\Programs\OpenAI\Codex\bin\codex.exe` (`codex-cli 0.154.0`).
+- **Official Auth:** ChatGPT subscription OAuth stored in `~/.codex/auth.json` (`auth_mode: "chatgpt"`, zero stored API keys).
 - **Transport & Reachability:** Websocket Responses API (`wss://chatgpt.com/backend-api/`).
-- **Non-Interactive Mode:** `codex exec --json --ephemeral -s read-only`.
+- **Non-Interactive Mode:** `codex exec --ephemeral --skip-git-repo-check --json -s read-only "<prompt>"`.
 - **Model Control:** `-m, --model <MODEL>` flag, config overrides `-c model="..."`.
 - **Model Discovery:** Maintained locally in `~/.codex/models_cache.json`.
 - **Quota Semantics:** Bound to ChatGPT subscription limits. Returns rate limit event upon exhaustion.
+- **Billing Isolation Invariant:** `OPENAI_API_KEY` must be explicitly removed from subscription child process environments to prevent fallback to metered API billing.
 - **Provider Kind:** **`agent_runtime_provider`** (incorporates command runner, sandbox, and file tools).
-- **Voice Viability:** Unsuited for sub-2s voice TTFT due to sandbox setup and agent scaffolding.
+- **Voice Viability:** Unsuited for sub-2s voice TTFT (measured cold TTFT ~12.0s, total duration ~16.7s).
 
 ### 6.2 Anthropic Claude Code
-- **Local Executable:** `C:\Users\Jeffy\.local\bin\claude.exe` (`v2.1.272`).
-- **Official Auth:** Claude subscription OAuth via `claude.ai` (`subscriptionType: "pro"`, `apiProvider: "firstParty"`).
-- **Non-Interactive Mode:** `claude -p "<prompt>" --output-format json --tools "" --safe-mode`.
-- **Model Control:** `--model <model>` (`sonnet`, `opus`, `haiku`, or version string).
-- **Model Discovery:** Enumerated via CLI help / settings.
-- **Quota Semantics:** 5-hour rolling session windows and weekly limits. Emits limit text with reset timestamp upon exhaustion.
-- **Billing Isolation Invariant:** If `ANTHROPIC_API_KEY` is set in the environment, Claude Code may divert to metered API billing. MAVE must sanitize child process environment.
-- **Provider Kind:** **`agent_runtime_provider`** (workspace scanning and CLI boot incur 3–8s latency).
-- **Voice Viability:** Unsuited for interactive voice TTFT.
+- **Local Executable:** `C:\Users\Jeffy\.local\bin\claude.exe` (`2.1.251 (Claude Code)`).
+- **Official Auth:** Claude Pro subscription OAuth via `claude.ai` (`organizationType: "claude_pro"`, `billingType: "stripe_subscription"`).
+- **Non-Interactive Mode:** `claude -p "<prompt>" --verbose --tools "" --safe-mode --disable-slash-commands --strict-mcp-config --output-format stream-json --include-partial-messages --no-session-persistence`. Stdio must be `['ignore', 'pipe', 'pipe']` to prevent 3-second stdin timeout warning.
+- **Model Control:** `--model <model>` (`sonnet`, `opus`, `haiku`, or canonical version string).
+- **Model Discovery:** Discovered at runtime via session `init` event (no standalone machine-readable `claude models --list` command).
+- **Quota Semantics:** Normalized from `rate_limit_event` (5-hour rolling session window utilization and resetsAt). Emits `quota_limited` error when `status: "rejected"`.
+- **Billing Isolation Invariant:** Child environment explicitly strips `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`, `ANTHROPIC_BASE_URL`, `ANTHROPIC_CUSTOM_HEADERS`, `CLAUDE_API_KEY`, and `CLAUDE_CODE_API_KEY`. Parent process environment is never modified globally.
+- **Dangerous Permissions Guardrail:** Never invokes `--dangerously-skip-permissions`. Invariant strictly enforced.
+- **Provider Kind:** **`agent_runtime_provider`** (CLI bootstrap takes 1.1–1.7s; warm TTFT is 2.3–3.8s).
+- **Voice Viability:** Unsuited for sub-2s interactive voice TTFT under `agent_runtime_provider` semantics, but highly capable for `deep_reasoning`, `coding`, and `agent_work`.
 
 ### 6.3 Google Antigravity
-- **Local Executable:** `C:\Users\Jeffy\AppData\Local\agy\bin\agy.exe` (`v1.3.4`).
+- **Local Executable:** `C:\Users\Jeffy\AppData\Local\agy\bin\agy.exe` (`1.3.5`).
 - **Official Auth:** Google account subscription.
-- **Integration:** `AntigravityBrainProvider` via `agy --print --output-format stream-json`.
+- **Integration:** `AntigravityBrainProvider` via `agy --input-format stream-json --output-format stream-json --sandbox --disable-slash-commands`.
 - **Model Discovery:** Non-quota command `agy models` lists available models and roles (`gemini-3.8-flash-high`, `gemini-3.8-flash-medium`, `gemini-3.8-flash-low`, `claude-sonnet-4-6`, `claude-opus-4-6-thinking`, `gpt-oss-120b-medium`).
 - **Model Control:** `--model <model>`, `--effort <effort>`.
 - **Provider Kind:** **`agent_runtime_provider`**.
-- **Voice Viability:** Unsuited for interactive voice TTFT (turn latency 4–12s).
+- **Voice Viability:** Unsuited for interactive voice TTFT (measured cold TTFT ~7.9s, turn latency ~12.9s).
+
+### 6.4 Empirical Subscription Runtime Benchmark Matrix (Local Measurements)
+
+Controlled local benchmarks conducted on development machine (October 2026, RTX 3060 Ti host, Windows 11):
+Short prompt: *"Say OK only."* (Zero API tokens, official consumer subscriptions only).
+
+| Runtime | Model / Alias | Semantic Role | CLI Boot | Cold TTFT | Warm TTFT (Avg) | Total Latency (Avg) | Cancellation | Tools Disabled? | Eligible for `fast_conversation`? |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **Claude Code** | `haiku` | `BALANCED` | 1,135 ms | 2,810 ms | 2,342 ms *(5 runs)* | 3,004 ms | Yes (32 ms) | Yes (`--tools ""`) | **No** (agent runtime, >2s TTFT) |
+| **Claude Code** | `sonnet` | `BALANCED` / `CODING` | 1,220 ms | 3,692 ms | 3,805 ms *(5 runs)* | 4,972 ms | Yes (35 ms) | Yes (`--tools ""`) | **No** (agent runtime, >3.5s TTFT) |
+| **Claude Code** | `opus` | `REASONING` | 1,210 ms | 2,999 ms | 3,075 ms *(2 runs)* | 3,652 ms | Yes (30 ms) | Yes (`--tools ""`) | **No** (agent runtime, >3s TTFT) |
+| **Antigravity** | `gemini-3.8-flash-low` | `AGENT` / `BALANCED` | 2,740 ms | 7,892 ms | ~7,900 ms | 12,945 ms | Yes (45 ms) | Yes (`--sandbox`) | **No** (agent runtime, >7s TTFT) |
+| **OpenAI Codex**| `gpt-5.6-sol` (default)| `CODING` / `REASONING` | 1,040 ms | 11,988 ms| ~12,000 ms| 16,721 ms | Yes (40 ms) | Yes (`-s read-only`)| **No** (agent runtime, >11s TTFT) |
+
+*Note on TTFT Separation:*
+For Claude Code Haiku, the Anthropic cloud API reports an internal `ttft_ms` of 1,036–1,243 ms. The remaining ~1,100–1,300 ms observed by MAVE represents local child process creation, Node/V8 bootstrap, CLI configuration loading, and stdio pipe serialization.
+
 
 ---
 
