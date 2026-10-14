@@ -9,16 +9,17 @@
 3. `MAVE_SYSTEM_ARCHITECTURE.md`
 4. `MAVE_ROADMAP.md`
 5. `MAVE_AI_BRAIN_ARCHITECTURE.md`
-6. `MAVE_VOICE_ARCHITECTURE.md`
-7. `MAVE_MILESTONE_3_SPEC.md`
-8. `MAVE_TOOL_AND_PERMISSION_MODEL.md`
-9. `MAVE_MEMORY_ARCHITECTURE.md`
-10. `MAVE_UI_SURFACE_ARCHITECTURE.md`
-11. `MAVE_AMBIENT_ADAPTIVE_SURFACE.md`
-12. `MAVE_AMBIENT_SURFACE_RUNTIME.md`
-13. `MAVE_MILESTONE_4_SPEC.md`
-14. `MAVE_MILESTONE_4_CLOSEOUT.md`
-15. `MAVE_LEARNING_ENGINE.md`
+6. `MAVE_INTELLIGENCE_PROVIDER_ARCHITECTURE.md`
+7. `MAVE_VOICE_ARCHITECTURE.md`
+8. `MAVE_MILESTONE_3_SPEC.md`
+9. `MAVE_TOOL_AND_PERMISSION_MODEL.md`
+10. `MAVE_MEMORY_ARCHITECTURE.md`
+11. `MAVE_UI_SURFACE_ARCHITECTURE.md`
+12. `MAVE_AMBIENT_ADAPTIVE_SURFACE.md`
+13. `MAVE_AMBIENT_SURFACE_RUNTIME.md`
+14. `MAVE_MILESTONE_4_SPEC.md`
+15. `MAVE_MILESTONE_4_CLOSEOUT.md`
+16. `MAVE_LEARNING_ENGINE.md`
 
 ## Current Project State
 
@@ -30,7 +31,7 @@
 - Milestone 2 Complete: Provider-independent Conversation Runtime, sessions, persistence, typed IPC streaming, official Antigravity CLI adapter
 - Milestone 3 Complete: End-to-end Voice Loop (Audio Input, faster-whisper STT, EdgeTTS, sounddevice playback, progressive synthesis, programmatic barge-in, developer diagnostics)
 - Milestone 4 Complete: Ambient Adaptive Surface (Capsule, Voice Visualizer, Adaptive Envelopes, Quick Info Card, Expanded Context Panel, Safe Markdown, Click-Through, Least-Privilege Preload, Multi-Monitor Reliability, Settings Persistence)
-- Current focus: Milestone 5 — Agent Runtime & Tools (Tool Execution Engine, Typed Permissions, Local Security Boundary) + parallel Fast Brain & Wake V2 evaluation
+- Current focus: Pre-M5 Intelligence Provider Foundation (F1 Runtime & F2 Real Brain Integration/Tuning) before Milestone 5 (Tools & Permissions)
 
 ## Core Direction
 

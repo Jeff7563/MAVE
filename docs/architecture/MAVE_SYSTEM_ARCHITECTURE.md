@@ -217,15 +217,26 @@ Initial intents:
 
 ## 10. Brain Layer
 
-Provider Adapter Pattern:
+MAVE decouples "Who should think?" from "Where do facts come from?" through a three-tier provider taxonomy and deterministic routing pipeline:
 
 ```text
-BrainRouter
-├── FastBrainProvider
-├── AgentBrainProvider
-├── ResearchProvider
-└── LocalProvider
+Intent / Request
+       ↓
+Truth Requirement Check (KnowledgeProvider: Web, DB, Files, Memory)
+       ↓
+BrainProfilePolicy (Canonical profiles: fast_conversation, deep_reasoning, agent_work, research, local_offline)
+       ↓
+BrainRouter (Provider selection & intent-preserving fallback)
+       ↓
+ModelPolicy (Concrete ModelDescriptor selection within provider catalog)
+       ↓
+Provider Adapters (@mave/providers)
+├── ModelProvider (Direct streaming models: Google, Anthropic, OpenAI, Local)
+├── AgentRuntimeProvider (Execution harnesses: Antigravity CLI, future agents)
+└── KnowledgeProvider (Authoritative data retrieval)
 ```
+
+Canonical specification: [`MAVE_INTELLIGENCE_PROVIDER_ARCHITECTURE.md`](MAVE_INTELLIGENCE_PROVIDER_ARCHITECTURE.md) and [`MAVE_AI_BRAIN_ARCHITECTURE.md`](MAVE_AI_BRAIN_ARCHITECTURE.md).
 
 ## 11. Tool Layer
 

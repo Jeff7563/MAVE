@@ -1,1293 +1,792 @@
 # MAVE Intelligence & Provider Architecture
 
-**Status:** Architecture Vision — Source of Truth  
+**Status:** Canonical Intelligence Architecture — Modernized after Milestone 4 Closeout  
 **Created after:** MAVE Milestone 2 Phase 10 Closeout  
-**M2 Status:** Complete — Ready for M3 with Fast-Brain work in parallel  
-**Primary Purpose:** Define how MAVE should combine direct AI models, agent runtimes, knowledge sources, routing policy, and future multi-provider intelligence without becoming dependent on one vendor or one AI runtime.
+**Modernized after:** MAVE Milestone 4 Phase 10 Closeout (Pre-M5 Intelligence Provider Foundation)  
+**Historical Base:** M0, M1, M2, M3, M4 COMPLETE  
+**Current Milestone Track:** Pre-M5 Foundation (F1 Intelligence Provider Runtime & F2 Real Brain Tuning)  
+**Primary Purpose:** Define MAVE's canonical intelligence provider, model catalog, routing, fallback, telemetry, and knowledge architecture, establishing a vendor-neutral orchestration foundation across direct model providers, agent runtimes, and knowledge sources before granting execution authority in Milestone 5.
 
 ---
 
-# 1. Core Principle
+# 1. Executive Summary & Audit of Previous Architecture
 
-> **MAVE is not Gemini, Claude, GPT, Antigravity, or any single model. MAVE is the intelligence orchestration layer above all of them.**
+The original `MAVE_INTELLIGENCE_PROVIDER_ARCHITECTURE.md` was authored following Milestone 2 (Phase 10), when MAVE had completed its first provider-independent `ConversationRuntime`, `SessionManager`, `ContextManager`, `BrainRouter`, `BrainProfilePolicy`, and its first real subscription provider adapter (`AntigravityBrainProvider` via the official `agy` CLI).
 
-The user interacts with **MAVE**.
+Since that time, MAVE has completed:
+1. **Milestone 3 (Spoken Voice Loop):** Full acoustic wake detection (`openWakeWord`), 16 kHz PCM streaming audio input, local STT (`faster-whisper`), progressive sentence chunking (`StreamingTextChunker`), speech synthesis (`EdgeTTS`), low-latency audio playback (`sounddevice`), and programmatic barge-in interruption.
+2. **Milestone 4 (Ambient Adaptive Surface):** A zero-focus-stealing, multi-envelope desktop presentation layer (`Capsule`, `Quick Info card`, `Expanded Context panel`), voice-reactive `PresenceMark` visualizer, least-privilege preload isolation, and multi-monitor display anchoring.
 
-MAVE decides:
+### 1.1 Section-by-Section Audit of Post-M2 Document
 
-1. What kind of task is this?
-2. Does the answer require fresh or authoritative information?
-3. Does the task require a fast model, deep model, research pipeline, local model, or agent runtime?
-4. Which provider/model is currently best and available?
-5. Does the task require tools?
-6. Does the task require user approval?
-7. How should the result be presented?
-
-The user should normally not need to think about the vendor behind the response.
-
----
-
-# 2. Intelligence Layer Overview
-
-MAVE intelligence is divided into three major layers:
-
-```text
-                         MAVE
-                           │
-                 Intelligence Orchestrator
-                           │
-        ┌──────────────────┼───────────────────┐
-        │                  │                   │
-        ▼                  ▼                   ▼
-  MODEL BRAINS       AGENT RUNTIMES       KNOWLEDGE / TRUTH
-        │                  │                   │
- Gemini-family       Antigravity             Web/Search
- Claude-family       Claude Code*            Memory
- GPT-family          Codex/Other*             Files
- Local models        Future agents            Database
-                                             Calendar
-                                             Email
-                                             Project docs
-```
-
-`*` Future integrations only. They are not automatically assumed to be available.
-
----
-
-# 3. Model Brain vs Agent Runtime
-
-This distinction is foundational.
-
-## 3.1 Model Brain
-
-A **Model Brain** is a relatively direct model-response path.
-
-Concept:
-
-```text
-MAVE
- ↓
-Model Provider
- ↓
-Selected Model
- ↓
-Response
-```
-
-Typical uses:
-
-- conversation
-- translation
-- language tutoring
-- quick Q&A
-- summarization
-- writing
-- reasoning
-- classification
-- conversational voice loop
-
-Advantages:
-
-- lower latency
-- smaller system overhead
-- fewer injected tool schemas
-- easier cancellation
-- more suitable for natural voice interaction
-- easier to switch model according to task
-
-Examples of future provider families:
-
-```text
-GeminiProvider
-├── fast model
-├── balanced model
-└── strong reasoning model
-
-ClaudeProvider
-├── fast model
-├── balanced model
-└── strong reasoning model
-
-OpenAIProvider
-├── fast model
-├── balanced model
-└── strong reasoning model
-
-LocalModelProvider
-├── small local model
-└── larger local model
-```
-
-The exact available model names are runtime/provider details and may change over time.
+| Original Section | Original Topic | Status in Audit | Modernization Applied |
+|---|---|---|---|
+| **Header** | Status & Milestone context | **STALE** | Updated from post-M2 / pre-M3 state to post-M4 closeout and Pre-M5 foundation. |
+| **Section 1** | Core Principle | **VALID** | Invariant preserved: MAVE is the intelligence orchestration layer above providers. |
+| **Section 2** | Intelligence Layer Overview | **VALID** | Three-tier architecture (Model Brains, Agent Runtimes, Knowledge/Truth) affirmed. |
+| **Section 3** | Model Brain vs Agent Runtime | **PARTIALLY VALID** | Valid concept; formalized into distinct `ModelProvider` and `AgentRuntimeProvider` taxonomies. |
+| **Section 4** | Why Antigravity Is Heavy | **VALID** | Preserved exact historical telemetry (~9–10s TTFT, 12k+ token overhead) explaining why it cannot serve as Fast Brain. |
+| **Section 5** | Multiple Models per Provider | **PARTIALLY VALID** | Elevated from conceptual example to canonical `ModelCatalog` and `ModelDescriptor` architecture. |
+| **Section 6** | Agent Model Selection | **VALID** | Preserved rule: agent runtime model selection is strictly distinct from direct model provider selection. |
+| **Section 7** | Brain Profiles | **VALID** | Kept the 5 canonical profiles (`fast_conversation`, `deep_reasoning`, `agent_work`, `research`, `local_offline`). |
+| **Section 8** | Information Source Separate from Brain | **VALID** | Core invariant: "Who should THINK?" is separate from "Where do FACTS come from?". |
+| **Section 9** | Correctness & Truth Requirement Policy | **VALID** | Truth requirement classification rules preserved and structured into the routing pipeline. |
+| **Section 10–11** | Routing & Provider Selection Pipeline | **PARTIALLY VALID** | Refined into canonical two-stage resolution: Provider Selection followed by Model Selection. |
+| **Section 12** | Automatic vs Explicit Override | **VALID** | Preserved default Auto with explicit overrides, adding strict override precedence rules. |
+| **Section 13** | Future Provider Architecture | **PARTIALLY VALID** | Diagram modernized to include Knowledge/Truth providers and concrete catalog layers. |
+| **Section 14** | Capability Not Vendor Identity | **VALID** | Router matches normalized capability flags, not vendor marketing brands. |
+| **Section 15–16** | Model Policy in Providers / Agents | **FUTURE VISION** | Formalized responsibility boundary between `BrainProfilePolicy`, `BrainRouter`, and `ModelPolicy`. |
+| **Section 17** | Fast Brain Requirements | **STALE / VALID** | Stale reference to "future STT/TTS" removed (M3 complete); latency and quality targets reaffirmed. |
+| **Section 18** | Agent Brain Requirements | **VALID** | Requirements affirmed; latency tolerance justified by multi-step task complexity. |
+| **Section 19** | M5 Tool/Permission Boundary | **VALID** | Strict invariant: agent runtimes request tools; MAVE Tool Registry & Permission Policy arbitrate. |
+| **Section 20** | Current Antigravity Safety Position | **VALID** | Text-only execution active; tool execution blocked until Milestone 5. |
+| **Section 21** | Future Multi-Agent Possibility | **FUTURE VISION** | Maintained as future architectural direction; premature implementation avoided. |
+| **Section 22–23** | User Experience & Transparency | **VALID** | Ambient Surface presents unified MAVE identity; diagnostics remain in Developer UI. |
+| **Section 24** | Failure & Fallback | **PARTIALLY VALID** | Expanded into explicit fallback chains, fallback latency budgets, and intent preservation. |
+| **Section 25–26** | Quota, Cost & Access Paths | **VALID** | Affirmed official access paths (API, CLI, local) and non-assumption of consumer subscription equivalence. |
+| **Section 27** | Privacy Routing | **VALID** | Privacy routing (`local_only=true`) defined as a strict fail-closed constraint. |
+| **Section 28** | MAVE Identity vs Provider Personality | **VALID** | Prompt layering: MAVE Identity + Conversation Mode + Task Context + Provider Adapter. |
+| **Section 29** | Relationship to M3 Voice | **STALE** | Updated: M3 Voice loop is now COMPLETE. Fast Brain TTFT is the real-world voice bottleneck. |
+| **Section 30** | Relationship to M4 Ambient Surface | **STALE** | Updated: M4 Ambient Surface is now COMPLETE. Provider activity states mapped to Surface presentation. |
+| **Section 31** | Architecture Freeze After M2 | **VALID** | Core primitives (`BrainProvider`, `BrainRouter`, `BrainProfilePolicy`, etc.) confirmed as the bedrock. |
+| **Section 32** | Current State | **STALE** | Corrected: M0–M4 complete; Pre-M5 F1/F2 sequence active; M5 is next after provider foundation. |
+| **Section 33** | Key Decisions Locked | **VALID** | Existing 15 decisions preserved; 10 new canonical decisions locked. |
+| **Section 34–35** | Product Vision & Statement | **VALID** | Final architectural statement reaffirmed. |
 
 ---
 
-## 3.2 Agent Runtime
-
-An **Agent Runtime** is an AI execution environment around one or more underlying models.
-
-Concept:
+# 2. Core Architectural Principles & Invariants
 
 ```text
-MAVE
- ↓
-Agent Provider
- ↓
-Agent Runtime / Harness
- ↓
-Model
-+
-Planning
-+
-Workspace
-+
-Tools
-+
-Files
-+
-Browser
-+
-Terminal
-+
-MCP
-+
-Execution
+       ┌─────────────────────────────────────────────────────────────┐
+       │                            USER                             │
+       └──────────────────────────────┬──────────────────────────────┘
+                                      │ interacts with
+                                      ▼
+       ┌─────────────────────────────────────────────────────────────┐
+       │                            MAVE                             │
+       │       Unified Identity, Persona, Memory, and Voice          │
+       └──────────────────────────────┬──────────────────────────────┘
+                                      │ orchestrates
+                                      ▼
+       ┌─────────────────────────────────────────────────────────────┐
+       │             INTELLIGENCE ORCHESTRATION LAYER                │
+       │    Truth Policy ──► Profile Policy ──► Router ──► Model     │
+       └───────┬──────────────────────┼──────────────────────┬───────┘
+               │                      │                      │
+               ▼                      ▼                      ▼
+       ┌───────────────┐      ┌───────────────┐      ┌───────────────┐
+       │ MODEL PROVIDER│      │ AGENT RUNTIME │      │KNOWLEDGE/TRUTH│
+       │ Direct Models │      │ Harness/Tools │      │  Data Sources │
+       └───────────────┘      └───────────────┘      └───────────────┘
 ```
 
-Typical uses:
-
-- coding
-- project analysis
-- repository work
-- multi-step workflows
-- research workflows
-- tool-heavy work
-- file changes
-- debugging
-- long-running tasks
-
-Current first real example:
-
-```text
-MAVE
- ↓
-AntigravityBrainProvider
- ↓
-agy CLI
- ↓
-Antigravity Agent Runtime
- ↓
-Underlying AI model
-```
-
-Antigravity is therefore **not the same thing as a Gemini model**.
-
-It is an agent environment that can use an underlying model while also carrying agent instructions, tools, environment context, permissions, and orchestration.
+1. **MAVE is NOT a vendor brand:** MAVE is neither OpenAI, Anthropic, Google, Gemini, Claude, nor Antigravity. MAVE is the personal intelligence operating layer that coordinates models, agents, tools, knowledge, memory, and desktop presentation.
+2. **User interacts with MAVE:** The user addresses MAVE. MAVE decides what kind of intelligence is required, whether fresh facts are needed, which provider and concrete model to call, and how to present the response.
+3. **Repository code is the source of truth:** Canonical types reside in `packages/contracts/src/brain.ts`, core logic in `packages/core/src/brain/`, and concrete adapters in `packages/providers/src/brain/`. Class and interface names in documentation must match the implementation.
+4. **No marketing model names hard-coded in Core:** Vendor identifiers (`gemini-2.5-flash`, `claude-3-7-sonnet`, `gpt-4o-mini`, etc.) belong strictly in provider adapters, configuration, and model catalogs. `@mave/core` routes using profiles, capabilities, and policies.
+5. **Decoupled Thinking vs Facts:** The question "Who should THINK?" is strictly decoupled from "Where do FACTS come from?". The model is a reasoning engine, not an infallible database.
+6. **Provider health and model availability are distinct:** A provider adapter may be healthy while one of its underlying models is quota-limited or deprecated.
+7. **Task intent preservation during fallback:** Conversational requests must never fall back to heavyweight agent harnesses unless explicitly authorized.
 
 ---
 
-# 4. Why Antigravity Is Heavy
+# 3. Provider Taxonomy
 
-A direct model request may conceptually contain:
-
-```text
-system instruction
-+
-conversation history
-+
-user request
-```
-
-An agent runtime may contain:
+MAVE defines three first-class, non-interchangeable intelligence categories. They have distinct lifecycles, execution models, token overheads, and permission constraints:
 
 ```text
-agent system instructions
-+
-planning rules
-+
-tool definitions
-+
-tool schemas
-+
-workspace information
-+
-permissions
-+
-sandbox context
-+
-browser/file/terminal/MCP tool descriptions
-+
-conversation history
-+
-user request
+                           Provider Categories
+                                    │
+         ┌──────────────────────────┼──────────────────────────┐
+         │                          │                          │
+         ▼                          ▼                          ▼
+   ModelProvider          AgentRuntimeProvider         KnowledgeProvider
+ (Direct Model Path)     (Execution Environment)     (Authoritative Truth)
+  - Streaming generation   - Multi-step execution      - Real-time web search
+  - Low latency            - Planning & workspace      - Project repository
+  - Lightweight prompt     - Tool invocation (M5)      - Structured database
+  - Normalized deltas      - CLI / Agent harness       - Personal memory store
 ```
 
-This explains why a very small user request can still produce large prompt-token usage when routed through an agent harness.
+### 3.1 ModelProvider (Direct Model Path)
+A `ModelProvider` exposes a direct text/multimodal inference interface to one or more foundation models.
+- **Key Responsibilities:**
+  - Expose a normalized `ModelCatalog` containing supported models and their capability descriptors.
+  - Deliver low-overhead, progressive token/delta streaming via `AsyncIterable<BrainEvent>`.
+  - Provide prompt-level cancellation via `AbortSignal`.
+  - Report provider-level and model-level health, rate limits, and quota status.
+  - Normalize provider-specific requests and responses into canonical MAVE contracts.
+  - Supply telemetry: Time-to-First-Token (TTFT), total latency, and token usage.
+- **What it does NOT own:**
+  - Does NOT own MAVE persona or prompt rules (owned by `@mave/prompts`).
+  - Does NOT own session history or multi-turn turns (owned by `@mave/core` `SessionManager`).
+  - Does NOT own tool execution permissions (owned by M5 Security Boundary).
+  - Does NOT own Surface presentation states (owned by `@mave/core` `SurfaceStateController`).
 
-MAVE's live Antigravity verification showed approximately:
+### 3.2 AgentRuntimeProvider (Execution Environment)
+An `AgentRuntimeProvider` wraps an autonomous AI agent harness or CLI execution environment.
+- **Key Responsibilities:**
+  - Coordinate long-running, multi-step engineering or computer-use tasks.
+  - Manage isolated workspace directories and execution environments.
+  - Parse structured agent events (step updates, reasoning, plan revisions).
+  - Select and utilize provider-supported underlying models.
+- **Distinction from Model Provider:**
+  - Agent runtimes inject heavy harness prompts, tool schemas, workspace manifests, and planning loops (e.g. Antigravity injects 12k+ tokens on a minimal prompt).
+  - Antigravity is an Agent Runtime, **not** a direct Gemini model.
+- **Permission Constraint:**
+  - Tool execution remains strictly blocked until Milestone 5. An agent runtime may *request* an action, but MAVE's Tool Registry and Permission Policy must arbitrate execution.
 
-```text
-TTFT:            ~9–10 seconds
-Total latency:   ~10 seconds
-Prompt overhead: ~12k+ tokens on a minimal request
-```
-
-Therefore:
-
-> **Antigravity is valuable as an Agent Brain candidate, but it is not the ideal Fast Brain for natural voice turn-taking.**
+### 3.3 KnowledgeProvider / TruthProvider (Authoritative Truth Sources)
+A `KnowledgeProvider` retrieves verified, factual context from authoritative sources before reasoning begins.
+- **Key Responsibilities:**
+  - Fetch real-time external data (web search, weather, financial data, news).
+  - Query local personal context (MAVE Memory, SQLite stores, project documents, files).
+  - Return structured, citation-grounded context blocks to be injected into the prompt context bundle.
+- **What it does NOT do:**
+  - Does NOT generate conversational prose or synthesize final user answers (that is delegated to the selected Model Brain).
 
 ---
 
-# 5. Provider Families and Multiple Models
+# 4. Multiple Models per Provider & Model Catalog Architecture
 
-MAVE should support multiple models under the same provider family.
-
-The architecture should not treat:
+One provider family (Google, Anthropic, OpenAI, Local) exposes multiple concrete models with divergent latency, cost, and capability profiles. MAVE must never model a vendor as a single monolithic entity.
 
 ```text
-Gemini
-Claude
-GPT
+Provider Family (e.g., GoogleProvider)
+       │
+       ▼
+Model Catalog (Normalized Registry of ModelDescriptors)
+ ├── fast_interactive    (e.g., lightweight flash tier)
+ ├── balanced_general    (e.g., standard multimodal tier)
+ └── deep_reasoning      (e.g., extended thinking tier)
+       │
+       ▼
+Model Policy Resolution
+       │
+       ▼
+Concrete Vendor Model ID (Adapter-internal)
 ```
 
-as single fixed models.
+### 4.1 Canonical ModelDescriptor Architecture
 
-Instead:
+Every model exposed by a provider adapter is described by a canonical, typed descriptor:
 
-```text
-Provider Family
-   ↓
-Available Models
-   ↓
-Model Selection Policy
+```ts
+export interface ModelDescriptor {
+  /** Unique normalized model ID (e.g., 'gemini-flash-conversation', 'claude-sonnet-reasoning') */
+  readonly id: string;
+  /** Owning provider identifier matching BrainProvider.id */
+  readonly providerId: string;
+  /** Human-readable display name for developer diagnostics */
+  readonly displayName: string;
+  /** Operational availability status */
+  readonly status: 'available' | 'quota_limited' | 'rate_limited' | 'deprecated' | 'unavailable';
+  
+  /** Qualitative latency classification */
+  readonly latencyClass: 'interactive' | 'balanced' | 'heavy';
+  /** Qualitative intelligence / quality classification */
+  readonly qualityClass: 'fast' | 'balanced' | 'reasoning';
+  /** Cost tier classification */
+  readonly costClass: 'free' | 'low' | 'medium' | 'high';
+  /** Context window capacity class */
+  readonly contextClass: 'standard' | 'large' | 'massive';
+
+  /** Feature capabilities */
+  readonly supportsStreaming: boolean;
+  readonly supportsVision: boolean;
+  readonly supportsToolUse: boolean;
+  readonly supportsStructuredOutput: boolean;
+  readonly supportsReasoning: boolean;
+  readonly supportsLongContext: boolean;
+  readonly supportsThai: boolean;
+  readonly supportsEnglish: boolean;
+  readonly supportsCancellation: boolean;
+
+  /** Privacy & data protection class */
+  readonly privacyClass: 'public_cloud' | 'private_cloud' | 'local_airgapped';
+}
 ```
 
-Example conceptual architecture:
-
-```text
-GeminiProvider
-├── interactive / fast model
-├── balanced model
-└── deep reasoning model
-
-ClaudeProvider
-├── interactive model
-├── balanced model
-└── deep reasoning model
-
-OpenAIProvider
-├── interactive model
-├── balanced model
-└── deep reasoning model
-```
-
-MAVE may later route not only to a provider, but to a provider **and a model profile**.
+### 4.2 Dynamic Catalog Management
+- Provider adapters expose their supported catalog via `getCatalog(): Promise<ModelDescriptor[]>`.
+- Adding, updating, or deprecating a vendor model requires changes only inside `@mave/providers` (or user configuration), requiring **zero modifications to `@mave/core` routing logic**.
 
 ---
 
-# 6. Agent Providers Can Also Use Different Models
+# 5. Canonical Brain Profiles
 
-An Agent Runtime may itself support multiple underlying models.
-
-Example:
+Brain Profiles describe **what kind of intelligence the task requires**, completely decoupled from vendor identity. MAVE maintains 5 canonical profiles established in Milestone 2:
 
 ```text
-MAVE
- ↓
-Antigravity
- ↓
-selected underlying model
+                               Brain Profiles
+                                     │
+      ┌──────────────┬───────────────┼───────────────┬──────────────┐
+      │              │               │               │              │
+      ▼              ▼               ▼               ▼              ▼
+fast_conversation deep_reasoning agent_work      research     local_offline
+ (Interactive)     (Analytical)   (Execution)   (Grounded)      (Private)
 ```
 
-This is different from a direct model path:
+### 5.1 `fast_conversation`
+- **Primary Use Cases:** Spoken voice turn-taking (Milestone 3), English practice and language tutoring, everyday chit-chat, quick Q&A, and live translation.
+- **Priorities:** Ultra-low TTFT, continuous streaming, lightweight input token footprint, bilingual fluency (Thai + English), prompt-level cancellation.
+- **Latency UX Targets:**
+  - $\text{TTFT} \le 1.0\text{--}3.0\text{ seconds}$
+  - Ordinary full response $\le 4.0\text{--}6.0\text{ seconds}$
+- **Current Production Status:** **NOT SELECTED / NOT PRODUCTION READY**. (Antigravity is unsuitable due to ~9–10s latency; Mock provider is used for deterministic verification).
 
-```text
-MAVE
- ↓
-GeminiProvider
- ↓
-Gemini model
-```
+### 5.2 `deep_reasoning`
+- **Primary Use Cases:** Architectural analysis, code structure review, complex trade-off decisions, deep planning, and multi-factor reasoning.
+- **Priorities:** Quality of reasoning and structural correctness over speed.
+- **Route Preference:** Direct high-tier ModelProvider (e.g. reasoning model) rather than an agent harness, unless the task explicitly requires workspace file modifications.
 
-The first path carries agent-runtime overhead and agent capabilities.
+### 5.3 `agent_work`
+- **Primary Use Cases:** Multi-step repository work, debugging cycles, code generation, file system manipulation, automated test execution, and future desktop actions.
+- **Priorities:** Multi-step planning, tool schemas, workspace awareness, error recovery.
+- **Current Candidate:** `AntigravityBrainProvider` (`agy` CLI).
+- **Security Invariant:** Operating in conversation-only mode; tool execution blocked until Milestone 5.
 
-The second path is intended to be a lighter model-response path.
+### 5.4 `research`
+- **Primary Use Cases:** Current news, verified technical documentation, time-sensitive facts, multi-source fact checking.
+- **Architecture:** Two-stage retrieval-synthesis pipeline. Research does not mean "ask a model's internal memory."
 
-MAVE must preserve this distinction.
+### 5.5 `local_offline`
+- **Primary Use Cases:** Air-gapped privacy queries, offline operation, zero-network environments, sensitive personal notes.
+- **Security Invariant:** Hard fail-closed constraint. If `local_offline` is requested, cloud providers are forbidden from fallback.
 
 ---
 
-# 7. Brain Profiles
+# 6. Request Classification & Routing Pipeline
 
-Brain Profiles describe **what kind of intelligence the task needs**, not which vendor to call.
-
-Canonical M2 profiles:
+Every incoming user request undergoes a disciplined, multi-stage pipeline:
 
 ```text
-fast_conversation
-deep_reasoning
-agent_work
-research
-local_offline
-```
-
-## 7.1 fast_conversation
-
-Use for:
-
-- everyday conversation
-- English practice
-- translation
-- quick explanations
-- voice assistant turn-taking
-- short Q&A
-
-Priorities:
-
-- low time-to-first-token
-- low overhead
-- streaming
-- bilingual quality
-- reliable cancellation
-- conversational continuity
-
-Target:
-
-```text
-TTFT ideally <= 1–3 seconds
-Total response preferably <= 4–6 seconds for ordinary turns
-```
-
-Current production-quality provider:
-
-> **Not selected yet**
-
----
-
-## 7.2 deep_reasoning
-
-Use for:
-
-- difficult architecture decisions
-- complex analysis
-- long reasoning
-- planning
-- high-quality decision support
-
-Priority:
-
-```text
-reasoning quality > latency
-```
-
-This can eventually map to a stronger direct model.
-
----
-
-## 7.3 agent_work
-
-Use for:
-
-- repository analysis
-- coding work
-- file modifications
-- debugging
-- multi-step project work
-- future computer/tool workflows
-
-Current candidate:
-
-```text
-Antigravity
-```
-
-Important:
-
-M2 currently keeps Antigravity **conversation-only** and blocks tools.
-
-Full agent actions require M5 Tool + Permission architecture.
-
----
-
-## 7.4 research
-
-Use for:
-
-- current information
-- source-backed answers
-- news
-- verification
-- multi-source synthesis
-
-Research should not mean "ask a model from memory."
-
-Correct pattern:
-
-```text
-Search / authoritative source retrieval
- ↓
-Verified context
- ↓
-Model Brain
- ↓
-Source-grounded answer
+                           User Request
+                                │
+                                ▼
+                   Stage 1: Intent Understanding
+                  (Spoken text, Chat, or Action)
+                                │
+                                ▼
+                 Stage 2: Truth Requirement Check
+                ├── Requires authoritative data? ──► Knowledge Provider (Web, DB, Files)
+                └── General reasoning?           ──► Pass through verified context
+                                │
+                                ▼
+                 Stage 3: Brain Profile Selection
+                     (BrainProfilePolicy)
+                Translates intent to BrainProfileId:
+                e.g., 'fast_conversation', 'deep_reasoning'
+                                │
+                                ▼
+                 Stage 4: Provider Selection
+                        (BrainRouter)
+                Matches Profile & Capabilities against
+                healthy, registered BrainProviders
+                                │
+                                ▼
+                 Stage 5: Model Selection
+                         (ModelPolicy)
+                Selects concrete ModelDescriptor within
+                the chosen provider
+                                │
+                                ▼
+                 Stage 6: Execution & Streaming
+                Emits normalized BrainEvent stream
+                                │
+                                ▼
+                 Stage 7: Presentation Dispatch
+                Voice (TTS) / Ambient Surface (Capsule / Card / Panel)
 ```
 
 ---
 
-## 7.5 local_offline
+# 7. Policy Separation: BrainProfilePolicy vs BrainRouter vs ModelPolicy
 
-Use for:
+To prevent overlapping responsibilities and source-of-truth conflicts, MAVE strictly separates the three intelligence selection concerns:
 
-- offline operation
-- private tasks
-- low-cost simple tasks
-- fallback behavior
+| Component | Question Answered | Inputs | Output |
+|---|---|---|---|
+| **`BrainProfilePolicy`** | *What kind of intelligence does this task need?* | `BrainProfileId`, caller overrides | `BrainProfileResolution` (required capabilities, latency class, candidate preferences, fallback chain) |
+| **`BrainRouter`** | *Which registered provider can fulfill these requirements?* | `BrainProfileResolution`, `BrainProviderRegistry`, provider health | `BrainRouteDecision` (selected `BrainProvider`, fallback flag, route reason) |
+| **`ModelPolicy`** | *Which concrete model inside that provider should execute?* | Selected provider, profile, model catalog, user cost/latency preference | Concrete `ModelDescriptor` / model ID |
 
-No production implementation is assumed yet.
-
----
-
-# 8. Information Source Is Separate from the Brain
-
-A major MAVE principle:
-
-> **The AI model is not the database of truth.**
-
-MAVE should distinguish:
-
-```text
-"Who should THINK?"
-```
-
-from:
-
-```text
-"Where should the FACTS come from?"
-```
-
-Possible truth/context sources:
-
-```text
-Model internal knowledge
-Web / Search
-Authoritative APIs
-Calculator
-Current time/weather/data tools
-MAVE Memory
-Project Memory
-Files
-Documents
-Database
-Calendar
-Email
-Screen context
-Task results
-```
-
-The model then reasons over the appropriate context.
+### 7.1 Architecture of `IntelligenceOrchestrator`
+MAVE avoids creating a monolithic "god class" named `IntelligenceOrchestrator`. Instead, orchestration is an **architectural pattern** composed of deterministic, single-responsibility primitives:
+- `TruthRequirementPolicy`: Determines if knowledge retrieval is needed.
+- `BrainProfilePolicy`: Resolves capability requirements.
+- `BrainRouter`: Resolves provider adapter.
+- `ModelPolicy`: Resolves concrete model within adapter.
+- `ConversationRuntime`: Manages multi-turn turns, session context assembly, timeout enforcement, streaming, and cancellation.
 
 ---
 
-# 9. Correctness Policy
+# 8. Provider & Model Health Model
 
-MAVE cannot guarantee that an LLM is always correct.
-
-Instead, MAVE should apply a **Truth Requirement Policy**.
-
-## 9.1 Stable General Knowledge
-
-Examples:
+Provider health and model availability are decoupled to reflect real-world AI API conditions.
 
 ```text
-"What does awkward mean?"
-"Explain a JavaScript array."
-"How do I say this in English?"
+Provider Health Status:
+  ├── 'healthy'        : Operational and responding to health pings
+  ├── 'degraded'       : Elevated latency, secondary fallback active
+  ├── 'unconfigured'   : Missing credentials, binaries, or prerequisites
+  ├── 'quota_limited'  : Account-level quota exhausted
+  ├── 'rate_limited'   : Temporary HTTP 429 / concurrency throttle
+  ├── 'auth_error'     : Invalid API key or expired token
+  └── 'unavailable'    : Service down or network unreachable
+
+Model Availability Status:
+  ├── 'available'      : Ready for inference
+  ├── 'quota_limited'  : Specific model quota depleted
+  ├── 'rate_limited'   : Model-specific rate limit active
+  ├── 'deprecated'     : Vendor announced deprecation; replacement mapped
+  └── 'unavailable'    : Model temporarily disabled by provider
 ```
 
-Possible route:
-
-```text
-Fast Model
-→ answer directly
-```
+### 8.1 Health Monitoring Principles
+- Health checks must be lightweight (e.g. `agy --version`, HTTP endpoint ping) and **must never consume AI generation quota**.
+- Router degradation logic:
+  1. Healthy primary candidate wins immediately.
+  2. Degraded primary is bypassed if a healthy fallback candidate exists.
+  3. If all candidates are degraded, the first degraded candidate is used.
+  4. Unconfigured, quota-limited, and unhealthy candidates are strictly skipped.
 
 ---
 
-## 9.2 Current / Time-Sensitive Facts
+# 9. Fallback Architecture & Latency Budgets
 
-Examples:
-
-```text
-"What happened today?"
-"What is the current price?"
-"What is the latest version?"
-"What time is it in London?"
-```
-
-Correct route:
+Fallback must preserve the user's intent. Uncontrolled fallback creates jarring UX degradation.
 
 ```text
-Current Data Source
-→ verified context
-→ Model Brain
-→ answer + source where useful
+                  fast_conversation Request
+                             │
+                             ▼
+                 Primary Fast Model Provider
+                             │
+                  Fails / Quota / Timeout?
+                             │
+              ┌──────────────┴──────────────┐
+              ▼                             ▼
+   Alternate Fast Provider       Silent Fallback to 10s Agent?
+   (Maintains low-latency Voice)   (FORBIDDEN BY POLICY)
+              │
+    All Fast Providers Down?
+              │
+              ▼
+   Graceful Notification
+   "Fast voice brain is currently unavailable."
 ```
 
-The model should not guess from training memory.
+### 9.1 Invariant: No Silent Profile Downgrades
+- A 1-second conversational query must **never silently fall back to a 10-second agent harness** like Antigravity.
+- If all providers matching the requested `fast_conversation` profile are unavailable, MAVE reports an explicit, normalized error (`FAST_BRAIN_UNAVAILABLE`) rather than freezing the voice loop.
+
+### 9.2 Fallback Chains & Latency Budget
+- **Maximum Attempt Budget:** At most 2 provider attempts per conversational turn.
+- **Voice Mode Fallback Latency Budget:** Cumulative fallback routing must not exceed $4.0\text{ seconds}$.
+- **Fallback Chain Resolution:**
+  $$\text{Provider A (Model 1)} \longrightarrow \text{Provider A (Model 2)} \longrightarrow \text{Provider B (Model 1)} \longrightarrow \text{Graceful Error}$$
 
 ---
 
-## 9.3 User-Specific Facts
+# 10. Timeout, Cancellation & Streaming Contracts
 
-Examples:
+### 10.1 Timeout Model
+Different profiles operate under distinct timeout expectations enforced by `ConversationRuntime`:
+- `fast_conversation`: $10\text{ seconds}$ default timeout.
+- `deep_reasoning`: $45\text{--}60\text{ seconds}$ timeout.
+- `agent_work`: Task-level heartbeat and progress monitoring rather than a rigid HTTP timeout.
+- `research`: $15\text{ seconds}$ retrieval budget + $30\text{ seconds}$ synthesis budget.
 
-```text
-"What milestone is MAVE on?"
-"What did we decide yesterday?"
-"What project was I working on?"
-```
+### 10.2 Cancellation Contract
+- Cancellation is universal across all providers via `AbortSignal` and optional `BrainProvider.cancel(requestId)`.
+- When user speech is detected during assistant playback (barge-in), `VoiceSessionCoordinator` triggers barge-in, aborting the active generation immediately and truncating downstream TTS chunking.
 
-Correct route:
+### 10.3 Streaming Normalization
+The core runtime accepts only canonical `BrainEvent` sequences:
+- `started`: Generation commenced with provider and timestamp metadata.
+- `delta`: Incremental text chunk emitted for progressive display and TTS chunking.
+- `completed`: Full text assembled, token usage metadata, and finish reason.
+- `cancelled`: Clean cancellation acknowledgement.
+- `error`: Normalized `BrainError` with code and retryable flag.
 
-```text
-MAVE Memory / Project Store
-→ relevant context
-→ Model Brain
-```
-
----
-
-## 9.4 File / Project Facts
-
-Examples:
-
-```text
-"Why is this test failing?"
-"What does this file contain?"
-```
-
-Correct route:
-
-```text
-Actual file/repository data
-→ Brain / Agent
-```
-
-Never rely only on remembered model knowledge when the real source is available.
+Provider adapters normalize vendor-specific streaming protocols (SSE, NDJSON, WebSockets) into this canonical contract.
 
 ---
 
-# 10. Intelligence Routing Pipeline
+# 11. Telemetry, Usage Metrics & Developer Diagnostics
 
-Long-term target:
+Production surfaces (Capsule, Quick Info card) remain MAVE-branded and uncluttered. Rich provider telemetry is routed exclusively to Developer Diagnostics:
 
-```text
-User Request
-     ↓
-Intent / Request Understanding
-     ↓
-Truth Requirement Check
-     │
-     ├── Needs fresh/source-backed information?
-     │       ↓
-     │   Knowledge Retrieval
-     │
-     └── No external truth needed
-             ↓
-       Brain Profile Selection
-             ↓
-      ┌──────┼────────┐
-      ▼      ▼        ▼
-     Fast   Deep     Agent
-      │      │        │
-      ▼      ▼        ▼
-   Model   Model   Agent Runtime
-      │      │        │
-      └──────┴────────┘
-             ↓
-        MAVE Response
-             ↓
-      Voice / Surface / Task
+```ts
+export interface BrainUsageTelemetry {
+  readonly requestId: string;
+  readonly sessionId: string;
+  readonly providerId: string;
+  readonly modelId: string;
+  readonly profileId: BrainProfileId;
+  readonly timeToFirstTokenMs: number;
+  readonly totalLatencyMs: number;
+  readonly promptTokens?: number;
+  readonly completionTokens?: number;
+  readonly totalTokens?: number;
+  readonly estimatedCostUsd?: number;
+  readonly fallbackUsed: boolean;
+  readonly attemptedProviderIds: string[];
+  readonly finishReason?: string;
+}
 ```
 
 ---
 
-# 11. Provider Selection Pipeline
+# 12. User Overrides & Precedence Hierarchy
 
-Profile selection and provider selection are different.
+While MAVE routes automatically by default, power users and developers may set explicit overrides in settings or developer chat:
 
 ```text
-Request
- ↓
-Brain Profile
- ↓
-Required Capabilities
- ↓
-BrainRouter
- ↓
-Provider
- ↓
-Model / Agent configuration
+                          PREVALENCE HIERARCHY
+                          
+     1. Privacy Policy (Strict Fail-Closed Constraint)
+        └── If local_only=true, cloud providers are FORBIDDEN.
+        
+     2. Security & Capability Requirements
+        └── Cannot route to a provider missing required capabilities.
+        
+     3. Explicit Caller Override (User Setting / Developer Chat)
+        └── Preferred Provider ID / Specific Model ID.
+        
+     4. Profile Policy Mapping
+        └── Configured profile-to-provider mappings.
+        
+     5. Automatic Default Routing
+        └── Health-checked primary candidate with fallback.
 ```
 
-Example:
+If a user explicitly requests an unavailable model or provider, MAVE **does not silently substitute an unrelated provider**. It reports the issue and requests guidance or provides a clear override error.
+
+---
+
+# 13. MAVE Identity, Prompt Architecture & Session Continuity
+
+Switching AI providers between turns must not disrupt the assistant's persona or memory.
 
 ```text
-"What does reliable mean?"
-
-profile:
-fast_conversation
-
-required:
-streaming
-fastChat
-
-router:
-select currently available Fast Brain
+               Prompt Assembly (ContextManager & @mave/prompts)
+ ┌────────────────────────────────────────────────────────────────────────┐
+ │ 1. MAVE Master Identity (Name, demeanor, voice, boundaries)            │
+ ├────────────────────────────────────────────────────────────────────────┤
+ │ 2. Interaction Mode Rules (Voice briefness, Tutor mode, Markdown safe) │
+ ├────────────────────────────────────────────────────────────────────────┤
+ │ 3. Context Bundle (Authoritative truth, Memory, Project metadata)      │
+ ├────────────────────────────────────────────────────────────────────────┤
+ │ 4. Multi-turn Session History (Canonical turns from SessionManager)    │
+ ├────────────────────────────────────────────────────────────────────────┤
+ │ 5. Provider-Specific Adapter Framing (System/User/Assistant packing)   │
+ └────────────────────────────────────────────────────────────────────────┘
 ```
 
-Another:
+- **Canonical Session Ownership:** `SessionManager` and `SQLiteConversationStore` are the single source of truth for conversation turns. Provider-native conversation IDs are transient adapter details.
+- **Turn-by-Turn Provider Switching:** Turn 1 may execute on Fast Brain A, and Turn 2 on Deep Brain B. Both turns persist into the identical MAVE session.
+
+---
+
+# 14. Voice & Ambient Surface Integration (Milestones 3 & 4 Alignment)
+
+### 14.1 Milestone 3 Spoken Voice Loop
+The Voice Subsystem is fully implemented and operational:
+$$\text{Wake Detection} \longrightarrow \text{Audio Capture} \longrightarrow \text{faster-whisper STT} \longrightarrow \text{ConversationRuntime} \longrightarrow \text{StreamingTextChunker} \longrightarrow \text{EdgeTTS} \longrightarrow \text{Audio Output}$$
+
+- **Current Voice Bottleneck:** Antigravity CLI introduces ~9–10 seconds TTFT, making natural spoken conversation sluggish.
+- **The F1 Objective:** Deliver a direct `ModelProvider` capable of $\text{TTFT} \le 1.0\text{--}3.0\text{s}$ to enable seamless voice turn-taking.
+
+### 14.2 Milestone 4 Ambient Adaptive Surface
+The Ambient Surface dynamically reflects MAVE's activity:
+- `sleeping` / `listening` / `thinking` / `speaking`: Expressed via `PresenceMark` RMS audio reactivity.
+- `Quick Info card`: Renders short conversational responses ($360\times 180\text{ DIP}$).
+- `Expanded Context panel`: Renders structured markdown, code blocks, and source citations ($440\times 580\text{ DIP}$).
+- Provider marketing brands are **strictly omitted** from the ambient UI, appearing only in Developer Diagnostics.
+
+---
+
+# 15. Milestone 5 Tools, Permissions & Security Boundary
+
+Milestone 5 will introduce the Execution Engine. The intelligence layer respects this strict boundary:
 
 ```text
-"Analyze this repository and fix the test failures."
+                   AI Model / Agent Runtime
+                             │
+                             ▼
+                    Requests Tool Action
+             (e.g., readFile, gitCommit, terminal)
+                             │
+                             ▼
+                  MAVE Tool Registry (M5)
+                             │
+                             ▼
+                   Risk Classification
+                             │
+                             ▼
+                   Permission Policy (M5)
+                   ├── Read-only / Low-risk ──► Auto-approve (if configured)
+                   └── Mutation / High-risk ──► Surface Approval Modal
+                             │
+                             ▼
+                    Execution Sandbox (M5)
+                             │
+                             ▼
+                      Verified Result
+                             │
+                             ▼
+                    Returned to Brain
+```
 
-profile:
-agent_work
+- In Pre-M5 (F1/F2), all tool execution attempts by providers are intercepted and terminated.
+- Intelligence providers **never receive raw OS execution authority**.
 
-router:
-Antigravity / future agent provider
+---
+
+# 16. Antigravity Safety Position & Current Role
+
+- **Status in Pre-M5:**
+  - Conversational streaming response: **WORKING**
+  - Prompt cancellation: **WORKING**
+  - Multi-turn context preservation: **WORKING**
+  - Zero-credential subscription re-use via `agy` CLI: **WORKING**
+  - Tool execution: **STRICTLY BLOCKED**
+- **Canonical Role:** Antigravity is classified as an **`AgentRuntimeProvider`** candidate for `agent_work`. It is formally retired from consideration as the default `fast_conversation` brain due to architectural harness overhead (~12k tokens, ~9–10s TTFT).
+
+---
+
+# 17. Provider & Model Selection Criteria
+
+### 17.1 Fast Brain Criteria (Selection Deferred to F1.5 / F2)
+1. Official API or supported CLI integration (no scrapers or reverse-engineered tokens).
+2. Ultra-low latency: TTFT target $\le 1.0\text{--}3.0\text{ seconds}$.
+3. Progressive text streaming with early sentence boundary emission.
+4. Clean cancellation under barge-in interruptions.
+5. High Thai and English conversational fluency and natural language tutoring capability.
+6. Predictable quota and rate-limiting behavior.
+7. Text-only lightweight mode with minimal system prompt overhead.
+8. Zero vendor lock-in in `@mave/core`.
+
+### 17.2 Deep Brain Criteria (Selection Deferred to F1.6 / F2)
+1. Superior complex reasoning, coding logic, and structural analysis.
+2. Extended context window support.
+3. Stable structured JSON / schema output.
+4. Reliable prompt cancellation.
+5. Official direct API access.
+
+### 17.3 Local Model Criteria
+1. Air-gapped execution with zero network transmission.
+2. Hardware awareness (CPU/GPU memory bounds).
+3. Graceful degradation on resource constraints.
+
+> [!IMPORTANT]
+> **No Model Winner Declared in F1.0**: F1.0 establishes the architecture only. No specific vendor (OpenAI, Anthropic, Google, local model) is declared as the winner without rigorous benchmark evidence in later phases.
+
+---
+
+# 18. Provider Evaluation Matrix & Benchmark Methodology
+
+In subsequent phases (F1.5, F1.6, F2), prospective providers will be evaluated using a structured comparison matrix:
+
+| Evaluation Metric | Description | Target / Measurement Unit |
+|---|---|---|
+| **TTFT** | Time from request dispatch to first emitted token | Milliseconds (Target: $\le 1500\text{ms}$) |
+| **Total Latency** | Full response completion for 100-word turn | Seconds (Target: $\le 4.0\text{s}$) |
+| **Thai Conversational Naturalness** | Colloquial fluency, particle usage, tone | Qualitative score (1–5) |
+| **English Tutoring Quality** | Grammar correction, vocabulary explanation | Qualitative score (1–5) |
+| **Streaming Chunk Cadence** | Smoothness and size of streamed text deltas | Average delta character length |
+| **Barge-in Cancellation Speed** | Time from abort signal to process termination | Milliseconds (Target: $\le 200\text{ms}$) |
+| **Context Overhead** | Provider-injected tokens before user message | Token count (Target: $\le 500$ tokens) |
+| **Cost / Quota Predictability** | Stability under sustained conversational turns | Rate-limit error frequency |
+
+### 18.1 Benchmark Test Battery
+Evaluation requires repeatable automated benchmarks across standard test batteries:
+1. `thai_greeting`: Short colloquial Thai greeting ("สวัสดี MAVE วันนี้เหนื่อยจัง").
+2. `english_grammar_tutoring`: Language correction ("He go to school yesterday, is it correct?").
+3. `quick_translation`: Idiomatic translation ("I feel under the weather แปลว่าอะไร").
+4. `short_explanation`: Concise technical concept ("อธิบาย async/await สั้นๆ").
+5. `deep_architecture_reasoning`: Complex system design comparison.
+6. `cancellation_responsiveness`: Barge-in trigger after 3 chunks streamed.
+
+---
+
+# 19. Concrete Routing Scenarios
+
+```text
+Scenario A: Spoken Everyday Greeting
+  User: "สวัสดี MAVE"
+  Intent: Casual greeting / Voice turn
+  Truth Check: None needed
+  Brain Profile: 'fast_conversation'
+  Provider: Direct ModelProvider (Fast tier)
+  Target TTFT: < 2.0s
+  Surface: Compact Quick Info Card / Voice Capsule
+
+Scenario B: Language Practice
+  User: "ช่วยอธิบายความแตกต่างระหว่าง Present Perfect กับ Past Simple หน่อย"
+  Intent: English tutoring
+  Truth Check: Stable linguistic knowledge
+  Brain Profile: 'fast_conversation'
+  Provider: Direct ModelProvider (Fast tier)
+  Surface: Quick Info Card with progressive speech
+
+Scenario C: Complex Architecture Evaluation
+  User: "ช่วยวิเคราะห์ architecture decoupling ระหว่าง BrainRouter และ ModelPolicy อย่างละเอียด"
+  Intent: Deep analytical reasoning
+  Truth Check: Local architecture documentation
+  Brain Profile: 'deep_reasoning'
+  Provider: Direct ModelProvider (Reasoning tier)
+  Surface: Expanded Context Panel with syntax highlighting
+
+Scenario D: Multi-Step Repository Coding
+  User: "เข้า repo นี้แล้วแก้ unit test ที่พังใน packages/core ให้ผ่านทั้งหมด"
+  Intent: Repository modification & testing
+  Truth Check: Repository files & test runner output
+  Brain Profile: 'agent_work'
+  Provider: AntigravityBrainProvider (Agent Runtime)
+  M5 Boundary: Tool execution requests intercepted and presented for approval
+
+Scenario E: Time-Sensitive News / Current Events
+  User: "วันนี้ NVIDIA มีข่าวอะไรสำคัญบ้าง"
+  Intent: Current event query
+  Truth Check: REQUIRED (Current time-sensitive data)
+  Pipeline: KnowledgeProvider (Web search) retrieves articles ──► BrainProfile ('research') ──► Grounded response with citations
+  Surface: Expanded Context Panel with clickable source cards
+
+Scenario F: Air-Gapped Privacy Query
+  User: "บันทึกข้อมูลนี้ลง local เท่านั้น ห้ามส่งออกอินเทอร์เน็ต"
+  Intent: Private personal note
+  Truth Check: Local memory store
+  Brain Profile: 'local_offline'
+  Constraint: local_only=true
+  Provider: LocalModelProvider (Fail-closed: cloud fallback strictly forbidden)
 ```
 
 ---
 
-# 12. Automatic Routing vs Explicit Override
+# 20. Error Taxonomy & Graceful Degradation
 
-MAVE should normally route automatically.
+MAVE standardizes intelligence errors to prevent raw stack traces from reaching the user:
 
-The user should be able to say simply:
-
-```text
-"MAVE, help me with this project."
+```ts
+export type CanonicalIntelligenceErrorCode =
+  | 'FAST_BRAIN_UNAVAILABLE'
+  | 'PROFILE_UNAVAILABLE'
+  | 'MODEL_UNAVAILABLE'
+  | 'PROVIDER_UNCONFIGURED'
+  | 'QUOTA_LIMITED'
+  | 'RATE_LIMITED'
+  | 'AUTH_REQUIRED'
+  | 'LOCAL_PROVIDER_UNAVAILABLE'
+  | 'ROUTING_TIMEOUT'
+  | 'GENERATION_CANCELLED';
 ```
 
-not:
-
-```text
-"MAVE, use model X version Y."
-```
-
-However explicit override must remain possible.
-
-Examples:
-
-```text
-"MAVE, use Agent mode for this."
-"MAVE, use Gemini for this."
-"MAVE, use Claude and think carefully."
-"MAVE, keep this local."
-```
-
-Potential UI modes:
-
-```text
-Auto
-Fast
-Deep
-Agent
-Research
-Local
-Specific Provider
-Specific Model
-```
-
-Explicit override remains subject to capability/security requirements.
+### 20.1 Fail-Closed vs Fail-Open Policies
+- **Privacy Constraints:** **FAIL CLOSED**. If local-only operation is requested and no local provider is available, MAVE aborts the request and alerts the user (`LOCAL_PROVIDER_UNAVAILABLE`). Cloud fallback is never attempted.
+- **Fast Brain Availability:** **FALLBACK WITHIN PROFILE**. If primary fast provider is down, alternate fast provider is tried. If none exist, fail gracefully with voice feedback (`FAST_BRAIN_UNAVAILABLE`).
+- **Explicit Override:** **FAIL CLOSED TO USER CONFIRMATION**. If a user explicitly requested provider X and it is offline, MAVE alerts the user rather than silently switching to provider Y.
 
 ---
 
-# 13. Future Provider Architecture
+# 21. Implementation Roadmap: Pre-M5 F1 Program
 
-Conceptual target:
+The Pre-M5 intelligence foundation is divided into ten disciplined phases:
 
 ```text
-                         MAVE
-                           │
-                   Intelligence Router
-                           │
-         ┌─────────────────┴─────────────────┐
-         │                                   │
-         ▼                                   ▼
-   MODEL PROVIDERS                      AGENT PROVIDERS
-         │                                   │
-  ┌──────┼───────┬───────┐           ┌──────┼─────────┐
-  │      │       │       │           │      │         │
-Gemini Claude  OpenAI   Local    Antigravity Claude*  Other*
-  │      │       │       │
-  ▼      ▼       ▼       ▼
-multiple models per family
+ F1.0 ──► F1.1 ──► F1.2 ──► F1.3 ──► F1.4 ──► F1.5 ──► F1.6 ──► F1.7 ──► F1.8 ──► F1.9 ──► F1.10
+ Audit   Contracts Registry Catalog Routing  Fast    Deep   Agent   Truth   Diag   Closeout
+ (Now)                                       Brain   Brain  Runtime
 ```
 
-`*` Future integrations, only when officially supported and intentionally implemented.
+### Phase F1.0 — Architecture Audit & Modernization (CURRENT)
+- **Goal:** Modernize `MAVE_INTELLIGENCE_PROVIDER_ARCHITECTURE.md` into the canonical post-M4 architecture.
+- **Scope:** Complete architectural documentation, taxonomy, catalog design, routing pipeline, and audit. Zero runtime code changes.
+
+### Phase F1.1 — Provider & Model Contracts
+- **Goal:** Update `@mave/contracts` with `ModelDescriptor`, `ProviderDescriptor`, expanded `BrainCapabilities`, and normalized usage telemetry.
+- **Scope:** TypeScript interfaces, Zod schemas, contract unit tests.
+
+### Phase F1.2 — Provider Registry & Health Hardening
+- **Goal:** Extend `BrainProviderRegistry` to support dynamic registration, provider descriptors, and non-quota health checks.
+- **Scope:** Registry lifecycle, health monitoring, error normalization.
+
+### Phase F1.3 — Model Catalog & Model Policy
+- **Goal:** Implement `ModelCatalog` and deterministic `ModelPolicy` in `@mave/core`.
+- **Scope:** Provider catalog retrieval, model selection rules, deprecation handling.
+
+### Phase F1.4 — Intelligence Routing & Intent-Preserving Fallback
+- **Goal:** Upgrade `BrainRouter` to support two-stage routing (Provider $\to$ Model), fallback budgets, and strict fail-closed privacy constraints.
+- **Scope:** Routing algorithms, fallback limits, unit tests.
+
+### Phase F1.5 — Production Fast Brain Integration
+- **Goal:** Implement the first official direct `ModelProvider` optimized for low-latency conversational voice.
+- **Scope:** Streaming delta adapter, prompt cancellation, TTFT measurement, voice loop integration.
+
+### Phase F1.6 — Production Deep Brain Integration
+- **Goal:** Implement direct high-reasoning `ModelProvider` route for complex analysis.
+- **Scope:** Structured output, long context handling, reasoning telemetry.
+
+### Phase F1.7 — Agent Runtime Normalization
+- **Goal:** Standardize `AntigravityBrainProvider` into canonical `AgentRuntimeProvider` taxonomy while maintaining the M5 tool block.
+- **Scope:** Workspace encapsulation, event normalization, CLI supervisor.
+
+### Phase F1.8 — Research & Truth Routing Foundation
+- **Goal:** Implement `TruthRequirementPolicy` and decoupled knowledge context injection.
+- **Scope:** Retrieval hooks, context bundle decoration, citation format.
+
+### Phase F1.9 — Diagnostics, Quota Telemetry & Reliability
+- **Goal:** Expose provider health, latency, token usage, and quota states via typed IPC to Developer Diagnostics.
+- **Scope:** Telemetry persistence, IPC events, diagnostics UI integration.
+
+### Phase F1.10 — End-to-End Provider Foundation Closeout
+- **Goal:** Finalize verification across voice, ambient surface, text chat, and fallback scenarios.
+- **Scope:** Full test pass baseline, performance benchmarks, and milestone closeout documentation.
 
 ---
 
-# 14. Provider Capability Is Not Vendor Identity
+# 22. F2 Boundary & UI Redesign Boundary
 
-Router logic should ask:
-
-```text
-What capabilities are required?
-```
-
-not:
-
-```text
-Which brand should I use?
-```
-
-Capabilities may include:
-
-```text
-streaming
-fastChat
-reasoning
-coding
-toolUse
-multimodal
-vision
-webResearch
-longContext
-local
-```
-
-This keeps the architecture vendor-independent.
+- **Boundary between F1 and F2:**
+  - **F1 (Intelligence Provider Runtime):** Focuses on the core architecture, contracts, registry, catalog, routing, official provider adapters, cancellation, and streaming reliability.
+  - **F2 (Real Brain Integration / Tuning):** Focuses on live model benchmarking, bilingual conversational tuning (Thai/English), prompt template optimization, and voice latency calibration.
+- **Boundary with UI Redesign:**
+  - Ambient Surface remains clean, compact, and MAVE-branded.
+  - No visual redesign of the Surface occurs in F1.
+  - Provider health, model selection overrides, and telemetry are surfaced exclusively in the **Developer Diagnostics UI** (Electron Main window / Settings).
 
 ---
 
-# 15. Model Selection Inside a Provider
-
-A future ModelProvider may expose model options such as:
-
-```text
-interactive
-balanced
-reasoning
-```
-
-MAVE should eventually support a model-selection layer without hardcoding current marketing model names into Core.
-
-Concept:
-
-```text
-Brain Profile
- ↓
-Provider
- ↓
-Model Policy
- ↓
-Concrete model identifier
-```
-
-Exact model IDs belong in provider configuration/adapters.
-
----
-
-# 16. Agent Model Selection
-
-Agent providers may also expose underlying model configuration.
-
-Example concept:
-
-```text
-Agent Provider:
-Antigravity
-
-Agent profile:
-agent_work
-
-Underlying model:
-provider-supported model chosen by:
-- user setting
-- capability
-- task complexity
-- quota
-```
-
-MAVE should not assume:
-
-```text
-Antigravity = one specific Gemini model
-```
-
----
-
-# 17. Fast Brain Requirements
-
-Before MAVE Voice becomes production-quality, a real Fast Brain should ideally provide:
-
-- official integration
-- no unsupported authentication hacks
-- streaming
-- low latency
-- reliable cancellation
-- MAVE-owned conversation state
-- Thai + English quality
-- good language tutoring
-- predictable quotas
-- no mandatory agent tool overhead
-- safe text-only operation
-- future STT → Brain → TTS compatibility
-
-Performance target:
-
-```text
-TTFT: ideally <= 1–3 seconds
-ordinary total response: preferably <= 4–6 seconds
-```
-
-This is a UX target, not a universal hard guarantee.
-
----
-
-# 18. Agent Brain Requirements
-
-Agent Runtime priorities differ:
-
-- planning quality
-- multi-step execution
-- coding ability
-- workspace understanding
-- tool support
-- recovery
-- task progress
-- long-running reliability
-
-Latency can be higher because the task itself is substantial.
-
-For example:
-
-```text
-"Hello MAVE"
-```
-
-should never require a heavy agent runtime.
-
-But:
-
-```text
-"MAVE, inspect this repo, find the problem, fix it, and rerun the tests."
-```
-
-is appropriate for an agent.
-
----
-
-# 19. M5 Tool/Permission Boundary
-
-Agent providers must never bypass MAVE's permission architecture.
-
-Future flow:
-
-```text
-Agent requests action
-        ↓
-MAVE Tool Registry
-        ↓
-Risk Classification
-        ↓
-Permission Policy
-        ↓
-Allow?
-├── No → Ask user / deny
-└── Yes
-     ↓
-Execute
-     ↓
-Return result to Agent
-```
-
-An underlying agent runtime being capable of tool use does **not** mean it automatically has permission to execute.
-
----
-
-# 20. Current Antigravity Safety Position
-
-During M2:
-
-```text
-Antigravity model response       ✅
-Streaming                        ✅
-Cancellation                     ✅
-Multi-turn MAVE context          ✅
-
-Agent tools                      BLOCKED
-Repository access                BLOCKED
-Browser actions                  BLOCKED
-Terminal actions                 BLOCKED
-MCP actions                      BLOCKED
-Autonomous execution             BLOCKED
-```
-
-This remains intentional until M5.
-
----
-
-# 21. Future Multi-Agent Possibility
-
-Long-term, MAVE may orchestrate multiple specialists.
-
-Example:
-
-```text
-                         MAVE
-                           │
-                    Task Orchestrator
-              ┌────────────┼────────────┐
-              ▼            ▼            ▼
-          Code Agent   Reasoning Model   Research
-              │            │            │
-              └────────────┼────────────┘
-                           ↓
-                     MAVE Synthesis
-                           ↓
-                       User Result
-```
-
-This is future work.
-
-Do not implement multi-agent orchestration prematurely.
-
----
-
-# 22. User Experience Rule
-
-The user should normally speak to **MAVE**, not to providers.
-
-Desired:
-
-```text
-"MAVE, analyze this."
-"MAVE, explain this."
-"MAVE, help me practice English."
-"MAVE, find current information."
-```
-
-Undesired as the default interaction:
-
-```text
-"Use vendor A model B with reasoning level C."
-```
-
-Provider/model overrides are advanced controls, not the primary UX.
-
----
-
-# 23. Brain Transparency
-
-MAVE may expose provider/model information in diagnostics and advanced settings.
-
-Example:
-
-```text
-Profile: fast_conversation
-Provider: GeminiProvider
-Model: <current configured fast model>
-```
-
-But the normal interaction surface should preserve the unified MAVE identity.
-
----
-
-# 24. Failure & Fallback
-
-Future fallback should respect the profile.
-
-Example:
-
-```text
-Fast Brain unavailable
-↓
-try another provider supporting fast_conversation
-↓
-if none:
-explicitly tell user fast brain is unavailable
-```
-
-Do not silently route a 1-second conversational request into a 10-second agent runtime unless policy explicitly allows that fallback.
-
-Agent fallback and Fast fallback may therefore differ.
-
----
-
-# 25. Quota Awareness
-
-MAVE should eventually understand provider health/quota state.
-
-Potential future signals:
-
-```text
-healthy
-degraded
-unconfigured
-quota limited
-temporarily unavailable
-```
-
-Quota awareness may influence provider selection.
-
-Do not automatically purchase credits or change billing configuration.
-
----
-
-# 26. Cost / Subscription Principle
-
-MAVE should prefer officially supported access paths.
-
-Possible provider access forms:
-
-```text
-Official API
-Official CLI
-Official desktop/client integration
-Local runtime
-```
-
-MAVE Core must not assume every paid chat subscription equals API access.
-
-Authentication and billing belong to provider adapters/configuration.
-
----
-
-# 27. Privacy Routing
-
-Some future requests may explicitly require local-only processing.
-
-Example:
-
-```text
-"MAVE, keep this local."
-```
-
-Possible route:
-
-```text
-local_offline
- ↓
-LocalModelProvider
-```
-
-Cloud providers must not be silently used when local-only policy is active.
-
----
-
-# 28. MAVE Identity vs Provider Personality
-
-Provider output should not cause MAVE to feel like a different assistant every request.
-
-Future prompt architecture should separate:
-
-```text
-MAVE Identity
-+
-Conversation Mode
-+
-Task Context
-+
-Provider Adapter
-```
-
-Providers supply intelligence.
-
-MAVE owns:
-
-- identity
-- tone
-- memory
-- task state
-- permissions
-- UX
-- conversation continuity
-
----
-
-# 29. Relationship to M3 Voice
-
-M3 Voice pipeline:
-
-```text
-Wake
- ↓
-STT
- ↓
-MAVE Conversation Runtime
- ↓
-fast_conversation profile
- ↓
-Real Fast Model Brain
- ↓
-Streaming text
- ↓
-TTS
- ↓
-MAVE speaks
-```
-
-For complex spoken requests:
-
-```text
-Voice request
- ↓
-MAVE recognizes substantial task
- ↓
-agent_work profile
- ↓
-Agent Runtime
- ↓
-Task runs
- ↓
-MAVE reports status/result
-```
-
-This allows voice interaction without forcing every spoken sentence through an agent runtime.
-
----
-
-# 30. Relationship to M4 Ambient Surface
-
-The Surface should reflect what MAVE is doing, not which provider brand is running.
-
-Examples:
-
-```text
-fast_conversation
-→ Voice Capsule
-
-research result
-→ Source Card / Conversation Surface
-
-agent_work
-→ Task Surface
-
-image/video result
-→ Rich Content Surface
-```
-
-Provider identity may remain visible only in diagnostics.
-
----
-
-# 31. Architecture Freeze After M2
-
-M2 established stable primitives:
-
-- BrainProvider
-- BrainProviderRegistry
-- BrainRouter
-- BrainProfilePolicy
-- SessionManager
-- ContextManager
-- ConversationRuntime
-- ConversationStore
-- SQLiteConversationStore
-- Typed IPC
-- timeout/cancellation
-- Antigravity provider boundary
-- Mock provider
-- Developer Chat harness
-
-Future intelligence work should extend these concepts rather than bypass them.
-
----
-
-# 32. Current State
-
-After M2 Phase 10:
-
-```text
-M0 Foundation                         COMPLETE
-M1 Presence / Wake                    COMPLETE foundation
-M1.3 Personalized Wake V2             pending real dataset work
-
-M2 Conversation Runtime               COMPLETE
-├── Brain contracts                   PASS
-├── Mock Brain                        PASS
-├── Router                            PASS
-├── Sessions / Context                PASS
-├── Streaming Runtime                 PASS
-├── Persistence                       PASS
-├── IPC                               PASS
-├── Developer Chat                    PASS
-├── Reliability                       PASS
-├── First Real Brain — Antigravity    PASS
-└── Brain Profiles / Closeout         PASS
-
-Next:
-M3 Voice Loop
-
-Parallel open item:
-Select / integrate production Fast Brain
-```
-
----
-
-# 33. Key Decisions Locked
+# 23. Key Decisions Locked
 
 1. **MAVE is above all model and agent vendors.**
-2. **Direct Model Brains and Agent Runtimes are distinct architecture categories.**
-3. **One provider family may expose multiple models.**
-4. **One Agent Runtime may also support different underlying models.**
-5. **Antigravity is an Agent Runtime-backed provider, not equivalent to Gemini itself.**
-6. **Antigravity is not the production Fast Brain.**
-7. **Fast conversational requests should use a lighter direct model path.**
-8. **Truth retrieval and Brain selection are separate concerns.**
-9. **Fresh facts should use fresh sources rather than model memory alone.**
-10. **Agent tool capability never bypasses MAVE permissions.**
-11. **Users normally interact with MAVE, not individual providers.**
-12. **Explicit advanced provider/model override remains available.**
-13. **MAVE owns identity, memory, history, permissions, and presentation.**
-14. **Provider adapters own vendor-specific integration details.**
-15. **Future systems should extend the M2 architecture, not route around it.**
+2. **Direct Model Providers, Agent Runtimes, and Knowledge Providers are distinct architecture categories.**
+3. **One provider family may expose multiple concrete models via a normalized Model Catalog.**
+4. **Concrete vendor model IDs are strictly prohibited from `@mave/core`.**
+5. **Model Catalog provides normalized metadata (`latencyClass`, `qualityClass`, `costClass`, capabilities).**
+6. **Provider health and model availability are decoupled.**
+7. **Antigravity is classified as an Agent Runtime candidate, not the Fast Brain.**
+8. **Fast conversational requests prefer direct, lightweight Model Providers.**
+9. **Antigravity remains text-only; tool execution is strictly blocked until Milestone 5.**
+10. **Truth retrieval and Brain reasoning are separate concerns.**
+11. **Fresh facts must originate from authoritative Knowledge Providers, not model memory.**
+12. **Agent tool capabilities never bypass MAVE's Milestone 5 Permission Boundary.**
+13. **Users normally interact with MAVE; vendor overrides are advanced developer controls.**
+14. **MAVE owns identity, tone, memory, history, task state, permissions, and desktop presentation.**
+15. **ConversationRuntime and SessionManager remain the canonical source of truth for session continuity.**
+16. **Provider-native session IDs are internal adapter details; switching providers between turns preserves full context.**
+17. **Fallback preserves task intent; fast conversation never silently falls back to heavyweight agent harnesses.**
+18. **Direct Model Providers and Agent Runtimes maintain separate fallback logic.**
+19. **Fallback is constrained by a maximum attempt budget and voice latency budget.**
+20. **Privacy constraints (`local_only=true`) strictly fail closed; cloud fallback is forbidden.**
+21. **No AI model or provider winner is declared without empirical benchmark verification in F1/F2.**
+22. **Future systems must extend established M2 primitives (`BrainProvider`, `BrainRouter`, `BrainProfilePolicy`), not bypass them.**
 
 ---
 
-# 34. Product Vision
+# 24. Final Architectural Statement
 
-Long-term MAVE:
-
-```text
-User
- ↓
-MAVE
- ↓
-Understand intent
- ↓
-Determine truth/context requirements
- ↓
-Retrieve relevant knowledge
- ↓
-Select Brain Profile
- ↓
-Select Provider / Model / Agent Runtime
- ↓
-Reason or execute
- ↓
-Apply permissions
- ↓
-Produce response
- ↓
-Voice + Adaptive Surface
- ↓
-Persist useful history / memory
-```
-
-The user experiences one assistant:
-
-> **MAVE**
-
-while the system underneath may dynamically use multiple models, providers, knowledge sources, and agent runtimes.
-
----
-
-# 35. Final Architecture Statement
-
-> **MAVE is a provider-independent personal intelligence operating layer. Direct AI models provide fast and deep reasoning. Agent runtimes provide heavyweight execution capabilities. Knowledge systems provide grounded truth and personal context. MAVE coordinates all of them into one continuous assistant identity.**
+> **MAVE is a provider-independent personal intelligence operating layer. Direct Model Providers deliver ultra-low-latency conversation and deep reasoning. Agent Runtime Providers deliver heavyweight project execution within strict security boundaries. Knowledge Providers deliver authoritative truth and personal memory. MAVE coordinates all three into a single, unified, ambient companion.**

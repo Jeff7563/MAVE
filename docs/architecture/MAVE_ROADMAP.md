@@ -138,7 +138,21 @@ Phased Implementation Roadmap:
 
 Result: Real Ambient Adaptive Surface with zero focus stealing, hybrid adaptive envelopes, voice-reactive PresenceMark, compact quick info card, expanded rich context panel with safe Markdown/code, click-through hit-testing, dedicated least-privilege preload, multi-monitor reliability, settings persistence, and 100% test pass rate.
 
-## Milestone 5 — Agent Runtime & Tools ← CURRENT / NEXT
+## Pre-M5 — Intelligence Provider Foundation ← CURRENT
+
+Goal: วางรากฐาน Intelligence Provider Architecture, Multi-Model Catalog, Low-Latency Fast Brain, Deep Reasoning Provider, Intent-Preserving Fallback และ Decoupled Truth Routing ให้พร้อมและเสถียรก่อนให้สิทธิ์ MAVE ทำงานจริงใน Milestone 5
+
+Detailed Architecture Record:
+- [`MAVE_INTELLIGENCE_PROVIDER_ARCHITECTURE.md`](MAVE_INTELLIGENCE_PROVIDER_ARCHITECTURE.md)
+
+Program Sequence:
+1. **F1 — Intelligence Provider Runtime**: Provider + Model contracts, Registry & non-quota health checks, Model Catalog & Model Policy, Intent-preserving fallback, Production Fast Brain integration ($\text{TTFT} \le 1.0\text{--}3.0\text{s}$), Deep Brain route, and diagnostics.
+2. **F2 — Real Brain Integration / Tuning**: Live model benchmarking, bilingual conversational tuning (Thai/English), prompt optimization, and voice latency calibration.
+3. **UI Redesign**: Desktop UI refinement, Developer Diagnostics UI, settings interface.
+4. **Full MAVE E2E Stabilization**: End-to-end integration across Voice, Surface, Brain, and Fallback.
+5. **Milestone 5 — Tools + Permissions + Security**: Tool execution authority and local security boundary.
+
+## Milestone 5 — Agent Runtime & Tools ← NEXT (After Pre-M5 Foundation)
 
 Goal: จาก “ตอบได้” → “ทำงานได้”
 
