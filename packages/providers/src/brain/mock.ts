@@ -21,6 +21,10 @@ export interface MockBrainOptions {
   healthMessage?: string;
   /** Simulated health check latency in milliseconds. */
   healthLatencyMs?: number;
+  /** Simulated health check delay in milliseconds. Defaults to 0. */
+  healthDelayMs?: number;
+  /** Whether the simulated health check should throw. Defaults to false. */
+  healthThrow?: boolean;
   /** Static response text to return for every chat request. */
   responseText?: string;
   /** Dynamic response text builder given the request. */
@@ -68,18 +72,31 @@ export class MockBrainProvider implements BrainProvider {
   }
 
   async health(): Promise<ProviderHealth> {
+    if (this.options.healthDelayMs && this.options.healthDelayMs > 0) {
+      await new Promise((resolve) => setTimeout(resolve, this.options.healthDelayMs));
+    }
+    if (this.options.healthThrow) {
+      throw new Error(this.options.healthMessage || `Simulated health check failure for ${this.id}`);
+    }
     return ProviderHealthSchema.parse({
       status: this.options.healthStatus ?? 'healthy',
       message: this.options.healthMessage,
-      latencyMs: this.options.healthLatencyMs ?? 0,
+      latencyMs: this.options.healthLatencyMs ?? (this.options.healthDelayMs ?? 0),
       checkedAt: Date.now()
     });
   }
 
-  setHealth(status: ProviderHealthStatus, message?: string, latencyMs?: number): void {
+  setHealth(
+    status: ProviderHealthStatus,
+    message?: string,
+    latencyMs?: number,
+    options?: { delayMs?: number; throw?: boolean }
+  ): void {
     this.options.healthStatus = status;
     this.options.healthMessage = message;
     this.options.healthLatencyMs = latencyMs;
+    this.options.healthDelayMs = options?.delayMs;
+    this.options.healthThrow = options?.throw;
   }
 
   setFailureMode(

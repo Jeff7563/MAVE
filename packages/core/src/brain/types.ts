@@ -75,7 +75,9 @@ export class BrainRoutingError extends Error {
 export type BrainRegistryErrorCode =
   | 'duplicate_provider'
   | 'provider_not_found'
-  | 'invalid_provider_id';
+  | 'invalid_provider_id'
+  | 'health_timeout'
+  | 'provider_unavailable';
 
 export class BrainRegistryError extends Error {
   readonly code: BrainRegistryErrorCode;

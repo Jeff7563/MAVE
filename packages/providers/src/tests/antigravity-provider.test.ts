@@ -176,6 +176,31 @@ describe('AntigravityBrainProvider', () => {
         vi.useRealTimers();
       }
     });
+
+    it('proves health() check does not consume quota, pass input prompts, or invoke chat parameters', async () => {
+      const mock = createMockChildProcess();
+      const spawnFactory: SpawnFactory = vi.fn((_cmd, _args, _opts) => {
+        queueMicrotask(() => {
+          mock.emitStdout('2.0.0\n');
+          mock.emitClose(0);
+        });
+        return mock.child;
+      });
+
+      const provider = new AntigravityBrainProvider({
+        cwd: 'C:\\fake\\workspace',
+        spawnFactory
+      });
+
+      await provider.health();
+
+      const args = (spawnFactory as any).mock.calls[0][1];
+      expect(args).toEqual(['--version']);
+      expect(args).not.toContain('--input-format');
+      expect(args).not.toContain('--output-format');
+      expect(args).not.toContain('--sandbox');
+      expect(mock.getStdinData()).toBe('');
+    });
   });
 
   describe('Prompt Construction & Formatting', () => {
