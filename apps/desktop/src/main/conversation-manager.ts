@@ -28,7 +28,8 @@ import {
   MockBrainProvider,
   MockModelCatalogProvider,
   AntigravityBrainProvider,
-  OpenAIBrainProvider
+  OpenAIBrainProvider,
+  OllamaBrainProvider
 } from '@mave/providers';
 import { createLogger } from '@mave/shared';
 
@@ -88,6 +89,7 @@ export interface ConversationManagerOptions {
   mockProvider?: MockBrainProvider;
   antigravityProvider?: AntigravityBrainProvider;
   openaiProvider?: OpenAIBrainProvider;
+  ollamaProvider?: OllamaBrainProvider;
   antigravityWorkspaceDir?: string;
   store?: ConversationStore;
   sessionManager?: SessionManager;
@@ -104,6 +106,7 @@ export class ConversationManager {
   private readonly mockProvider: MockBrainProvider;
   private readonly antigravityProvider: AntigravityBrainProvider;
   private readonly openaiProvider: OpenAIBrainProvider;
+  private readonly ollamaProvider: OllamaBrainProvider;
   private readonly router: BrainRouter;
   private readonly sessionManager: SessionManager;
   private readonly contextManager: ContextManager;
@@ -176,6 +179,19 @@ export class ConversationManager {
       });
     }
 
+    this.ollamaProvider =
+      options.ollamaProvider ??
+      new OllamaBrainProvider();
+
+    if (!this.providerRegistry.has(this.ollamaProvider.id)) {
+      this.providerRegistry.register(this.ollamaProvider, {
+        kind: 'model_provider',
+        accessPath: 'local_runtime',
+        accessClass: 'local',
+        displayName: 'Ollama Local Model Provider'
+      });
+    }
+
     // 3. Brain Router (default provider: 'mock', subscription-first, paid APIs disabled by default)
     this.router =
       options.router ??
@@ -202,7 +218,7 @@ export class ConversationManager {
         defaultTimeoutMs: this.timeoutMs
       });
 
-    logger.info('ConversationManager initialized with MockBrainProvider, AntigravityBrainProvider, OpenAIBrainProvider and SQLite store');
+    logger.info('ConversationManager initialized with MockBrainProvider, AntigravityBrainProvider, OpenAIBrainProvider, OllamaBrainProvider and SQLite store');
   }
 
   setMainWindowGetter(getter: () => BrowserWindow | null): void {
@@ -235,6 +251,10 @@ export class ConversationManager {
 
   getOpenAIProvider(): OpenAIBrainProvider {
     return this.openaiProvider;
+  }
+
+  getOllamaProvider(): OllamaBrainProvider {
+    return this.ollamaProvider;
   }
 
   getSessionManager(): SessionManager {

@@ -29,6 +29,14 @@ export {
   sanitizeErrorMessage
 } from './openai.js';
 export {
+  OllamaBrainProvider,
+  type OllamaBrainProviderOptions,
+  OLLAMA_PROVIDER_ID,
+  assertLoopbackEndpoint,
+  normalizeOllamaModelId,
+  sanitizeOllamaErrorMessage
+} from './ollama.js';
+export {
   ClaudeCodeBrainProvider,
   type ClaudeCodeBrainProviderOptions
 } from './claude.js';

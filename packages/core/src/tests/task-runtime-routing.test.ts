@@ -667,4 +667,85 @@ describe('Task -> Runtime -> Model Routing Engine (F1.5-S3)', () => {
       expect(decision.telemetry?.routeAttempts).toBe(0);
     });
   });
+
+  describe('Section 49: F1.5-C1 Local Model Provider Routing', () => {
+    it('22. routes fast_conversation to local model_provider (Ollama) while coding routes to subscription agent runtime', async () => {
+      const registry = new BrainProviderRegistry();
+
+      // Register subscription agent runtimes
+      const claude = createMockAgentRuntime('claude-code');
+      registry.register(claude, {
+        kind: 'agent_runtime_provider',
+        accessPath: 'official_cli',
+        accessClass: 'subscription'
+      });
+
+      // Register local model provider
+      const localProvider = createMockDirectModelProvider('ollama', {
+        local: true,
+        health: 'healthy'
+      });
+      registry.register(localProvider, {
+        kind: 'model_provider',
+        accessPath: 'local_runtime',
+        accessClass: 'local'
+      });
+
+      const catalog = new RuntimeModelCatalog();
+      seedRuntimeCatalog(catalog);
+
+      const router = new BrainRouter({
+        registry,
+        runtimeModelCatalog: catalog,
+        defaultProvider: 'ollama'
+      });
+
+      // fast_conversation should route to ollama (local model_provider)
+      const fastDecision = await router.route({ profileId: 'fast_conversation' });
+      expect(fastDecision.providerId).toBe('ollama');
+      expect(fastDecision.modelId).toBe('ollama-fast-model');
+
+      // coding should route to claude-code (subscription agent runtime)
+      const codeDecision = await router.route({ taskIntent: 'coding' });
+      expect(codeDecision.providerId).toBe('claude-code');
+    });
+
+    it('23. localOnly constraint selects local model provider and rejects non-local providers fail-closed', async () => {
+      const registry = new BrainProviderRegistry();
+
+      // Cloud direct provider
+      const cloudProvider = createMockDirectModelProvider('cloud-direct', {
+        local: false,
+        health: 'healthy'
+      });
+      registry.register(cloudProvider, {
+        kind: 'model_provider',
+        accessPath: 'official_api',
+        accessClass: 'paid_api'
+      });
+
+      // Local direct provider
+      const localProvider = createMockDirectModelProvider('ollama', {
+        local: true,
+        health: 'healthy'
+      });
+      registry.register(localProvider, {
+        kind: 'model_provider',
+        accessPath: 'local_runtime',
+        accessClass: 'local'
+      });
+
+      const catalog = new RuntimeModelCatalog();
+      const router = new BrainRouter({
+        registry,
+        runtimeModelCatalog: catalog,
+        allowPaidApis: true
+      });
+
+      // Under localOnly constraint, only ollama is eligible
+      const localDecision = await router.route({ profileId: 'local_offline', localOnly: true });
+      expect(localDecision.providerId).toBe('ollama');
+      expect(localDecision.modelId).toBe('ollama-fast-model');
+    });
+  });
 });

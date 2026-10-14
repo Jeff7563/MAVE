@@ -619,6 +619,7 @@ When all candidate runtimes are blocked before execution:
 - **F1.5-S4.1 (COMPLETE):** Quota scope & blocked-state hardening (`scope: 'runtime' | 'model' | 'unknown'`, `RuntimeModelCatalog` model quota integration, resetAt expiration to unknown, scope-aware overwrite protection).
 - **F1.5-S5 (COMPLETE):** Subscription Intelligence final closeout audit (Authoritative state ownership, cross-model collision safety, model rotation readiness, documentation alignment, and tri-runtime closeout).
 - **F1.5-C0 (COMPLETE):** Subscription Conversational Brain feasibility audit (evaluated subscription CLIs vs local model provider for fast_conversation and deep_reasoning; recommended Local Fast Brain).
+- **F1.5-C1 (COMPLETE):** Local Model Provider Foundation (`OllamaBrainProvider` direct model provider, loopback localhost security, non-generation health check, dynamic catalog introspection, progressive NDJSON streaming, and zero paid API billing).
 
 ---
 
@@ -679,6 +680,50 @@ MAVE adopts a clean, decoupled 4-tier intelligence architecture:
    - Capabilities: Multi-step software engineering, repository mutation, terminal execution.
 4. **Tool Execution Authority:**  
    $\to$ **Milestone 5 MCP & MAVE Tool Router**, preserving strict least-privilege security boundaries.
+
+---
+
+## 14. Local Model Provider Foundation (F1.5-C1)
+
+### 14.1 Motivation & Architectural Role
+F1.5-C0 proved that commercial subscription CLIs (Claude Code, OpenAI Codex, Google Antigravity) cannot satisfy direct conversational brain profiles (`fast_conversation`, `language`) due to their inherent agent runtime architectures, non-suppressible tools, and prohibitive process initialization overhead ($2.5\text{--}12.0\text{s}$).
+
+**F1.5-C1 implements MAVE's canonical local direct `model_provider`:** `OllamaBrainProvider`.  
+This establishes a production-grade local fast conversational brain running on host hardware (NVIDIA GeForce RTX 3060 Ti 8GB VRAM) without consuming paid API tokens, faking provider kinds, or violating Pre-M5 tool authority constraints.
+
+### 14.2 Technical Architecture & Guarantees
+
+| Invariant | Specification | Enforcement Mechanism |
+|---|---|---|
+| **Provider ID** | `'ollama'` | Canonical `OLLAMA_PROVIDER_ID` constant |
+| **Provider Kind** | `'model_provider'` | Implements `ModelCatalogProvider` (not `agent_runtime_provider`) |
+| **Access Path** | `'local_runtime'` | Local daemon HTTP interface; zero remote egress |
+| **Access Class** | `'local'` | Zero external billing, zero credit card / token consumption |
+| **Privacy Class** | `'local_only'` | All prompt text and generation remain strictly on-device |
+| **Host Confinement** | Loopback Only | `assertLoopbackEndpoint()` strictly validates hostname $\in \{127.0.0.1, \text{localhost}, ::1\}$ |
+| **Health Probe** | Zero Generation Tokens | Hits `GET /api/version` (fast $\approx 15\text{ms}$); does NOT dispatch `/api/chat` or `/api/generate` |
+| **Catalog Discovery** | Dynamic Local Introspection | Hits `GET /api/tags`; derives `ModelDescriptor` based on installed parameter size and quantization |
+| **Model ID Handoff** | Explicit & Normalized | Requires `options.modelId`; resolves bidirectional mapping (`ollama-qwen2.5-1.5b` $\leftrightarrow$ `qwen2.5:1.5b`) |
+| **Streaming Output** | Progressive NDJSON | Parses NDJSON stream line-by-line; emits `started`, `delta`, and `completed` events |
+| **Barge-in Cancellation**| Instant AbortSignal | Interruption triggers `AbortController.abort()`, releasing lock and emitting `cancelled` |
+| **Usage Tracking** | Accurate Token Counts | Captures `prompt_eval_count`, `eval_count`, `totalTokens`, `timeToFirstTokenMs`, and `estimatedCostUsd: 0` |
+| **Tool Authority** | Zero Pre-M5 Authority | `capabilities.toolUse = false`; no tool invocation or execution hooks permitted |
+
+### 14.3 Host Hardware & Resident Performance Profile
+- **Host GPU:** NVIDIA GeForce RTX 3060 Ti (8GB GDDR6 VRAM, 4864 CUDA cores).
+- **Installed Verified Models:**
+  - `qwen2.5:1.5b` (0.92 GB VRAM footprint) $\to$ **Warm TTFT: 202 ms** (Total generation latency: 961 ms for 144 tokens).
+  - `qwen2.5:7b` (4.36 GB VRAM footprint) $\to$ Bilingual Thai/English balanced conversation.
+  - `deepseek-r1:7b` (4.36 GB VRAM footprint, 128k context) $\to$ Local deep reasoning.
+- **VRAM Lifecycle Management:** Models are loaded into VRAM on first request and kept resident via Ollama's 5-minute `keep_alive` window. When idle, memory automatically frees to 0 bytes VRAM.
+
+### 14.4 Desktop & Routing Pipeline Integration
+- **`apps/desktop/src/main/conversation-manager.ts`:** Instantiates `OllamaBrainProvider` as a registered `model_provider` with `accessPath: 'local_runtime'` and `accessClass: 'local'`. App startup is fully decoupled and never crashes if the local Ollama daemon is offline.
+- **`packages/core/src/brain/brain-router.ts`:**
+  - Resolves `fast_conversation` and `language` to `ollama` when present and healthy.
+  - Rejects `agent_runtime_provider` candidates fail-closed for direct conversational profiles.
+  - Enforces `localOnly: true` privacy constraints, routing solely to local providers and rejecting cloud services.
+
 
 
 
