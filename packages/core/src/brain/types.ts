@@ -43,6 +43,8 @@ export interface BrainRoutingDiagnostics {
   runtimeModelsEvaluated?: number;
   selectionReason?: string;
   internalErrorCode?: string;
+  evaluatedProviderIds?: string[];
+  skippedRuntimes?: Array<{ runtimeId: string; reason: string }>;
 }
 
 export interface BrainRouteRequest {

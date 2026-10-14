@@ -400,7 +400,7 @@ export class ConversationRuntime {
       const requiredCapabilities: Partial<BrainCapabilities> | undefined =
         request.requiredCapabilities !== undefined
           ? request.requiredCapabilities
-          : request.profileId !== undefined
+          : request.profileId !== undefined || request.taskIntent !== undefined
             ? undefined
             : DEFAULT_REQUIRED_CAPABILITIES;
 
@@ -410,8 +410,17 @@ export class ConversationRuntime {
           preferredProviderId: request.preferredProviderId,
           preferredModelId: request.preferredModelId,
           profileId: request.profileId,
+          taskIntent: request.taskIntent,
+          modelRole: request.modelRole,
+          taskContext: request.taskContext,
+          runtimeMode: request.runtimeMode,
+          modelMode: request.modelMode,
+          preferredRuntimeId: request.preferredRuntimeId,
+          lockedRuntimeId: request.lockedRuntimeId,
+          lockedModelId: request.lockedModelId,
           requiredCapabilities,
           overrides: request.overrides,
+          fallbackChain: request.fallbackChain,
           localOnly: request.localOnly,
           allowFallback: request.allowFallback,
           signal: abortController.signal

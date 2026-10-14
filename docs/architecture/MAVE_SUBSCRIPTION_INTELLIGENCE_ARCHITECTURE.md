@@ -355,13 +355,57 @@ MAVE maintains strict integrity of provider kinds:
 - `fast_conversation`, `deep_reasoning`, `research`, `local_offline` $\to$ strictly `model_provider`.
 - `agent_work` $\to$ strictly `agent_runtime_provider`.
 
-**Honest Subscription Gaps (No Architecture Cheating):**
-1. **`NO CANONICAL SUBSCRIPTION FAST_CONVERSATION ROUTE YET`:**
+**Honest Subscription Status & Gaps (No Architecture Cheating):**
+1. **`fast_conversation`:**
+   **NO CANONICAL SUBSCRIPTION MODEL_PROVIDER ROUTE YET.**
    Subscription runtimes (`claude-code`, `codex`, `antigravity`) are agent runtimes executed via CLI subprocesses with ~1.1–1.7s bootstrap latency. They cannot fulfill voice low-latency conversational budgets (~200–500ms). They are not routed into `fast_conversation`. If no direct local or subscription `model_provider` is available, paid APIs remain blocked by default.
-2. **`NO CANONICAL SUBSCRIPTION DEEP_REASONING MODEL_PROVIDER ROUTE YET`:**
+2. **`deep_reasoning`:**
+   **NO CANONICAL SUBSCRIPTION MODEL_PROVIDER ROUTE YET.**
    Pure conversational deep reasoning belongs to `model_provider`. Subscription runtimes are preserved for `agent_work`.
-3. **Zero Contract Expansion:**
-   F1.5-S3 requires 0 public contract changes to `@mave/contracts`. All routing enhancements exist within `@mave/core` internal types and runtime models.
+3. **`language`:**
+   **TASK POLICY READY — ROUTE PROVIDER GAP REMAINS.**
+   Semantic task mapping resolves `language` $\to$ `fast_conversation` + `FAST`. However, actual execution requires an eligible subscription or local `model_provider`. Subscription agent runtimes are rejected at the provider-kind boundary.
+4. **`research`:**
+   **TASK POLICY READY — ROUTE PROVIDER GAP REMAINS.**
+   Semantic task mapping resolves `research` $\to$ `research` + `REASONING`. However, execution remains constrained by `research` profile requiring `model_provider` and `webResearch: true`. Full retrieval/grounding is future F1.8 work.
+5. **Zero Contract Expansion:**
+   Pre-M5 routing hardening requires 0 public contract changes to `@mave/contracts`. All routing enhancements exist strictly within `@mave/core` internal types and runtime models.
+
+### 9.4 Evaluated Provider != Attempted Provider (Routing Telemetry Semantics)
+MAVE strictly restores and enforces canonical F1.4 routing telemetry semantics:
+1. **Candidate Evaluation != Execution Attempt:**
+   - Probing candidate provider health, fetching model catalogs, or evaluating runtime model roles does NOT constitute an execution attempt.
+   - **Pre-execution (`decision.telemetry`):**
+     - `attemptedProviderIds = []`
+     - `attemptedModelIds = []`
+     - `routeAttempts = 0`
+   - Pre-execution candidate evaluation belongs strictly in internal diagnostics:
+     - `diagnostics.evaluatedProviderIds`: Full list of candidate provider IDs evaluated.
+     - `diagnostics.skippedRuntimes`: Records non-executable or incompatible skips (e.g. `runtime_not_executable`).
+     - `diagnostics.providersEvaluated`, `diagnostics.runtimeModelsEvaluated`, `diagnostics.selectionReason`.
+2. **Actual Execution Telemetry (`executionTelemetry`):**
+   - Only when `provider.chat()` is actually invoked does an execution attempt occur.
+   - For an invoked agent runtime:
+     - `attemptedProviderIds = [selectedRuntimeProviderId]`
+     - `routeAttempts = 1`
+     - `attemptedModelIds = []` (preserving canonical frozen agent runtime telemetry shape).
+3. **Pre-Execution Fallback Semantics:**
+   - Pre-execution fallback (e.g. Preferred candidate is unavailable or unhealthy $\to$ AUTO candidate selected) does NOT create an attempt.
+   - `routeAttempts` remains 0 until the final selected provider actually begins execution.
+4. **Midstream Failure Prohibition:**
+   - Once `provider.chat()` begins, cross-provider retry is strictly prohibited.
+   - If the selected provider fails midstream, the request fails immediately; no secondary provider is attempted.
+
+### 9.5 Cataloged Runtime != Executable Runtime (Codex Executability Status)
+1. **Audit Finding:**
+   - OpenAI Codex is currently **catalog-only**. While model metadata and roles are cataloged in `RuntimeModelCatalog`, no executable `CodexBrainProvider` implementation or registration exists in the runtime environment.
+2. **Priority List Membership != Eligibility:**
+   - Inclusion in `DEFAULT_RUNTIME_PRIORITIES` indicates role preference, NOT executable availability.
+   - The routing engine verifies provider presence in `BrainProviderRegistry`.
+3. **Selection Behavior:**
+   - In **AUTO** mode: Unregistered Codex is safely skipped with internal diagnostic reason `runtime_not_executable`. The router deterministically falls through to the next eligible executable candidate (e.g. `antigravity`).
+   - In **PREFERRED** mode: If `allowFallback: true`, unregistered Codex is skipped with `runtime_not_executable` and the router falls back to AUTO priorities. If `allowFallback: false`, routing fails closed with `provider_not_found`.
+   - In **LOCKED** mode: Unregistered Codex fails immediately with `provider_not_found`.
 
 ---
 

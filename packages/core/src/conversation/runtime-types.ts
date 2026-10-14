@@ -3,6 +3,9 @@ import type {
   BrainProfileId,
   BrainRouteOverrides
 } from '@mave/contracts';
+import type { TaskContext, TaskIntent } from '../brain/task-policy.js';
+import type { RuntimeSelectionMode } from '../brain/runtime-policy.js';
+import type { ModelRole, RuntimeModelSelectionMode } from '../brain/runtime-models/types.js';
 
 export interface ConversationRequest {
   requestId?: string;
@@ -11,8 +14,17 @@ export interface ConversationRequest {
   preferredProviderId?: string;
   preferredModelId?: string;
   profileId?: BrainProfileId;
+  taskIntent?: TaskIntent | string;
+  modelRole?: ModelRole;
+  taskContext?: TaskContext;
+  runtimeMode?: RuntimeSelectionMode;
+  modelMode?: RuntimeModelSelectionMode;
+  preferredRuntimeId?: string;
+  lockedRuntimeId?: string;
+  lockedModelId?: string;
   requiredCapabilities?: Partial<BrainCapabilities>;
   overrides?: BrainRouteOverrides;
+  fallbackChain?: string[];
   localOnly?: boolean;
   context?: Record<string, unknown>;
   allowFallback?: boolean;

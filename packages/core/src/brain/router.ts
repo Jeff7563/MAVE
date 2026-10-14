@@ -70,6 +70,7 @@ function isRouterOptions(
 interface EligibleCandidate {
   provider: BrainProvider;
   providerId: string;
+  providerKind: ProviderKind;
   model?: ModelDescriptor;
   modelId?: string;
   health: ProviderHealth;
@@ -263,6 +264,8 @@ export class BrainRouter {
       modelSelectionMode?: RuntimeModelSelectionMode;
       runtimeModelsEvaluated?: number;
       selectionReason?: string;
+      evaluatedProviderIds?: string[];
+      skippedRuntimes?: Array<{ runtimeId: string; reason: string }>;
     }
   ): BrainRouteDecision {
     const telemetry: RouteTelemetry = {
@@ -286,7 +289,9 @@ export class BrainRouter {
       ...(s3Context?.runtimeSelectionMode ? { runtimeSelectionMode: s3Context.runtimeSelectionMode } : {}),
       ...(s3Context?.modelSelectionMode ? { modelSelectionMode: s3Context.modelSelectionMode } : {}),
       ...(s3Context?.runtimeModelsEvaluated !== undefined ? { runtimeModelsEvaluated: s3Context.runtimeModelsEvaluated } : {}),
-      ...(s3Context?.selectionReason ? { selectionReason: s3Context.selectionReason } : {})
+      ...(s3Context?.selectionReason ? { selectionReason: s3Context.selectionReason } : {}),
+      ...(s3Context?.evaluatedProviderIds ? { evaluatedProviderIds: s3Context.evaluatedProviderIds } : {}),
+      ...(s3Context?.skippedRuntimes && s3Context.skippedRuntimes.length > 0 ? { skippedRuntimes: s3Context.skippedRuntimes } : {})
     };
 
     return {
@@ -369,8 +374,10 @@ export class BrainRouter {
     });
     const taskIntent = taskDecision.taskIntent;
     const modelRole = taskDecision.modelRole;
-    const requestedProfileId = taskDecision.profileId;
     const isExplicitProfile = Boolean(request.overrides?.profileId || request.profileId || request.taskIntent);
+    const requestedProfileId = isExplicitProfile
+      ? taskDecision.profileId
+      : (request.overrides?.profileId || request.profileId);
 
     let resolution: BrainProfileResolution | undefined;
     if (requestedProfileId || this.profilePolicy.getDefaultProfileId()) {
@@ -529,6 +536,8 @@ export class BrainRouter {
     const isExplicitPreferred = Boolean(preferredProvider && preferredProvider === primaryCandidateId);
     const attemptedProviderIds: string[] = [];
     const attemptedModelIds: string[] = [];
+    const evaluatedCandidateIds: string[] = [];
+    const skippedRuntimes: Array<{ runtimeId: string; reason: string }> = [];
     let providersContacted = 0;
     let totalModelsEvaluated = 0;
     const maxProviderBudget = request.maxProviderBudget ?? this.maxProviderBudget;
@@ -568,14 +577,24 @@ export class BrainRouter {
         break;
       }
 
+      evaluatedCandidateIds.push(id);
       attemptedProviderIds.push(id);
 
       const provider = this.registry.get(id);
       if (!provider) {
+        skippedRuntimes.push({ runtimeId: id, reason: 'runtime_not_executable' });
         if (runtimeMode === 'LOCKED' && (id === preferredProvider || id === lockedRuntime)) {
           throw new BrainRoutingError(
             'provider_not_found',
             `Locked runtime '${id}' is not registered in BrainProviderRegistry`,
+            attemptedProviderIds,
+            attemptedModelIds
+          );
+        }
+        if (request.allowFallback === false && (id === preferredProvider || id === request.preferredRuntimeId)) {
+          throw new BrainRoutingError(
+            'provider_not_found',
+            `Preferred runtime '${id}' is not registered and fallback is disabled`,
             attemptedProviderIds,
             attemptedModelIds
           );
@@ -935,6 +954,7 @@ export class BrainRouter {
       const candidateResult: EligibleCandidate = {
         provider,
         providerId: id,
+        providerKind,
         model: selectedModel,
         modelId: selectedModelId,
         health,
@@ -960,7 +980,7 @@ export class BrainRouter {
           candidateResult,
           attemptedProviderIds,
           attemptedModelIds,
-          profileId,
+          profileId ?? (candidateResult.providerKind === 'model_provider' ? taskDecision.profileId : undefined),
           startTime,
           attemptedProviderIds.length,
           totalModelsEvaluated,
@@ -971,7 +991,9 @@ export class BrainRouter {
             runtimeSelectionMode: runtimeMode,
             modelSelectionMode: modelMode,
             runtimeModelsEvaluated: totalModelsEvaluated,
-            selectionReason: candidateResult.reason
+            selectionReason: candidateResult.reason,
+            evaluatedProviderIds: evaluatedCandidateIds,
+            skippedRuntimes
           }
         );
       }
@@ -1011,7 +1033,7 @@ export class BrainRouter {
         firstDegradedCandidate,
         attemptedProviderIds,
         attemptedModelIds,
-        profileId,
+        profileId ?? (firstDegradedCandidate.providerKind === 'model_provider' ? taskDecision.profileId : undefined),
         startTime,
         attemptedProviderIds.length,
         totalModelsEvaluated,
@@ -1022,7 +1044,9 @@ export class BrainRouter {
           runtimeSelectionMode: runtimeMode,
           modelSelectionMode: modelMode,
           runtimeModelsEvaluated: totalModelsEvaluated,
-          selectionReason: firstDegradedCandidate.reason
+          selectionReason: firstDegradedCandidate.reason,
+          evaluatedProviderIds: evaluatedCandidateIds,
+          skippedRuntimes
         }
       );
     }
