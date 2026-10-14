@@ -972,7 +972,22 @@ The Pre-M5 intelligence foundation is divided into ten disciplined phases:
    - **Generation-Time Fallback Policy (Option A):** Pre-execution routing fallback only. No generation-time fallback; once the first assistant-visible delta is emitted, the route stream is committed.
    - **Telemetry vs Diagnostics Separation:** Canonical `RouteTelemetry` adheres strictly to frozen `@mave/contracts` schema (`RouteTelemetrySchema.safeParse`). Evaluation metrics (`routingTimeMs`, `providersEvaluated`, `modelsEvaluated`) are isolated in internal `BrainRoutingDiagnostics` on `BrainRouteDecision`.
    - **Guaranteed Sanitization:** Zero API keys, bearer tokens, or internal filesystem paths are exposed in decision telemetry or error messages.
-   - **Phase Status:** F1.4 & F1.4.1 FULLY CLOSED — READY FOR F1.5.
+   - **Phase Status:** F1.4 & F1.4.1 FULLY CLOSED.
+
+7. **F1.5 Production Fast Brain Integration (OpenAI Direct Model Provider):**
+   - **Selected First Integration Candidate:** OpenAI (`OpenAIBrainProvider`).
+   - **Selection Rationale:** Industry-standard REST & SSE streaming, zero external vendor SDK dependencies (uses native `fetch` and `ReadableStream`), non-generation metadata endpoint (`GET /v1/models`) consuming zero generation tokens for health checks, low TTFT ($\le 0.5\text{--}1.2\text{s}$), premier bilingual Thai/English conversational fluency and language tutoring capability, and clean AbortSignal cancellation.
+   - **Non-Permanent Candidate Status:** OpenAI is the *first production candidate to integrate* to prove direct ModelProvider architecture; it is NOT declared the permanent winner. F2 performs broader live empirical benchmarking and tuning across candidate providers.
+   - **Normalized Model IDs:**
+     - `openai-fast-primary`: fast interactive conversational model candidate.
+     - `openai-balanced-primary`: balanced multimodal reasoning model candidate.
+   - **Adapter-Private Model Boundary:** Concrete vendor revision strings (`gpt-4o-mini`, `gpt-4o`) remain strictly private to `packages/providers/src/brain/openai.ts`. `@mave/core` contains zero vendor strings.
+   - **Non-Generation Health Check:** Dispatches `GET /v1/models` without consuming generation tokens. Differentiates `healthy`, `unconfigured`, `auth_error`, `quota_limited`, `rate_limited`, and `unavailable`. If unconfigured, returns `status: 'unconfigured'` without network traffic.
+   - **Execution Contract Integration:** Consumes normalized `options.modelId` passed from `ConversationRuntime`. Fails deterministically with `model_unavailable` if `options.modelId` is omitted or unmapped.
+   - **Progressive Streaming & Barge-in:** SSE chunks are normalized to canonical `started`, `delta`, `completed`, `cancelled`, `error` events. Text deltas emit immediately upon receipt, recording `timeToFirstTokenMs` (TTFT). `AbortSignal` cancellation terminates HTTP stream and reader instantly upon barge-in.
+   - **M5 Permission Boundary:** Tool execution requests by the provider are strictly blocked.
+   - **Credential Audit & Live Verification State:** Credential audit confirms `OPENAI_API_KEY` is not configured in current environment. Implementation and mocked transport tests are 100% complete and passing. Live official-provider verification is pending credential configuration.
+   - **Status:** F1.5 IMPLEMENTATION COMPLETE — LIVE VERIFICATION PENDING.
 
 ---
 

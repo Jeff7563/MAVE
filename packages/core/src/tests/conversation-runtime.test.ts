@@ -9,7 +9,8 @@ import type {
   ModelCatalogSnapshot,
   ProviderDescriptor,
   ProviderHealth,
-  ProviderHealthStatus
+  ProviderHealthStatus,
+  RouteTelemetry
 } from '@mave/contracts';
 import { BrainProviderRegistry, BrainRouter } from '../brain/index.js';
 import {

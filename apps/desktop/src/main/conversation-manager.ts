@@ -24,7 +24,12 @@ import {
 } from '@mave/core';
 import type { MaveDatabase } from '@mave/database';
 import { SQLiteConversationStore } from '@mave/database';
-import { MockBrainProvider, MockModelCatalogProvider, AntigravityBrainProvider } from '@mave/providers';
+import {
+  MockBrainProvider,
+  MockModelCatalogProvider,
+  AntigravityBrainProvider,
+  OpenAIBrainProvider
+} from '@mave/providers';
 import { createLogger } from '@mave/shared';
 
 const logger = createLogger({ name: 'mave:conversation-manager' });
@@ -82,6 +87,7 @@ export interface ConversationManagerOptions {
   providerRegistry?: BrainProviderRegistry;
   mockProvider?: MockBrainProvider;
   antigravityProvider?: AntigravityBrainProvider;
+  openaiProvider?: OpenAIBrainProvider;
   antigravityWorkspaceDir?: string;
   store?: ConversationStore;
   sessionManager?: SessionManager;
@@ -97,6 +103,7 @@ export class ConversationManager {
   private readonly providerRegistry: BrainProviderRegistry;
   private readonly mockProvider: MockBrainProvider;
   private readonly antigravityProvider: AntigravityBrainProvider;
+  private readonly openaiProvider: OpenAIBrainProvider;
   private readonly router: BrainRouter;
   private readonly sessionManager: SessionManager;
   private readonly contextManager: ContextManager;
@@ -146,6 +153,14 @@ export class ConversationManager {
       this.providerRegistry.register(this.antigravityProvider);
     }
 
+    this.openaiProvider =
+      options.openaiProvider ??
+      new OpenAIBrainProvider();
+
+    if (!this.providerRegistry.has(this.openaiProvider.id)) {
+      this.providerRegistry.register(this.openaiProvider);
+    }
+
     // 3. Brain Router (default provider: 'mock')
     this.router =
       options.router ??
@@ -171,7 +186,7 @@ export class ConversationManager {
         defaultTimeoutMs: this.timeoutMs
       });
 
-    logger.info('ConversationManager initialized with MockBrainProvider, AntigravityBrainProvider and SQLite store');
+    logger.info('ConversationManager initialized with MockBrainProvider, AntigravityBrainProvider, OpenAIBrainProvider and SQLite store');
   }
 
   setMainWindowGetter(getter: () => BrowserWindow | null): void {
@@ -200,6 +215,10 @@ export class ConversationManager {
 
   getAntigravityProvider(): AntigravityBrainProvider {
     return this.antigravityProvider;
+  }
+
+  getOpenAIProvider(): OpenAIBrainProvider {
+    return this.openaiProvider;
   }
 
   getSessionManager(): SessionManager {

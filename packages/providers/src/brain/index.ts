@@ -17,3 +17,11 @@ export {
   redactDiagnosticText,
   type AntigravityCliEvent
 } from './antigravity/parser.js';
+export {
+  OpenAIBrainProvider,
+  type OpenAIBrainProviderOptions,
+  OPENAI_PROVIDER_ID,
+  OPENAI_FAST_MODEL_ID,
+  OPENAI_BALANCED_MODEL_ID,
+  sanitizeErrorMessage
+} from './openai.js';

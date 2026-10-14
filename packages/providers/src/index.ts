@@ -14,7 +14,13 @@ export {
   createDefaultMockModels,
   AntigravityBrainProvider,
   type AntigravityBrainProviderOptions,
-  type SpawnFactory
+  type SpawnFactory,
+  OpenAIBrainProvider,
+  type OpenAIBrainProviderOptions,
+  OPENAI_PROVIDER_ID,
+  OPENAI_FAST_MODEL_ID,
+  OPENAI_BALANCED_MODEL_ID,
+  sanitizeErrorMessage
 } from './brain/index.js';
 export * from './audio/index.js';
 export * from './stt/index.js';
