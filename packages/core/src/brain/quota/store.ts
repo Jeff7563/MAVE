@@ -48,7 +48,7 @@ export class RuntimeQuotaStore {
    * Retrieves current quota state for a provider.
    *
    * Invariants:
-   * 1. If no state recorded: returns status 'unknown'.
+   * 1. If no state recorded: returns status 'unknown' with scope 'runtime'.
    * 2. If provider lifecycleToken has changed: returns status 'unknown'.
    * 3. If resetAt timestamp has elapsed: state expires to status 'unknown' (not 'available').
    */
@@ -61,7 +61,8 @@ export class RuntimeQuotaStore {
         providerId: normalizedId,
         status: 'unknown',
         observedAt: 0,
-        source: 'unknown'
+        source: 'unknown',
+        scope: 'runtime'
       });
     }
 
@@ -72,7 +73,8 @@ export class RuntimeQuotaStore {
         providerId: normalizedId,
         status: 'unknown',
         observedAt: 0,
-        source: 'unknown'
+        source: 'unknown',
+        scope: 'runtime'
       });
     }
 
@@ -84,7 +86,8 @@ export class RuntimeQuotaStore {
         observedAt: now,
         source: 'unknown',
         reason: `Quota block expired past reset time (${new Date(existing.resetAt).toISOString()})`,
-        lifecycleToken: existing.lifecycleToken
+        lifecycleToken: existing.lifecycleToken,
+        scope: existing.scope ?? 'runtime'
       });
       this.states.set(normalizedId, expiredState);
       return expiredState;
@@ -98,8 +101,10 @@ export class RuntimeQuotaStore {
    *
    * Invariants:
    * 1. Stale older observations (observedAt < existing.observedAt) are rejected.
-   * 2. For identical timestamps, blocked states (quota_limited / rate_limited) take priority.
-   * 3. Never invents resetAt; stored strictly when supplied.
+   * 2. Scope protection: A model-scoped observation (whether success or model limit)
+   *    can NEVER overwrite, downgrade, or unblock an active runtime-wide block.
+   * 3. For identical timestamps, blocked states (quota_limited / rate_limited) take priority.
+   * 4. Never invents resetAt; stored strictly when supplied.
    */
   record(observation: RuntimeQuotaObservation): RuntimeQuotaState {
     if (!observation.providerId || !observation.providerId.trim()) {
@@ -109,6 +114,7 @@ export class RuntimeQuotaStore {
     const normalizedId = observation.providerId.trim();
     const observedAt = observation.observedAt ?? this.clock();
     const existing = this.states.get(normalizedId);
+    const scope = observation.scope ?? (observation.modelId ? 'model' : 'runtime');
 
     if (existing) {
       // 1. Stale observation protection: older timestamp cannot override newer observation
@@ -116,7 +122,13 @@ export class RuntimeQuotaStore {
         return existing;
       }
 
-      // 2. Tie-break for equal timestamps: preserve higher-severity status
+      // 2. Scope protection: An active runtime-scoped block CANNOT be overwritten or cleared
+      // by a model-scoped observation
+      if (isQuotaBlocked(existing, observedAt) && scope === 'model') {
+        return existing;
+      }
+
+      // 3. Tie-break for equal timestamps: preserve higher-severity status
       if (existing.observedAt === observedAt) {
         const existingPrio = STATUS_PRIORITY[existing.status] ?? 0;
         const newPrio = STATUS_PRIORITY[observation.status] ?? 0;
@@ -133,7 +145,9 @@ export class RuntimeQuotaStore {
       resetAt: observation.resetAt,
       source: observation.source ?? 'unknown',
       reason: sanitizeReason(observation.reason),
-      lifecycleToken: observation.lifecycleToken ?? existing?.lifecycleToken
+      lifecycleToken: observation.lifecycleToken ?? existing?.lifecycleToken,
+      scope,
+      modelId: observation.modelId
     });
 
     this.states.set(normalizedId, newState);
@@ -152,7 +166,8 @@ export class RuntimeQuotaStore {
       observedAt: this.clock(),
       source: 'manual_invalidation',
       reason: reason ? sanitizeReason(reason) : undefined,
-      lifecycleToken: existing?.lifecycleToken
+      lifecycleToken: existing?.lifecycleToken,
+      scope: 'runtime'
     });
     this.states.set(normalizedId, newState);
     return newState;
@@ -173,7 +188,8 @@ export class RuntimeQuotaStore {
             observedAt: now,
             source: 'unknown',
             reason: `Quota block expired past reset time (${new Date(state.resetAt).toISOString()})`,
-            lifecycleToken: state.lifecycleToken
+            lifecycleToken: state.lifecycleToken,
+            scope: state.scope ?? 'runtime'
           })
         );
         count++;
@@ -197,7 +213,7 @@ export class RuntimeQuotaStore {
    * Evaluates if a provider is currently known to be quota-blocked.
    */
   isBlocked(providerId: string, lifecycleToken?: string, now = this.clock()): boolean {
-    const state = this.get(providerId, lifecycleToken);
+    const state = this.get(providerId, lifecycleToken, now);
     return isQuotaBlocked(state, now);
   }
 
@@ -208,3 +224,4 @@ export class RuntimeQuotaStore {
     this.states.clear();
   }
 }
+

@@ -1173,9 +1173,18 @@ export class BrainRouter {
       errorCode = 'local_provider_unavailable';
       errorMessage = 'No local provider or model available satisfying localOnly constraint';
     } else if (candidateIds.length > 0 && candidateIds.every((c) => this.quotaStore.isBlocked(c))) {
-      const anyRateLimited = candidateIds.some((c) => this.quotaStore.get(c).status === 'rate_limited');
-      errorCode = anyRateLimited ? 'rate_limited' : 'quota_limited';
-      errorMessage = `All candidate subscription runtimes [${candidateIds.join(', ')}] are currently quota limited`;
+      const allQuotaLimited = candidateIds.every((c) => this.quotaStore.get(c).status === 'quota_limited');
+      const allRateLimited = candidateIds.every((c) => this.quotaStore.get(c).status === 'rate_limited');
+      if (allQuotaLimited) {
+        errorCode = 'quota_limited';
+        errorMessage = `All candidate subscription runtimes [${candidateIds.join(', ')}] are currently quota limited`;
+      } else if (allRateLimited) {
+        errorCode = 'rate_limited';
+        errorMessage = `All candidate subscription runtimes [${candidateIds.join(', ')}] are currently rate limited`;
+      } else {
+        errorCode = 'quota_limited';
+        errorMessage = `All candidate subscription runtimes [${candidateIds.join(', ')}] are currently quota or rate limited`;
+      }
     } else if (
       hasPaidApiBlocked &&
       candidateIds.every((c) => {

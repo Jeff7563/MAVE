@@ -14,6 +14,8 @@ export { buildAntigravityPrompt, MAVE_CONVERSATIONAL_INSTRUCTION } from './antig
 export {
   classifyAntigravityError,
   mapAntigravityUsage,
+  parseAntigravityQuotaSignal,
+  type AntigravityQuotaSignal,
   redactDiagnosticText,
   type AntigravityCliEvent
 } from './antigravity/parser.js';
@@ -72,6 +74,8 @@ export {
 export {
   classifyClaudeCodeError,
   mapClaudeCodeUsage,
+  parseClaudeQuotaSignal,
+  type ClaudeQuotaSignal,
   type ClaudeCliEvent
 } from './claude/parser.js';
 export {
@@ -85,6 +89,8 @@ export {
 export {
   classifyCodexError,
   mapCodexUsage,
+  parseCodexQuotaSignal,
+  type CodexQuotaSignal,
   type CodexCliEvent,
   type CodexRawUsage
 } from './codex/parser.js';

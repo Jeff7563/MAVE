@@ -14,6 +14,7 @@ import { buildAntigravityPrompt } from './antigravity/prompt.js';
 import {
   classifyAntigravityError,
   mapAntigravityUsage,
+  parseAntigravityQuotaSignal,
   redactDiagnosticText,
   type AntigravityCliEvent,
   type AntigravityStepUpdateEvent,
@@ -507,7 +508,10 @@ export class AntigravityBrainProvider implements BrainProvider {
                 typeof res.error === 'string'
                   ? res.error
                   : res.error?.message || 'Antigravity model execution failed';
-              const code = classifyAntigravityError(rawMsg);
+              const classifiedCode = classifyAntigravityError(rawMsg);
+              const quotaSignal = parseAntigravityQuotaSignal(rawMsg);
+              const isQuota = classifiedCode === 'quota_limited' || classifiedCode === 'rate_limited' || quotaSignal.isQuota;
+              const code = isQuota ? quotaSignal.code : classifiedCode;
 
               yield {
                 type: 'error',
@@ -515,7 +519,16 @@ export class AntigravityBrainProvider implements BrainProvider {
                 error: {
                   code,
                   message: redactDiagnosticText(rawMsg),
-                  retryable: code === 'quota_limited' || code === 'rate_limited' || code === 'provider_limit' || code === 'provider_unavailable'
+                  retryable: code === 'quota_limited' || code === 'rate_limited' || code === 'provider_limit' || code === 'provider_unavailable',
+                  providerId: this.id,
+                  modelId: quotaSignal.scope === 'model' ? (quotaSignal.modelId ?? effectiveModel) : undefined,
+                  details: isQuota
+                    ? {
+                        scope: quotaSignal.scope,
+                        ...(quotaSignal.resetAt ? { resetAt: quotaSignal.resetAt } : {}),
+                        ...(quotaSignal.modelId || effectiveModel ? { modelId: quotaSignal.modelId ?? effectiveModel } : {})
+                      }
+                    : undefined
                 }
               };
               return;
@@ -548,7 +561,11 @@ export class AntigravityBrainProvider implements BrainProvider {
 
           if (item.code !== 0 && item.code !== null) {
             const redactedStderr = redactDiagnosticText(stderrBuffer.trim());
-            const code = classifyAntigravityError(redactedStderr || `Exit code ${item.code}`);
+            const rawMsg = redactedStderr || `Exit code ${item.code}`;
+            const classifiedCode = classifyAntigravityError(rawMsg);
+            const quotaSignal = parseAntigravityQuotaSignal(rawMsg);
+            const isQuota = classifiedCode === 'quota_limited' || classifiedCode === 'rate_limited' || quotaSignal.isQuota;
+            const code = isQuota ? quotaSignal.code : classifiedCode;
 
             yield {
               type: 'error',
@@ -556,7 +573,16 @@ export class AntigravityBrainProvider implements BrainProvider {
               error: {
                 code,
                 message: redactedStderr || `Antigravity CLI exited with non-zero code ${item.code}`,
-                retryable: code === 'quota_limited' || code === 'rate_limited' || code === 'provider_limit' || code === 'provider_unavailable'
+                retryable: code === 'quota_limited' || code === 'rate_limited' || code === 'provider_limit' || code === 'provider_unavailable',
+                providerId: this.id,
+                modelId: quotaSignal.scope === 'model' ? (quotaSignal.modelId ?? effectiveModel) : undefined,
+                details: isQuota
+                  ? {
+                      scope: quotaSignal.scope,
+                      ...(quotaSignal.resetAt ? { resetAt: quotaSignal.resetAt } : {}),
+                      ...(quotaSignal.modelId || effectiveModel ? { modelId: quotaSignal.modelId ?? effectiveModel } : {})
+                    }
+                  : undefined
               }
             };
             return;

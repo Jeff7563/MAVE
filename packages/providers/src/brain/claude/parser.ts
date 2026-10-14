@@ -216,3 +216,119 @@ export function redactDiagnosticText(text: string): string {
     // Redact Unix paths
     .replace(/(?:\/[a-zA-Z0-9_.-]+)+/g, '<path>');
 }
+
+export interface ClaudeQuotaSignal {
+  isQuota: boolean;
+  code: 'quota_limited' | 'rate_limited';
+  scope: 'runtime' | 'model' | 'unknown';
+  modelId?: string;
+  resetAt?: number;
+  windowType?: string;
+}
+
+/**
+ * Parses Claude Code rate limit / quota signals and identifies quota scope:
+ * - 'runtime': 5-hour/7-day windows, rate_limit_event with rejected status, account/workspace limits.
+ * - 'model': Limits mentioning specific models (e.g. opus, sonnet) or model capacity.
+ * - 'unknown': Generic 429 / rate limit without explicit account or model scope.
+ */
+export function parseClaudeQuotaSignal(rawText: string, rawEvent?: unknown): ClaudeQuotaSignal {
+  // 1. Check if rawEvent is ClaudeRateLimitEvent
+  if (rawEvent && typeof rawEvent === 'object') {
+    const ev = rawEvent as Record<string, any>;
+    if (ev.type === 'rate_limit_event') {
+      const rlInfo = ev.rate_limit_info;
+      if (rlInfo?.status === 'rejected') {
+        const resetAt =
+          rlInfo.resetsAt ??
+          rlInfo.unifiedWindows?.five_hour?.resetsAt ??
+          rlInfo.unifiedWindows?.seven_day?.resetsAt;
+        const windowType = rlInfo.rateLimitType;
+        return {
+          isQuota: true,
+          code: 'quota_limited',
+          scope: 'runtime',
+          resetAt: typeof resetAt === 'number' && Number.isFinite(resetAt) ? resetAt : undefined,
+          windowType: typeof windowType === 'string' ? windowType : undefined
+        };
+      }
+    }
+  }
+
+  const lower = (rawText || '').toLowerCase();
+  const isQuotaRelated =
+    lower.includes('quota') ||
+    lower.includes('rate limit') ||
+    lower.includes('rate_limit') ||
+    lower.includes('too many requests') ||
+    lower.includes('429') ||
+    lower.includes('overage') ||
+    lower.includes('resetsat') ||
+    lower.includes('capacity') ||
+    lower.includes('credit') ||
+    lower.includes('account limit') ||
+    lower.includes('usage limit') ||
+    lower.includes('plan limit');
+
+  if (!isQuotaRelated) {
+    return {
+      isQuota: false,
+      code: 'quota_limited',
+      scope: 'unknown'
+    };
+  }
+
+  let resetAt: number | undefined;
+  try {
+    const parsed = JSON.parse(rawText);
+    const r = parsed.resetsAt ?? parsed.reset_at ?? parsed.resets_at;
+    if (typeof r === 'number' && Number.isFinite(r)) {
+      resetAt = r;
+    }
+  } catch {}
+
+  // Model-scoped limits
+  const isModelScope =
+    lower.includes('opus') ||
+    lower.includes('sonnet') ||
+    lower.includes('haiku') ||
+    lower.includes('claude-3') ||
+    lower.includes('claude-3-5') ||
+    lower.includes('model capacity');
+
+  let modelId: string | undefined;
+  if (lower.includes('opus')) modelId = 'claude-3-opus';
+  else if (lower.includes('sonnet')) modelId = 'claude-3-5-sonnet';
+  else if (lower.includes('haiku')) modelId = 'claude-3-5-haiku';
+
+  // Runtime-scoped limits
+  const isRuntimeScope =
+    lower.includes('five_hour') ||
+    lower.includes('5-hour') ||
+    lower.includes('seven_day') ||
+    lower.includes('7-day') ||
+    lower.includes('account limit') ||
+    lower.includes('organization') ||
+    lower.includes('workspace') ||
+    lower.includes('plan limit') ||
+    lower.includes('usage limit');
+
+  let scope: 'runtime' | 'model' | 'unknown' = 'unknown';
+  if (isRuntimeScope && !isModelScope) {
+    scope = 'runtime';
+  } else if (isModelScope) {
+    scope = 'model';
+  } else {
+    scope = 'unknown';
+  }
+
+  return {
+    isQuota: true,
+    code: lower.includes('rate limit') || lower.includes('too many requests') || lower.includes('429')
+      ? 'rate_limited'
+      : 'quota_limited',
+    scope,
+    modelId,
+    resetAt
+  };
+}

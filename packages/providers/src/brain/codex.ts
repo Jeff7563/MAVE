@@ -17,6 +17,7 @@ import { buildCodexPrompt } from './codex/prompt.js';
 import {
   classifyCodexError,
   mapCodexUsage,
+  parseCodexQuotaSignal,
   redactDiagnosticText,
   type CodexCliEvent,
   type CodexItemCompletedEvent,
@@ -518,21 +519,25 @@ export class CodexBrainProvider implements BrainProvider {
             if (item.code !== 0 || fatalErrorMessage) {
               const rawErr = fatalErrorMessage || stderrBuffer.trim() || `OpenAI Codex CLI exited with code ${item.code}`;
               const classifiedCode = classifyCodexError(rawErr);
-              let resetAt: number | undefined;
-              try {
-                const parsed = JSON.parse(rawErr);
-                if (typeof parsed.resets_at === 'number') resetAt = parsed.resets_at;
-                else if (typeof parsed.reset_at === 'number') resetAt = parsed.reset_at;
-                else if (typeof parsed.error?.resets_at === 'number') resetAt = parsed.error.resets_at;
-              } catch {}
+              const quotaSignal = parseCodexQuotaSignal(rawErr);
+              const isQuota = classifiedCode === 'quota_limited' || classifiedCode === 'rate_limited' || quotaSignal.isQuota;
+              const errorCode = isQuota ? quotaSignal.code : classifiedCode;
               yield {
                 type: 'error',
                 requestId,
                 error: {
-                  code: classifiedCode,
+                  code: errorCode,
                   message: redactDiagnosticText(rawErr),
-                  retryable: classifiedCode === 'rate_limited',
-                  details: resetAt ? { resetAt } : undefined
+                  retryable: errorCode === 'rate_limited',
+                  providerId: this.id,
+                  modelId: quotaSignal.scope === 'model' ? (quotaSignal.modelId ?? effectiveModel) : undefined,
+                  details: isQuota
+                    ? {
+                        scope: quotaSignal.scope,
+                        ...(quotaSignal.resetAt ? { resetAt: quotaSignal.resetAt } : {}),
+                        ...(quotaSignal.modelId || effectiveModel ? { modelId: quotaSignal.modelId ?? effectiveModel } : {})
+                      }
+                    : undefined
                 }
               };
               return;

@@ -211,3 +211,102 @@ export function redactDiagnosticText(text: string): string {
     .replace(/(?:\/[a-zA-Z0-9_.-]+)+/g, '<path>');
 }
 
+export interface CodexQuotaSignal {
+  isQuota: boolean;
+  code: 'quota_limited' | 'rate_limited';
+  scope: 'runtime' | 'model' | 'unknown';
+  modelId?: string;
+  resetAt?: number;
+}
+
+/**
+ * Parses OpenAI Codex rate limit / quota signals and identifies quota scope:
+ * - 'runtime': ChatGPT plan/account usage limits ("You have reached your usage limit", "ChatGPT account limit", "plan limit").
+ * - 'model': Limits mentioning specific models (e.g. gpt-4o, o1, o1-mini) or model capacity.
+ * - 'unknown': Generic 429 / "too many requests" without plan or model specificity.
+ */
+export function parseCodexQuotaSignal(rawText: string, rawEvent?: unknown): CodexQuotaSignal {
+  let combined = rawText || '';
+  if (rawEvent && typeof rawEvent === 'object') {
+    const raw = rawEvent as Record<string, any>;
+    if (raw.error?.message) combined += ' ' + raw.error.message;
+    if (raw.message) combined += ' ' + raw.message;
+  }
+  try {
+    const parsed = JSON.parse(rawText);
+    if (parsed.error?.message) combined += ' ' + parsed.error.message;
+    if (parsed.message) combined += ' ' + parsed.message;
+  } catch {}
+
+  const lower = combined.toLowerCase();
+  const isQuotaRelated =
+    lower.includes('quota') ||
+    lower.includes('rate limit') ||
+    lower.includes('rate_limit') ||
+    lower.includes('too many requests') ||
+    lower.includes('429') ||
+    lower.includes('usage limit') ||
+    lower.includes('limit reached') ||
+    lower.includes('plan limit') ||
+    lower.includes('capacity');
+
+  if (!isQuotaRelated) {
+    return {
+      isQuota: false,
+      code: 'quota_limited',
+      scope: 'unknown'
+    };
+  }
+
+  let resetAt: number | undefined;
+  try {
+    const parsed = JSON.parse(rawText);
+    const r = parsed.resets_at ?? parsed.reset_at ?? parsed.error?.resets_at;
+    if (typeof r === 'number' && Number.isFinite(r)) {
+      resetAt = r;
+    }
+  } catch {}
+
+  // Model scope: specific models or model capacity
+  const isModelScope =
+    lower.includes('gpt-4o') ||
+    lower.includes('o1-mini') ||
+    lower.includes('o1-preview') ||
+    lower.includes('o1') ||
+    lower.includes('o3-mini') ||
+    lower.includes('model capacity');
+
+  let modelId: string | undefined;
+  if (lower.includes('gpt-4o')) modelId = 'gpt-4o';
+  else if (lower.includes('o1-mini')) modelId = 'o1-mini';
+  else if (lower.includes('o1-preview')) modelId = 'o1-preview';
+  else if (lower.includes('o1')) modelId = 'o1';
+  else if (lower.includes('o3-mini')) modelId = 'o3-mini';
+
+  // Runtime scope: ChatGPT plan/usage limits
+  const isRuntimeScope =
+    lower.includes('usage limit') ||
+    lower.includes('chatgpt account limit') ||
+    lower.includes('plan limit') ||
+    lower.includes('chatgpt plus') ||
+    lower.includes('chatgpt pro') ||
+    lower.includes('reached your usage limit');
+
+  let scope: 'runtime' | 'model' | 'unknown' = 'unknown';
+  if (isRuntimeScope && !isModelScope) {
+    scope = 'runtime';
+  } else if (isModelScope) {
+    scope = 'model';
+  } else {
+    scope = 'unknown';
+  }
+
+  return {
+    isQuota: true,
+    code: lower.includes('rate limit') || lower.includes('too many requests') ? 'rate_limited' : 'quota_limited',
+    scope,
+    modelId,
+    resetAt
+  };
+}
+

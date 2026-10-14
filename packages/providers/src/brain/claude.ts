@@ -17,6 +17,7 @@ import { buildClaudeCodePrompt } from './claude/prompt.js';
 import {
   classifyClaudeCodeError,
   mapClaudeCodeUsage,
+  parseClaudeQuotaSignal,
   redactDiagnosticText,
   type ClaudeCliEvent,
   type ClaudeInitEvent,
@@ -489,13 +490,25 @@ export class ClaudeCodeBrainProvider implements BrainProvider {
             if (item.code !== 0) {
               const rawErr = stderrBuffer.trim() || `Claude Code CLI exited with code ${item.code}`;
               const classifiedCode = classifyClaudeCodeError(rawErr);
+              const quotaSignal = parseClaudeQuotaSignal(rawErr);
+              const isQuota = classifiedCode === 'quota_limited' || classifiedCode === 'rate_limited' || quotaSignal.isQuota;
+              const errorCode = isQuota ? quotaSignal.code : classifiedCode;
               yield {
                 type: 'error',
                 requestId,
                 error: {
-                  code: classifiedCode,
+                  code: errorCode,
                   message: redactDiagnosticText(rawErr),
-                  retryable: classifiedCode === 'rate_limited'
+                  retryable: errorCode === 'rate_limited',
+                  providerId: this.id,
+                  modelId: quotaSignal.scope === 'model' ? (quotaSignal.modelId ?? effectiveModel) : undefined,
+                  details: isQuota
+                    ? {
+                        scope: quotaSignal.scope,
+                        ...(quotaSignal.resetAt ? { resetAt: quotaSignal.resetAt } : {}),
+                        ...(quotaSignal.modelId || effectiveModel ? { modelId: quotaSignal.modelId ?? effectiveModel } : {})
+                      }
+                    : undefined
                 }
               };
               return;
@@ -532,23 +545,21 @@ export class ClaudeCodeBrainProvider implements BrainProvider {
                 try {
                   child.kill();
                 } catch {}
-                const resetsAt =
-                  rlEv.rate_limit_info?.resetsAt ??
-                  rlEv.rate_limit_info?.unifiedWindows?.five_hour?.resetsAt ??
-                  rlEv.rate_limit_info?.unifiedWindows?.seven_day?.resetsAt;
-                const windowType = rlEv.rate_limit_info?.rateLimitType;
+                const quotaSignal = parseClaudeQuotaSignal('', rlEv);
                 yield {
                   type: 'error',
                   requestId,
                   error: {
                     code: 'quota_limited',
-                    message: windowType
-                      ? `Claude Code subscription quota limit reached (${windowType}).`
+                    message: quotaSignal.windowType
+                      ? `Claude Code subscription quota limit reached (${quotaSignal.windowType}).`
                       : 'Claude Code subscription quota limit reached.',
                     retryable: false,
+                    providerId: this.id,
                     details: {
-                      ...(resetsAt ? { resetAt: resetsAt } : {}),
-                      ...(windowType ? { rateLimitType: windowType } : {})
+                      scope: 'runtime',
+                      ...(quotaSignal.resetAt ? { resetAt: quotaSignal.resetAt } : {}),
+                      ...(quotaSignal.windowType ? { rateLimitType: quotaSignal.windowType } : {})
                     }
                   }
                 };

@@ -172,3 +172,83 @@ export function redactDiagnosticText(text: string): string {
     .replace(/(?:\/[a-zA-Z0-9_.-]+)+/g, '<path>');
 }
 
+export interface AntigravityQuotaSignal {
+  isQuota: boolean;
+  code: 'quota_limited' | 'rate_limited';
+  scope: 'runtime' | 'model' | 'unknown';
+  modelId?: string;
+  resetAt?: number;
+}
+
+/**
+ * Parses Google Antigravity rate limit / quota signals and identifies quota scope:
+ * - 'runtime': Project, account, billing, daily plan quota limits.
+ * - 'model': Limits mentioning specific models (e.g. gemini-1.5-pro, gemini-1.5-flash) or GenerateContentRequestsPerMinutePerModel.
+ * - 'unknown': Generic RESOURCE_EXHAUSTED / 429 without model or account specificity.
+ */
+export function parseAntigravityQuotaSignal(rawText: string, _rawEvent?: unknown): AntigravityQuotaSignal {
+  const lower = (rawText || '').toLowerCase();
+  const isQuotaRelated =
+    lower.includes('quota') ||
+    lower.includes('resource_exhausted') ||
+    lower.includes('rate limit') ||
+    lower.includes('rate_limit') ||
+    lower.includes('too many requests') ||
+    lower.includes('429');
+
+  if (!isQuotaRelated) {
+    return {
+      isQuota: false,
+      code: 'quota_limited',
+      scope: 'unknown'
+    };
+  }
+
+  let resetAt: number | undefined;
+  try {
+    const parsed = JSON.parse(rawText);
+    const r = parsed.reset_at ?? parsed.resets_at ?? parsed.resetAt;
+    if (typeof r === 'number' && Number.isFinite(r)) {
+      resetAt = r;
+    }
+  } catch {}
+
+  // Model scope: requests per model or specific gemini model name
+  const isModelScope =
+    lower.includes('generatecontentrequestsperminutepermodel') ||
+    lower.includes('gemini-1.5-pro') ||
+    lower.includes('gemini-1.5-flash') ||
+    lower.includes('gemini-2.0') ||
+    lower.includes('model quota');
+
+  let modelId: string | undefined;
+  if (lower.includes('gemini-1.5-pro')) modelId = 'gemini-1.5-pro';
+  else if (lower.includes('gemini-1.5-flash')) modelId = 'gemini-1.5-flash';
+  else if (lower.includes('gemini-2.0')) modelId = 'gemini-2.0-flash';
+
+  // Runtime scope: project, account, billing, daily plan quota
+  const isRuntimeScope =
+    lower.includes('project quota') ||
+    lower.includes('account quota') ||
+    lower.includes('billing quota') ||
+    lower.includes('daily quota') ||
+    lower.includes('plan quota');
+
+  let scope: 'runtime' | 'model' | 'unknown' = 'unknown';
+  if (isRuntimeScope && !isModelScope) {
+    scope = 'runtime';
+  } else if (isModelScope) {
+    scope = 'model';
+  } else {
+    scope = 'unknown';
+  }
+
+  return {
+    isQuota: true,
+    code: lower.includes('rate limit') || lower.includes('too many requests') ? 'rate_limited' : 'quota_limited',
+    scope,
+    modelId,
+    resetAt
+  };
+}
+

@@ -113,23 +113,53 @@ export class RuntimeModelCatalog {
 
   /**
    * Retrieves all registered runtime models for a given subscription runtime.
+   * Auto-expires any quota_limited or rate_limited models whose resetAt has passed to 'unknown'.
+   * Invariant: Expired models transition strictly to 'unknown', NEVER automatically to 'available'.
    * Returns empty array if none registered.
    */
-  getRuntimeModels(runtimeProviderId: string): readonly RuntimeModelDescriptor[] {
-    const models = this.store.get(runtimeProviderId.trim());
-    return models ? [...models] : [];
+  getRuntimeModels(runtimeProviderId: string, now = Date.now()): readonly RuntimeModelDescriptor[] {
+    const normalized = runtimeProviderId.trim();
+    const models = this.store.get(normalized);
+    if (!models) return [];
+
+    let changed = false;
+    const updatedModels = models.map((m) => {
+      if (
+        (m.availability === 'quota_limited' || m.availability === 'rate_limited') &&
+        typeof m.metadata?.resetAt === 'number' &&
+        now >= m.metadata.resetAt
+      ) {
+        changed = true;
+        return freezeDescriptor({
+          ...m,
+          availability: 'unknown',
+          metadata: {
+            ...m.metadata,
+            resetAt: undefined,
+            expiredResetAt: m.metadata.resetAt
+          }
+        });
+      }
+      return m;
+    });
+
+    if (changed) {
+      this.store.set(normalized, updatedModels);
+    }
+
+    return [...updatedModels];
   }
 
   /**
    * Finds a specific model descriptor by modelId, alias, or canonicalName.
+   * Evaluates expiration before matching.
    */
   getRuntimeModel(
     runtimeProviderId: string,
-    modelIdOrAlias: string
+    modelIdOrAlias: string,
+    now = Date.now()
   ): RuntimeModelDescriptor | undefined {
-    const models = this.store.get(runtimeProviderId.trim());
-    if (!models) return undefined;
-
+    const models = this.getRuntimeModels(runtimeProviderId, now);
     const normalized = modelIdOrAlias.trim().toLowerCase();
     return models.find(
       (m) =>
@@ -137,6 +167,42 @@ export class RuntimeModelCatalog {
         (m.alias && m.alias.trim().toLowerCase() === normalized) ||
         (m.canonicalName && m.canonicalName.trim().toLowerCase() === normalized)
     );
+  }
+
+  /**
+   * Cleans up expired quota/rate limit blocks across all registered runtime models,
+   * transitioning them strictly to 'unknown'.
+   */
+  clearExpired(now = Date.now()): number {
+    let expiredCount = 0;
+    for (const runtimeId of this.store.keys()) {
+      const models = this.store.get(runtimeId) ?? [];
+      let changed = false;
+      const updated = models.map((m) => {
+        if (
+          (m.availability === 'quota_limited' || m.availability === 'rate_limited') &&
+          typeof m.metadata?.resetAt === 'number' &&
+          now >= m.metadata.resetAt
+        ) {
+          changed = true;
+          expiredCount++;
+          return freezeDescriptor({
+            ...m,
+            availability: 'unknown',
+            metadata: {
+              ...m.metadata,
+              resetAt: undefined,
+              expiredResetAt: m.metadata.resetAt
+            }
+          });
+        }
+        return m;
+      });
+      if (changed) {
+        this.store.set(runtimeId, updated);
+      }
+    }
+    return expiredCount;
   }
 
   /**
@@ -161,8 +227,8 @@ export class RuntimeModelCatalog {
    * Selects a model from the catalog for a given subscription runtime and role,
    * respecting AUTO, PREFERRED, or LOCKED selection mode.
    */
-  selectModel(request: RuntimeModelSelectionRequest): RuntimeModelSelectionResult {
-    const models = this.getRuntimeModels(request.runtimeProviderId);
+  selectModel(request: RuntimeModelSelectionRequest, now = Date.now()): RuntimeModelSelectionResult {
+    const models = this.getRuntimeModels(request.runtimeProviderId, now);
     if (models.length === 0) {
       throw new RuntimeModelSelectionError(
         'no_models_discovered',

@@ -9,7 +9,8 @@ import type {
   Session
 } from '@mave/contracts';
 import type { BrainRouter } from '../brain/router.js';
-import { RuntimeQuotaStore } from '../brain/quota/index.js';
+import { RuntimeQuotaStore, type RuntimeQuotaScope } from '../brain/quota/index.js';
+import { RuntimeModelCatalog } from '../brain/runtime-models/catalog.js';
 import { ContextManager } from './context-manager.js';
 import type { SessionManager } from './session-manager.js';
 import {
@@ -25,6 +26,7 @@ export interface ConversationRuntimeOptions {
   router: BrainRouter;
   store?: ConversationStore;
   quotaStore?: RuntimeQuotaStore;
+  runtimeModelCatalog?: RuntimeModelCatalog;
   requestIdFactory?: () => string;
   clock?: () => number;
   defaultTimeoutMs?: number;
@@ -54,6 +56,7 @@ export class ConversationRuntime {
   private readonly router: BrainRouter;
   private readonly store?: ConversationStore;
   private readonly quotaStore: RuntimeQuotaStore;
+  private readonly runtimeModelCatalog?: RuntimeModelCatalog;
   private readonly requestIdFactory: () => string;
   private readonly clock: () => number;
   private readonly defaultTimeoutMs: number;
@@ -69,6 +72,10 @@ export class ConversationRuntime {
     return this.quotaStore;
   }
 
+  getRuntimeModelCatalog(): RuntimeModelCatalog | undefined {
+    return this.runtimeModelCatalog;
+  }
+
   constructor(options: ConversationRuntimeOptions) {
     this.sessionManager = options.sessionManager;
     this.contextManager = options.contextManager ?? new ContextManager();
@@ -79,6 +86,11 @@ export class ConversationRuntime {
       options.quotaStore ??
       (typeof options.router.getQuotaStore === 'function' ? options.router.getQuotaStore() : undefined) ??
       new RuntimeQuotaStore({ clock: this.clock });
+    this.runtimeModelCatalog =
+      options.runtimeModelCatalog ??
+      (typeof options.router.getRuntimeModelCatalog === 'function'
+        ? options.router.getRuntimeModelCatalog()
+        : undefined);
     this.requestIdFactory = options.requestIdFactory ?? (() => randomUUID());
     this.defaultTimeoutMs =
       options.defaultTimeoutMs !== undefined && options.defaultTimeoutMs > 0
@@ -749,11 +761,19 @@ export class ConversationRuntime {
             }
 
             // Record successful execution quota observation
+            const executedModelId = routeDecision.modelId;
+            if (executedModelId && this.runtimeModelCatalog) {
+              this.runtimeModelCatalog.updateRuntimeModel(providerId, executedModelId, {
+                availability: 'available'
+              });
+            }
             this.quotaStore.record({
               providerId,
               status: 'available',
               source: 'successful_execution',
-              observedAt: this.clock()
+              observedAt: this.clock(),
+              scope: 'model',
+              modelId: executedModelId
             });
 
             const finalText = accumulatedText.length > 0 ? accumulatedText : (event.text ?? '');
@@ -934,16 +954,58 @@ export class ConversationRuntime {
 
             // Record quota limit observation if provider returned quota_limited or rate_limited
             if (event.error.code === 'quota_limited' || event.error.code === 'rate_limited') {
-              const resetAt =
-                event.error.details && typeof event.error.details === 'object' && 'resetAt' in event.error.details
-                  ? Number((event.error.details as Record<string, unknown>).resetAt)
+              const details =
+                event.error.details && typeof event.error.details === 'object'
+                  ? (event.error.details as Record<string, unknown>)
                   : undefined;
+              const resetAt =
+                details && 'resetAt' in details && typeof details.resetAt === 'number' && Number.isFinite(details.resetAt)
+                  ? details.resetAt
+                  : undefined;
+              const rawScope = details && 'scope' in details ? details.scope : undefined;
+              let scope: RuntimeQuotaScope;
+              if (rawScope === 'runtime' || rawScope === 'model' || rawScope === 'unknown') {
+                scope = rawScope;
+              } else if (event.error.modelId || (details && typeof details.modelId === 'string')) {
+                scope = 'model';
+              } else {
+                const lowerMsg = (event.error.message || '').toLowerCase();
+                if (
+                  lowerMsg.includes('subscription') ||
+                  lowerMsg.includes('account') ||
+                  lowerMsg.includes('plan') ||
+                  lowerMsg.includes('workspace') ||
+                  lowerMsg.includes('five_hour') ||
+                  lowerMsg.includes('seven_day') ||
+                  lowerMsg.includes('daily')
+                ) {
+                  scope = 'runtime';
+                } else {
+                  scope = 'unknown';
+                }
+              }
+              const targetModelId =
+                event.error.modelId ||
+                (details && typeof details.modelId === 'string' ? details.modelId : routeDecision.modelId);
+
+              if (scope === 'model' && targetModelId && this.runtimeModelCatalog) {
+                this.runtimeModelCatalog.updateRuntimeModel(providerId, targetModelId, {
+                  availability: event.error.code,
+                  metadata: {
+                    resetAt,
+                    scope: 'model'
+                  }
+                });
+              }
+
               this.quotaStore.record({
                 providerId,
                 status: event.error.code,
                 source: 'runtime_error',
                 reason: event.error.message,
-                resetAt: resetAt && Number.isFinite(resetAt) ? resetAt : undefined,
+                resetAt,
+                scope,
+                modelId: scope === 'model' ? targetModelId : undefined,
                 observedAt: this.clock()
               });
             }

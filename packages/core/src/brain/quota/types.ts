@@ -29,6 +29,9 @@ export const RUNTIME_QUOTA_SOURCES = [
 
 export type RuntimeQuotaSource = (typeof RUNTIME_QUOTA_SOURCES)[number];
 
+export const RUNTIME_QUOTA_SCOPES = ['runtime', 'model', 'unknown'] as const;
+export type RuntimeQuotaScope = (typeof RUNTIME_QUOTA_SCOPES)[number];
+
 export interface RuntimeQuotaState {
   readonly providerId: string;
   readonly status: RuntimeQuotaStatus;
@@ -37,6 +40,8 @@ export interface RuntimeQuotaState {
   readonly source: RuntimeQuotaSource;
   readonly reason?: string;
   readonly lifecycleToken?: string;
+  readonly scope?: RuntimeQuotaScope;
+  readonly modelId?: string;
 }
 
 export interface RuntimeQuotaObservation {
@@ -47,16 +52,24 @@ export interface RuntimeQuotaObservation {
   readonly source?: RuntimeQuotaSource;
   readonly reason?: string;
   readonly lifecycleToken?: string;
+  readonly scope?: RuntimeQuotaScope;
+  readonly modelId?: string;
 }
 
 export type QuotaRoutingPreference = 'priority_first' | 'available_first';
 
 /**
- * Evaluates whether a quota state currently represents an active quota block.
- * An active block is 'quota_limited' or 'rate_limited' whose resetAt (if set) is in the future.
+ * Evaluates whether a quota state currently represents an active provider-level quota block.
+ * An active block is 'quota_limited' or 'rate_limited' whose scope is 'runtime' (or default)
+ * and whose resetAt (if set) is in the future.
+ *
+ * Invariant: Model-scoped or unknown-scoped states NEVER block the provider-wide runtime.
  */
 export function isQuotaBlocked(state?: RuntimeQuotaState, now = Date.now()): boolean {
   if (!state || (state.status !== 'quota_limited' && state.status !== 'rate_limited')) {
+    return false;
+  }
+  if (state.scope !== undefined && state.scope !== 'runtime') {
     return false;
   }
   if (state.resetAt !== undefined && now >= state.resetAt) {
@@ -65,3 +78,4 @@ export function isQuotaBlocked(state?: RuntimeQuotaState, now = Date.now()): boo
   }
   return true;
 }
+

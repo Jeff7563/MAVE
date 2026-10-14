@@ -552,6 +552,36 @@ User Follow-up Request
 
 ---
 
+### 11.6 Quota Scope & Blocked-State Hardening (F1.5-S4.1)
+
+To prevent model-specific capacity limits or generic transient errors from corrupting provider-level subscription routing:
+
+#### 1. Explicit Quota Scopes
+Quota signals are partitioned into three distinct semantic scopes:
+- **`runtime`:** Provider-level subscription limits (e.g., Claude rolling 5-hour/7-day windows, ChatGPT Plus/Pro plan limits, project-wide daily quota). Stored in `RuntimeQuotaStore` and blocks provider-level routing until `resetAt`.
+- **`model`:** Model-specific capacity or rate limits (e.g., `claude-3-opus`, `gpt-4o`, `GenerateContentRequestsPerMinutePerModel`). Integrated directly with `RuntimeModelCatalog` by updating model `availability: 'quota_limited'` and storing `metadata.resetAt`. **NEVER** blocks the provider runtime; alternate eligible models in the same subscription runtime remain fully routable.
+- **`unknown`:** Generic rate limit or HTTP 429 signals lacking explicit model or account context. Fails the immediate invocation with precision (`quota_limited` / `rate_limited`) but **NEVER** falsely blocks the provider account-wide on subsequent turns.
+
+#### 2. Scope-Aware Overwrite Protection
+In `RuntimeQuotaStore`:
+- An active runtime-scoped block (`scope: 'runtime'`) can **NEVER** be cleared or downgraded by a model-scoped observation (`scope: 'model'`), whether that observation is a successful execution (`status: 'available'`) or a model error (`status: 'quota_limited'`).
+- A successful model execution updates only that specific model in `RuntimeModelCatalog` and records `scope: 'model'` in `RuntimeQuotaStore`, preserving any active runtime block.
+- Only a runtime-scoped success (`scope: 'runtime', status: 'available'`) with a newer observation timestamp can clear an active runtime block.
+
+#### 3. Strict Model Expiration to 'unknown'
+In `RuntimeModelCatalog`:
+- When `now >= metadata.resetAt`, model availability transitions strictly to `'unknown'`, **NEVER** automatically to `'available'`.
+- Models in `'unknown'` state become eligible for optimistic AUTO candidate selection, where actual entitlement will be verified upon execution.
+- `RuntimeModelCatalog.clearExpired(now)` batch-cleans expired model blocks across all tracked subscription runtimes.
+
+#### 4. Error Precision for Blocked Candidates
+When all candidate runtimes are blocked before execution:
+- If all candidates are `quota_limited` $\to$ `code: 'quota_limited'`, message indicates all candidates are quota limited.
+- If all candidates are `rate_limited` $\to$ `code: 'rate_limited'`, message indicates all candidates are rate limited.
+- If candidates are mixed $\to$ deterministic `code: 'quota_limited'` with explanatory message: `"All candidate subscription runtimes [...] are currently quota or rate limited"`.
+
+---
+
 ## 12. Follow-Up Phasing Plan
 
 - **F1.5-S (COMPLETE):** Subscription-First foundation, access/billing classification, paid API blocking, runtime audits, canonical architecture documentation.
@@ -563,6 +593,7 @@ User Follow-up Request
 - **F1.5-S3.2 (COMPLETE):** Codex subscription runtime normalization (`CodexBrainProvider`, ChatGPT auth, billing isolation, headless execution, tool suppression).
 - **F1.5-S3.3 (COMPLETE):** Tri-runtime live smoke verification (Claude Code, OpenAI Codex, Google Antigravity).
 - **F1.5-S4 (COMPLETE):** Quota-aware subscription runtime routing & next-turn fallback engine (`RuntimeQuotaStore`, pre-execution routing skip, fail-closed boundaries).
+- **F1.5-S4.1 (COMPLETE):** Quota scope & blocked-state hardening (`scope: 'runtime' | 'model' | 'unknown'`, `RuntimeModelCatalog` model quota integration, resetAt expiration to unknown, scope-aware overwrite protection).
 
 
 
