@@ -27,6 +27,33 @@ export interface BrainProviderRegistryOptions {
   defaultHealthTtlMs?: number;
 }
 
+/**
+ * Registration metadata hints for a provider.
+ * Identity (id), dynamic health, and capabilities are authoritative runtime properties
+ * and cannot be overridden by metadata.
+ */
+export interface ProviderRegistrationMetadata {
+  readonly id?: string;
+  readonly kind?: ProviderKind;
+  readonly displayName?: string;
+  readonly accessPath?: ProviderAccessPath;
+  readonly defaultModelId?: string;
+  readonly documentationUrl?: string;
+}
+
+/**
+ * Static provider metadata decoupled from dynamic operational health.
+ */
+export interface ProviderMetadata {
+  readonly id: string;
+  readonly kind: ProviderKind;
+  readonly displayName: string;
+  readonly accessPath: ProviderAccessPath;
+  readonly capabilities: BrainCapabilities;
+  readonly defaultModelId?: string;
+  readonly documentationUrl?: string;
+}
+
 export interface ProviderRegistrySnapshot {
   readonly providers: readonly ProviderDescriptor[];
   readonly health: Record<string, ProviderHealth>;
@@ -36,7 +63,7 @@ export interface ProviderRegistrySnapshot {
 interface ProviderEntry {
   readonly id: string;
   provider: BrainProvider;
-  metadata?: Partial<ProviderDescriptor>;
+  metadata?: ProviderRegistrationMetadata;
   revision: number;
   registeredAt: number;
 }
@@ -51,13 +78,14 @@ interface CachedHealth {
  * Hardened registry for managing MAVE intelligence brain providers.
  *
  * Responsibilities:
- * - Deterministic provider registration, replacement, and unregistration
+ * - Deterministic provider registration, replacement, and unregistration with canonical ID enforcement
+ * - Single source of truth for runtime identity (BrainProvider.id) and health (Registry)
  * - Safe provider lookup by normalized ProviderId
- * - Capability discovery and ProviderDescriptor synthesis
- * - Race-safe health probing with single-flight coordination
- * - Health error and timeout normalization
+ * - Capability discovery and ProviderDescriptor synthesis with dynamic health hydration
+ * - Non-quota health probing with single-flight concurrency
+ * - Sanitized health error and timeout normalization
  * - In-memory TTL health caching with stale-result rejection
- * - Immutable registry and health snapshots
+ * - Immutable, serializable registry snapshots free of sensitive internals
  */
 export class BrainProviderRegistry {
   private readonly entries = new Map<string, ProviderEntry>();
@@ -71,7 +99,28 @@ export class BrainProviderRegistry {
     this.defaultHealthTtlMs = options?.defaultHealthTtlMs ?? 15000;
   }
 
-  private normalizeId(id: string): string {
+  /**
+   * Validates that provider.id is already canonical without leading/trailing whitespace.
+   * Does NOT silently mutate or trim registered provider identity.
+   */
+  private validateCanonicalProvider(provider: BrainProvider): string {
+    if (!provider || typeof provider.id !== 'string') {
+      throw new BrainRegistryError('invalid_provider_id', 'Provider must have a valid string id');
+    }
+    const id = provider.id;
+    if (id.length === 0 || id !== id.trim()) {
+      throw new BrainRegistryError(
+        'invalid_provider_id',
+        `Provider id must be canonical without leading or trailing whitespace: '${id}'`
+      );
+    }
+    return id;
+  }
+
+  /**
+   * Normalizes lookup arguments from callers (trims leading/trailing whitespace).
+   */
+  private normalizeLookupId(id: string): string {
     if (!id || typeof id !== 'string') {
       throw new BrainRegistryError('invalid_provider_id', 'Provider id must be a non-empty string');
     }
@@ -84,24 +133,27 @@ export class BrainProviderRegistry {
 
   /**
    * Registers a brain provider instance.
-   * Rejects duplicate registrations with BrainRegistryError('duplicate_provider').
+   * Enforces canonical ID validation and rejects duplicate registrations.
    */
-  register(provider: BrainProvider, metadata?: Partial<ProviderDescriptor>): void {
-    if (!provider || typeof provider.id !== 'string') {
-      throw new BrainRegistryError('invalid_provider_id', 'Provider must have a valid string id');
-    }
+  register(provider: BrainProvider, metadata?: ProviderRegistrationMetadata): void {
+    const canonicalId = this.validateCanonicalProvider(provider);
 
-    const trimmedId = this.normalizeId(provider.id);
-
-    if (this.entries.has(trimmedId)) {
+    if (metadata?.id !== undefined && metadata.id !== canonicalId) {
       throw new BrainRegistryError(
-        'duplicate_provider',
-        `Provider with id '${trimmedId}' is already registered`
+        'invalid_provider_id',
+        `Registration metadata id '${metadata.id}' does not match provider id '${canonicalId}'`
       );
     }
 
-    this.entries.set(trimmedId, {
-      id: trimmedId,
+    if (this.entries.has(canonicalId)) {
+      throw new BrainRegistryError(
+        'duplicate_provider',
+        `Provider with id '${canonicalId}' is already registered`
+      );
+    }
+
+    this.entries.set(canonicalId, {
+      id: canonicalId,
       provider,
       metadata,
       revision: 1,
@@ -111,20 +163,23 @@ export class BrainProviderRegistry {
 
   /**
    * Explicitly replaces an existing registered provider.
-   * Bumps the revision token and invalidates stale health cache entries.
+   * Enforces canonical ID validation, bumps the revision token, and invalidates stale health cache.
    */
-  replace(provider: BrainProvider, metadata?: Partial<ProviderDescriptor>): void {
-    if (!provider || typeof provider.id !== 'string') {
-      throw new BrainRegistryError('invalid_provider_id', 'Provider must have a valid string id');
+  replace(provider: BrainProvider, metadata?: ProviderRegistrationMetadata): void {
+    const canonicalId = this.validateCanonicalProvider(provider);
+
+    if (metadata?.id !== undefined && metadata.id !== canonicalId) {
+      throw new BrainRegistryError(
+        'invalid_provider_id',
+        `Registration metadata id '${metadata.id}' does not match provider id '${canonicalId}'`
+      );
     }
 
-    const trimmedId = this.normalizeId(provider.id);
-    const existing = this.entries.get(trimmedId);
-
+    const existing = this.entries.get(canonicalId);
     if (!existing) {
       throw new BrainRegistryError(
         'provider_not_found',
-        `Cannot replace unregistered provider '${trimmedId}'`
+        `Cannot replace unregistered provider '${canonicalId}'`
       );
     }
 
@@ -135,7 +190,7 @@ export class BrainProviderRegistry {
     }
 
     // Invalidate cached health for replaced provider
-    this.healthCache.delete(trimmedId);
+    this.healthCache.delete(canonicalId);
   }
 
   /**
@@ -207,11 +262,50 @@ export class BrainProviderRegistry {
   }
 
   /**
-   * Discovers or synthesizes the ProviderDescriptor for a registered provider.
-   * Hydrates dynamic health from the registry's health state.
+   * Returns static provider metadata without requiring an operational health probe.
    */
-  getDescriptor(providerId: string): ProviderDescriptor {
-    const trimmedId = this.normalizeId(providerId);
+  getProviderMetadata(providerId: string): ProviderMetadata {
+    const trimmedId = this.normalizeLookupId(providerId);
+    const entry = this.entries.get(trimmedId);
+    if (!entry) {
+      throw new BrainRegistryError(
+        'provider_not_found',
+        `Provider '${providerId}' is not registered`
+      );
+    }
+
+    const kind: ProviderKind =
+      entry.metadata?.kind ??
+      (trimmedId === 'antigravity' ? 'agent_runtime_provider' : 'model_provider');
+    const accessPath: ProviderAccessPath =
+      entry.metadata?.accessPath ??
+      (trimmedId === 'antigravity' ? 'official_cli' : 'local_runtime');
+    const displayName: string =
+      entry.metadata?.displayName ??
+      (trimmedId === 'antigravity'
+        ? 'Google Antigravity'
+        : trimmedId === 'mock'
+          ? 'Mock Brain Provider'
+          : trimmedId);
+
+    return Object.freeze({
+      id: entry.id,
+      kind,
+      displayName,
+      accessPath,
+      capabilities: Object.freeze({ ...entry.provider.getCapabilities() }),
+      defaultModelId: entry.metadata?.defaultModelId,
+      documentationUrl: entry.metadata?.documentationUrl
+    });
+  }
+
+  /**
+   * Discovers or synthesizes the ProviderDescriptor for a registered provider.
+   * If the provider has not been probed yet, returns undefined (unknown = absence of health state).
+   * Does NOT fabricate unconfigured or unavailable status for unprobed providers.
+   */
+  getDescriptor(providerId: string): ProviderDescriptor | undefined {
+    const trimmedId = this.normalizeLookupId(providerId);
     const entry = this.entries.get(trimmedId);
     if (!entry) {
       throw new BrainRegistryError(
@@ -221,50 +315,79 @@ export class BrainProviderRegistry {
     }
 
     const cached = this.healthCache.get(trimmedId);
-    const currentHealth: ProviderHealth = cached
-      ? { ...cached.health }
-      : {
-          status: 'unconfigured',
-          message: 'Provider has not been probed yet',
-          checkedAt: entry.registeredAt
-        };
+    if (!cached) {
+      // Unprobed: health is unknown (absence of health state).
+      return undefined;
+    }
 
+    const currentHealth: ProviderHealth = { ...cached.health };
     let descriptor: ProviderDescriptor;
+
     if (isModelCatalogProvider(entry.provider)) {
       const raw = entry.provider.getDescriptor();
+      if (raw.id !== entry.id) {
+        throw new BrainRegistryError(
+          'invalid_provider_id',
+          `ModelCatalogProvider '${entry.id}' returned descriptor with mismatched id '${raw.id}'`
+        );
+      }
       descriptor = {
         ...raw,
-        health: currentHealth,
-        ...entry.metadata
-      };
-    } else {
-      const kind: ProviderKind =
-        entry.metadata?.kind ??
-        (trimmedId === 'antigravity' ? 'agent_runtime_provider' : 'model_provider');
-      const accessPath: ProviderAccessPath =
-        entry.metadata?.accessPath ??
-        (trimmedId === 'antigravity' ? 'official_cli' : 'local_runtime');
-      const displayName: string =
-        entry.metadata?.displayName ??
-        (trimmedId === 'antigravity'
-          ? 'Google Antigravity'
-          : trimmedId === 'mock'
-            ? 'Mock Brain Provider'
-            : trimmedId);
-
-      descriptor = {
-        id: trimmedId,
-        kind,
-        displayName,
-        accessPath,
+        id: entry.id,
         capabilities: entry.provider.getCapabilities(),
         health: currentHealth,
-        defaultModelId: entry.metadata?.defaultModelId,
-        documentationUrl: entry.metadata?.documentationUrl
+        kind: entry.metadata?.kind ?? raw.kind,
+        displayName: entry.metadata?.displayName ?? raw.displayName,
+        accessPath: entry.metadata?.accessPath ?? raw.accessPath,
+        defaultModelId: entry.metadata?.defaultModelId ?? raw.defaultModelId,
+        documentationUrl: entry.metadata?.documentationUrl ?? raw.documentationUrl
+      };
+    } else {
+      const meta = this.getProviderMetadata(trimmedId);
+      descriptor = {
+        id: entry.id,
+        kind: meta.kind,
+        displayName: meta.displayName,
+        accessPath: meta.accessPath,
+        capabilities: entry.provider.getCapabilities(),
+        health: currentHealth,
+        defaultModelId: meta.defaultModelId,
+        documentationUrl: meta.documentationUrl
       };
     }
 
     return ProviderDescriptorSchema.parse(descriptor);
+  }
+
+  /**
+   * Retrieves ProviderDescriptor, throwing BrainRegistryError if provider is missing or unprobed.
+   */
+  requireDescriptor(providerId: string): ProviderDescriptor {
+    const trimmedId = this.normalizeLookupId(providerId);
+    if (!this.entries.has(trimmedId)) {
+      throw new BrainRegistryError(
+        'provider_not_found',
+        `Provider '${providerId}' is not registered`
+      );
+    }
+
+    const desc = this.getDescriptor(trimmedId);
+    if (!desc) {
+      throw new BrainRegistryError(
+        'provider_unprobed',
+        `Provider '${providerId}' has not been health-probed yet; health is unknown`
+      );
+    }
+    return desc;
+  }
+
+  /**
+   * Ensures the provider has been probed, then returns the fully hydrated ProviderDescriptor.
+   */
+  async resolveDescriptor(providerId: string): Promise<ProviderDescriptor> {
+    const trimmedId = this.normalizeLookupId(providerId);
+    await this.health(trimmedId);
+    return this.requireDescriptor(trimmedId);
   }
 
   /**
@@ -298,7 +421,7 @@ export class BrainProviderRegistry {
     providerId: string,
     options?: { forceRefresh?: boolean }
   ): Promise<ProviderHealth> {
-    const trimmedId = this.normalizeId(providerId);
+    const trimmedId = this.normalizeLookupId(providerId);
     this.require(trimmedId);
 
     if (!options?.forceRefresh && this.defaultHealthTtlMs > 0) {
@@ -316,11 +439,11 @@ export class BrainProviderRegistry {
 
   /**
    * Refreshes health for a specific registered provider.
-   * Guarantees single-flight concurrency, timeout enforcement, throw normalization,
+   * Guarantees single-flight concurrency, timeout enforcement, sanitized error normalization,
    * and stale-result guard protection against concurrent unregister or replace.
    */
   async refreshHealth(providerId: string): Promise<ProviderHealth> {
-    const trimmedId = this.normalizeId(providerId);
+    const trimmedId = this.normalizeLookupId(providerId);
     const entry = this.entries.get(trimmedId);
     if (!entry) {
       throw new BrainRegistryError(
@@ -347,7 +470,7 @@ export class BrainProviderRegistry {
             reject(
               new BrainRegistryError(
                 'health_timeout',
-                `Health check timed out after ${this.healthTimeoutMs}ms`
+                'Provider health check timed out.'
               )
             );
           }, this.healthTimeoutMs);
@@ -356,10 +479,15 @@ export class BrainProviderRegistry {
         rawHealth = await Promise.race([entry.provider.health(), timeoutPromise]);
       } catch (err) {
         const elapsed = Math.max(0, Date.now() - startTime);
-        const msg = err instanceof Error ? err.message : String(err);
+        const isTimeout =
+          (err instanceof BrainRegistryError && err.code === 'health_timeout') ||
+          (err instanceof Error && err.message.toLowerCase().includes('timed out'));
+
         rawHealth = {
           status: 'unavailable',
-          message: msg,
+          message: isTimeout
+            ? 'Provider health check timed out.'
+            : 'Provider health check failed.',
           latencyMs: elapsed,
           checkedAt: Date.now()
         };
@@ -439,22 +567,43 @@ export class BrainProviderRegistry {
 
   /**
    * Produces an immutable, serializable registry snapshot suitable for developer diagnostics.
+   * Only includes descriptors and health for providers with actual probed health.
+   * Guarantees zero sensitive internal exception text, no raw class instances, and isolated clones.
    */
   getSnapshot(): ProviderRegistrySnapshot {
-    const descriptors = Array.from(this.entries.keys()).map((id) =>
-      this.getDescriptor(id)
-    );
-    const health: Record<string, ProviderHealth> = {};
-    for (const [id, cacheEntry] of this.healthCache.entries()) {
-      if (this.entries.has(id)) {
-        health[id] = { ...cacheEntry.health };
+    const descriptors: ProviderDescriptor[] = [];
+    for (const id of this.entries.keys()) {
+      const desc = this.getDescriptor(id);
+      if (desc) {
+        descriptors.push(
+          Object.freeze({
+            ...desc,
+            capabilities: Object.freeze({ ...desc.capabilities }),
+            health: Object.freeze({ ...desc.health })
+          })
+        );
       }
     }
 
-    return {
+    const healthSnapshot: Record<string, ProviderHealth> = {};
+    for (const [id, cacheEntry] of this.healthCache.entries()) {
+      if (this.entries.has(id)) {
+        healthSnapshot[id] = Object.freeze({ ...cacheEntry.health });
+      }
+    }
+
+    return Object.freeze({
       providers: Object.freeze(descriptors),
-      health: Object.freeze(health),
+      health: Object.freeze(healthSnapshot),
       generatedAt: Date.now()
-    };
+    });
+  }
+
+  /**
+   * Asynchronously probes all providers, then produces a full snapshot.
+   */
+  async resolveSnapshot(): Promise<ProviderRegistrySnapshot> {
+    await this.refreshAllHealth();
+    return this.getSnapshot();
   }
 }

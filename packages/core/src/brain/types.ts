@@ -77,7 +77,8 @@ export type BrainRegistryErrorCode =
   | 'provider_not_found'
   | 'invalid_provider_id'
   | 'health_timeout'
-  | 'provider_unavailable';
+  | 'provider_unavailable'
+  | 'provider_unprobed';
 
 export class BrainRegistryError extends Error {
   readonly code: BrainRegistryErrorCode;

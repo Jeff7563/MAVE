@@ -736,11 +736,11 @@ The Pre-M5 intelligence foundation is divided into ten disciplined phases:
 - **Goal:** Codify the F1.0 architecture into stable, typed, vendor-neutral contracts and Zod schemas in `@mave/contracts`.
 - **Scope:** `ProviderKind`, `ProviderDescriptor`, `ModelDescriptor`, `ModelCatalogSnapshot`, `BrainCapabilities`, `BrainTelemetry`, `RouteTelemetry`, `GenerationUsage`, `GenerationTiming`, and normalized error codes. 100% test pass rate with full backward compatibility.
 
-### Phase F1.2 — Provider Registry & Health Hardening ✅ COMPLETE
-- **Goal:** Turn `BrainProviderRegistry` into a hardened, race-safe runtime registry supporting dynamic registration, explicit replacement, safe unregistration, provider descriptors, non-quota health probing, single-flight probe coordination, and immutable snapshots.
-- **Scope:** Hardened `BrainProviderRegistry`, revision guards against stale probe results, single-flight deduplication, timeout and throw normalization, in-memory TTL health caching, dynamic `ProviderDescriptor` synthesis and health hydration, and JSON-safe `ProviderRegistrySnapshot`. 100% test pass rate with zero M2/M3/M4 regressions.
+### Phase F1.2 — Provider Registry & Health Hardening (Final Runtime Hardening)
+- **Goal:** Turn `BrainProviderRegistry` into a hardened, race-safe runtime registry supporting dynamic registration with canonical IDs, metadata authority enforcement, explicit replacement, safe unregistration, provider descriptors, non-quota health probing, single-flight probe coordination, sanitized error normalization, and immutable snapshots.
+- **Scope:** Hardened `BrainProviderRegistry`, canonical ID validation (no whitespace mutation), metadata authority boundary, unprobed provider health absence (`getDescriptor` returns `undefined` without fabricating fake statuses), revision guards against stale probe results, single-flight deduplication, sanitized timeout and throw normalization, in-memory TTL health caching, dynamic `ProviderDescriptor` synthesis with dynamic health hydration, and JSON-safe `ProviderRegistrySnapshot`. 100% test pass rate with zero M2/M3/M4 regressions.
 
-### Phase F1.3 — Model Catalog & Model Policy ← CURRENT
+### Phase F1.3 — Model Catalog & Model Policy ← NEXT
 - **Goal:** Implement `ModelCatalog` and deterministic `ModelPolicy` in `@mave/core`.
 - **Scope:** Provider catalog retrieval, model selection rules, deprecation handling.
 
@@ -821,34 +821,37 @@ The Pre-M5 intelligence foundation is divided into ten disciplined phases:
 
 ### 21.2 Phase F1.2 Implemented Runtime Architecture (Provider Registry & Health Hardening)
 
-1. **Deterministic Registration, Lookup & Replacement:**
-   - `register(provider, metadata?)`: Registers a provider instance. Rejects duplicate IDs by throwing `BrainRegistryError('duplicate_provider')` to eliminate silent overwriting.
-   - `replace(provider, metadata?)`: Explicit replacement mechanism requiring conscious caller intent. Increments internal entry revision and invalidates cached health.
+1. **Strict Canonical Identity Enforcement & No Silent Mutation:**
+   - Provider identity must be canonical (`id === id.trim() && id.length > 0`). Registration (`register`) and replacement (`replace`) reject leading/trailing whitespace by throwing `BrainRegistryError('invalid_provider_id')` without silent mutation.
+   - Rejects duplicate IDs by throwing `BrainRegistryError('duplicate_provider')` to eliminate silent overwriting.
+   - `replace(provider, metadata?)`: Explicit replacement mechanism requiring conscious caller intent. Validates canonical identity, increments internal entry revision, and invalidates cached health.
    - `unregister(providerId)`: Safely removes provider from lookup and enumeration; deletes cached health; returns `boolean`.
    - `require(providerId)`: Deterministically retrieves provider or throws `BrainRegistryError('provider_not_found')`.
    - `list()`: Returns all registered provider instances in deterministic insertion order (shallow array copy).
-2. **Strict Quota-Free Health Probing Invariant:**
+2. **Metadata Authority Boundary & Descriptor ID Invariant:**
+   - Registration metadata hints display/configuration only (`kind`, `displayName`, `accessPath`, `defaultModelId`, `documentationUrl`).
+   - Metadata `id` must match `provider.id` or throw `invalid_provider_id`. Metadata cannot override `id`, `health`, or `capabilities`.
+   - Invariant: `registry ProviderId === BrainProvider.id === ProviderDescriptor.id`. If a `ModelCatalogProvider` returns a descriptor with a mismatched ID, it is rejected with `invalid_provider_id`.
+3. **Strict Quota-Free Health Probing Invariant:**
    - Provider health checks must NEVER invoke text generation, prompt completion, agent task loops, or tool execution.
    - Probes must remain lightweight and fast (e.g. `agy --version`, deterministic mock status, process heartbeat).
-3. **Single-Flight Concurrency & Deduplication:**
+4. **Single-Flight Concurrency & Deduplication:**
    - Concurrent calls to `refreshHealth(providerId)` share the active in-flight `Promise`, preventing duplicate process spawns or redundant probe calls.
-4. **Stale-Result Rejection & Revision Token Guard:**
+5. **Stale-Result Rejection & Revision Token Guard:**
    - Every provider registration/replacement tracks an incremental `revision` token.
    - If a provider is replaced or unregistered while a probe is in flight, the probe completion detects the revision mismatch or missing entry and strictly discards the result, preventing health state resurrection.
-5. **Health Error & Timeout Normalization:**
-   - Probes execute under a strict timeout (default 5000ms via `healthTimeoutMs`). Timed-out probes normalize deterministically to `status: 'unavailable'` with latency recorded.
-   - Thrown probe exceptions are caught and converted into canonical `ProviderHealth` with `status: 'unavailable'`, guaranteeing that vendor probe failures never crash the Router or ConversationRuntime.
+6. **Sanitized Health Error & Timeout Normalization:**
+   - Probes execute under a strict timeout (default 5000ms via `healthTimeoutMs`). Timed-out probes normalize deterministically to `status: 'unavailable'` with message `'Provider health check timed out.'`.
+   - Thrown probe exceptions are caught and converted into canonical `ProviderHealth` with `status: 'unavailable'` and sanitized message `'Provider health check failed.'`, preventing internal filesystem paths, credentials, command arguments, or stack traces from leaking into diagnostics or IPC.
    - Legacy statuses (`ready`, `error`) are normalized to canonical enums (`healthy`, `unhealthy`).
-6. **In-Memory TTL Caching & Initial State:**
+7. **In-Memory TTL Caching & Unprobed State Absence:**
    - In-memory cache stores normalized health with configurable TTL (default 15000ms via `defaultHealthTtlMs`).
-   - Prior to the first probe, `getHealth(providerId)` returns `undefined` (no speculative health state).
-7. **ProviderDescriptor Discovery & Dynamic Health Hydration:**
-   - `getDescriptor(providerId)` resolves descriptors dynamically:
-     - For `ModelCatalogProvider` implementations, delegates to `provider.getDescriptor()`.
-     - For standard providers, synthesizes canonical descriptors (Antigravity classified accurately as `agent_runtime_provider` with `official_cli` accessPath; Mock classified as `model_provider`).
-     - Descriptors dynamically hydrate `health` from the registry's health state, maintaining a single source of truth.
+   - Prior to the first probe, `getHealth(providerId)` returns `undefined` (unknown = absence of health state).
+   - `getDescriptor(providerId)` returns `undefined` before probe, eliminating false `unconfigured` or `unavailable` statuses. Static metadata is accessible synchronously via `getProviderMetadata(providerId)`, and fully hydrated descriptors via `resolveDescriptor(providerId)`.
 8. **Immutable & Serializable Registry Snapshots:**
-   - `getSnapshot(): ProviderRegistrySnapshot` returns frozen, JSON-safe snapshots (`providers: readonly ProviderDescriptor[]`, `health: Record<string, ProviderHealth>`, `generatedAt: number`) designed for safe IPC transport to Developer Diagnostics without exposing internal Map references or provider instances.
+   - `getSnapshot(): ProviderRegistrySnapshot` returns deep-cloned, frozen, JSON-safe snapshots (`providers: readonly ProviderDescriptor[]`, `health: Record<string, ProviderHealth>`, `generatedAt: number`).
+   - Only includes descriptors and health for providers with actual probed health.
+   - Guarantees zero sensitive internal exception text, no raw class instances, and isolated clones immune to external caller mutation.
 
 ---
 
