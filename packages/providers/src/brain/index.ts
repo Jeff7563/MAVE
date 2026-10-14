@@ -39,6 +39,7 @@ export {
   normalizeOllamaModelId,
   sanitizeOllamaErrorMessage
 } from './ollama.js';
+export { CANONICAL_LOCAL_MODEL_QUALIFICATIONS } from './qualification-data.js';
 export {
   ClaudeCodeBrainProvider,
   type ClaudeCodeBrainProviderOptions

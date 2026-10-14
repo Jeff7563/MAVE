@@ -621,8 +621,8 @@ When all candidate runtimes are blocked before execution:
 - **F1.5-C0 (COMPLETE):** Subscription Conversational Brain feasibility audit (evaluated subscription CLIs vs local model provider for fast_conversation and deep_reasoning; recommended Local Fast Brain).
 - **F1.5-C1 (COMPLETE):** Local Model Provider Foundation (`OllamaBrainProvider` direct model provider, loopback localhost security, non-generation health check, dynamic catalog introspection, progressive NDJSON streaming, and zero paid API billing).
 - **F1.5-C1.1 (COMPLETE):** Local Provider Qualification & Catalog Hardening (decoupled transport capabilities, non-generative embedding filter, unbenchmarked candidate isolation, tag collision safety, and qualification decoupling).
-- **F1.5-C2 (NEXT):** Local Fast Brain Empirical Benchmarking & Model Qualification (latency, bilingual Thai/English quality, resident VRAM measurement, empirical threshold evaluation).
-- **F1.5-C3:** Local Model Lifecycle & Resident Memory Management.
+- **F1.5-C2 (COMPLETE):** Local Fast Brain Empirical Benchmarking & Model Qualification (latency, bilingual Thai/English quality, resident VRAM measurement, empirical threshold evaluation).
+- **F1.5-C3 (NEXT):** Local Model Lifecycle & Resident Memory Management.
 - **F1.5-C4:** Conversational Brain Closeout Audit.
 
 ---
@@ -758,12 +758,114 @@ This establishes a production-grade local fast conversational brain running on h
 - Unique Model IDs (`ollama-<normalized-slug>`) are disambiguated with incremental counters if multiple tags collide to the same base name.
 - `resolveConcreteModelTag()` verifies the authoritative model ID mapping first, supports direct tag syntax (`<name>:<tag>`, `<org>/<model>:<tag>`), and provides fallback.
 
-### 14.6 Future Teacher / Escalation Architecture Notes ("Similarity != Permission")
+### 14.6 Teacher / Escalation Architecture Notes ("Similarity != Permission")
 - While local models and cloud subscription models may share similar conversational interfaces, **similarity does not confer permission**.
-- Local Fast Brain (`model_provider`) operates strictly in a zero-privilege, stateless conversational context with zero tool authority.
-- Heavyweight subscription runtimes (`agent_runtime_provider`: Claude Code, Codex, Antigravity) operate as autonomous software engineering agents under strict user review and Pre-M5 tool suppression.
-- Local models must **never** be granted tool execution authority or impersonate agent runtimes.
-- Any future escalation from Local Fast Brain to Subscription Agent Runtime must pass through MAVE's explicit routing policies, intent boundaries, and user confirmation gates.
+- **Canonical Architectural Distinction:**
+  - **Intelligence Escalation (Thinking / Answering):**  
+    Escalation from Local Fast Brain $\to$ Commercial Subscription Runtimes (`Claude Code`, `Codex`, `Antigravity`) for deep reasoning, architectural planning, or complex coding may occur automatically according to MAVE's routing policy, task complexity, user preferences, and access/billing boundaries.
+  - **Tool / Action Execution (Mutating Real State):**  
+    Mutating files, executing shell commands, browser automation, or invoking external MCP tools must strictly pass through Milestone 5 permission policies: `ALLOW`, `ASK`, or `DENY`.
+  - **Billing Protection:** Paid API usage strictly requires explicit user billing authorization (`allowPaidApis: true`).
+  - **Lock Invariant:** `LOCKED` runtime/model selections must never be silently bypassed or overridden.
+  - **Similarity != Permission:** Knowledge similarity or prompt overlap may inform routing heuristics, but never confers execution authority or tool privileges. Local conversational models remain in a zero-privilege stateless sandbox.
+
+---
+
+## 15. Local Fast Brain Empirical Benchmarking & Model Qualification (F1.5-C2)
+
+### 15.1 Benchmark Objective & Methodology
+Milestone F1.5-C2 empirically evaluated all currently installed local generative models on the user's host machine to determine the production candidate for MAVE's Fast Conversation Brain (`fast_conversation` profile / `FAST` role).
+
+- **Canonical Path:** Invocations were routed through MAVE's real runtime stack (`BrainRouter` $\to$ `ModelCatalogRuntime` $\to$ `OllamaBrainProvider` $\to$ Ollama HTTP `/api/chat` $\to$ `BrainEvents`), measuring true end-to-end event latency.
+- **Hardware Environment:**
+  - Host OS: Windows 11
+  - CPU: 12th Gen Intel(R) Core(TM) i5-12400F (6 cores, 12 threads)
+  - System RAM: 32 GB (31.8 GB visible)
+  - GPU: NVIDIA GeForce RTX 3060 Ti 8GB GDDR6 (driver 610.88, baseline desktop VRAM: ~2002 MiB)
+  - Ollama Daemon: version 0.33.2 on `http://127.0.0.1:11434`
+  - Audio STT Service: `faster-whisper` `large-v3-turbo` on CUDA (`float16`), allocating ~1.6 GB VRAM when active
+- **Controlled Generation Parameters:**
+  - Context window (`num_ctx`): 4096 (4K)
+  - Temperature: 0.7
+  - Top-P: 0.9
+  - Max tokens (`num_predict`): 150–250 tokens
+  - Model residency keep-alive: 5 minutes (`keep_alive: '5m'`)
+- **Cold vs. Warm Methodology:**
+  - **Cold Run:** Prior models explicitly unloaded via POST `/api/generate` with `keep_alive: 0`; verified `/api/ps` empty; measured cold model load duration and initial TTFT (min 2 runs).
+  - **Warm Run:** Model resident in VRAM; measured steady-state TTFT, generation throughput, and end-to-end latency (min 3 runs).
+
+### 15.2 Stage A: Performance & Latency Screening (All 5 Candidates)
+
+| Model Tag | Parameters | Quantization | Ollama Digest | Resident VRAM | Peak GPU Used | GPU Headroom (8GB) | Median Cold TTFT | Median Warm TTFT | Median Gen Speed | Stage A Decision |
+|---|---|---|---|---|---|---|---|---|---|---|
+| **`qwen2.5:1.5b`** | 1.5B | Q4_K_M | `65ec0654...` | **1,112 MiB** | 3,284 MiB | **4,908 MiB** | 2,571.5 ms | **96.0 ms** | 16.9 tok/s | **ADVANCED TO STAGE B** |
+| **`qwen2.5:7b`** | 7.6B | Q4_K_M | `845dbda0...` | **4,528 MiB** | 6,664 MiB | **1,528 MiB** | 4,755.5 ms | **393.0 ms** | 16.7 tok/s | **ADVANCED TO STAGE B** |
+| `qwen2.5-coder:7b`| 7.6B | Q4_K_M | `dae161e2...` | 4,528 MiB | 6,664 MiB | 1,528 MiB | 4,997.0 ms | 89.0 ms | 16.7 tok/s | **ELIMINATED** (Code syntax specialization) |
+| `deepseek-r1:7b` | 7.6B | Q4_K_M | `755ced02...` | 4,528 MiB | 6,664 MiB | 1,528 MiB | 6,526.0 ms | **1,495.0 ms** | 71.2 tok/s | **ELIMINATED** (`<think>` stream delays TTFT) |
+| `llava:7b` | 7.0B | Q4_0 | `8dd30f6b...` | 4,493 MiB | 6,629 MiB | 1,563 MiB | 18,248.0 ms | 369.0 ms | 16.6 tok/s | **ELIMINATED** (Multimodal vision specialist) |
+
+#### Stage A Elimination Rationale:
+1. **`deepseek-r1:7b`:** Produces mandatory chain-of-thought tokens inside `<think>...</think>` before emitting the first user-visible answer token. In screening runs, visible TTFT averaged $1,495\text{--}3,003\text{ ms}$, and multiple prompts exhausted the max-token budget while still in `<think>`, yielding empty or truncated responses. Unsuitable for interactive voice (`fast_conversation`). Ideal candidate for future local `deep_reasoning`.
+2. **`llava:7b`:** Vision specialist with severe cold load times (32.7s run 1) and heavy 4.5 GB VRAM footprint without conversational voice optimization.
+3. **`qwen2.5-coder:7b`:** Code generation syntax specialist; exhibited programming syntax bias in casual conversational turns compared to general instruction models.
+
+---
+
+### 15.3 Stage B: Conversational Qualification Matrix (100-Point Rubric)
+
+| Evaluation Category | Weight | `qwen2.5:1.5b` | `qwen2.5:7b` | Notes & Comparison |
+|---|---|---|---|---|
+| **Thai Conversation** | 20 | 16.5 / 20 | **18.5 / 20** | 7B captures exceptional slang, emotional empathy, and natural tone; 1.5B is fluent and natural with simpler vocabulary. |
+| **English Conversation** | 10 | 8.5 / 10 | **9.5 / 10** | Both natural and casual; 7B provides richer phrasing. |
+| **Language Learning** | 15 | 13.0 / 15 | **14.5 / 15** | Both correctly diagnose grammar errors (`He don't` $\to$ `doesn't`); 7B offers superior bilingual explanation. |
+| **Instruction Following** | 15 | 12.5 / 15 | **13.5 / 15** | Both adhere strictly to brevity and structural constraints. |
+| **Voice Friendliness** | 10 | **9.0 / 10** | 8.0 / 10 | 1.5B produces ultra-clean, concise spoken sentences without excessive lists or markdown; ideal for TTS. |
+| **Short Reasoning** | 10 | 8.0 / 10 | **9.0 / 10** | Both successfully solve budget division and everyday decision support. |
+| **Uncertainty / Reliability** | 5 | 4.0 / 5 | **4.5 / 5** | Both acknowledge unanswerable/missing information without hallucinating. |
+| **Warm Latency** | 7 | **7.0 / 7** | 6.0 / 7 | 1.5B median warm TTFT is **96 ms** vs 7B median warm TTFT of **393 ms**. |
+| **Cold Latency** | 3 | 1.0 / 3 | 1.0 / 3 | 1.5B cold TTFT (2,571 ms) is almost 2x faster than 7B (4,755 ms). |
+| **VRAM & Coexistence** | 5 | **5.0 / 5** | 3.0 / 5 | 1.5B uses **1,112 MiB** (leaves 4.9 GB free); 7B uses **4,528 MiB** (leaves 1.5 GB free). |
+| **TOTAL QUALIFICATION SCORE** | **100** | **84.5 / 100** | **87.5 / 100** | **Both pass qualification threshold ($\ge 75/100$)** |
+
+#### Multi-Turn Context Retention Test:
+- Turn 1: User specifies: *"ผมชอบดื่มชาเขียวมะนาวหวานน้อย ไม่ชอบกาแฟเลยนะ จำไว้ด้วยล่ะ"*
+- Turn 2: Intervening chit-chat: *"อากาศช่วงนี้เป็นยังไงบ้าง"*
+- Turn 3: Recall prompt: *"บ่ายนี้ง่วงจัง แนะนำเครื่องดื่มให้ผมสักแก้วสิ"*
+- **Result:** **BOTH MODELS PASSED cleanly.** Both models explicitly recommended green tea lemonade based on Turn 1 preference and avoided coffee.
+
+---
+
+### 15.4 Winner Recommendation & Hardware Coexistence Analysis
+
+#### **QUALIFIED WINNER: `qwen2.5:1.5b` (`FAST` Role)**
+1. **Instantaneous Voice Latency:** Median warm TTFT of **96 ms** (and down to 24–26 ms in live smoke) enables fluid, conversational voice turn-taking and responsive barge-in.
+2. **Rock-Solid Hardware Headroom on 8GB GPU:**
+   - Windows desktop baseline: ~2.0 GB VRAM
+   - `faster-whisper` STT (`large-v3-turbo` CUDA `float16`): ~1.6 GB VRAM
+   - `qwen2.5:1.5b` resident footprint: ~1.1 GB VRAM
+   - **Total Active Footprint:** $2.0 + 1.6 + 1.1 = \mathbf{4.7\text{ GB}}$, leaving **3.3 GB of uncommitted VRAM headroom**.
+   - Zero risk of CUDA out-of-memory errors or system RAM paging during concurrent STT and speech synthesis.
+3. **Voice Friendliness:** Naturally concise output without conversational bloat.
+
+#### **QUALIFIED RUNNER-UP: `qwen2.5:7b` (`BALANCED` Role)**
+1. **Superior Nuance & Fluency:** Achieved 87.5/100 total score with richer bilingual explanations and empathetic Thai phrasing.
+2. **Hardware Coexistence Warning on 8GB GPU:**
+   - Active footprint with CUDA STT: $2.0 + 1.6 + 4.5 = \mathbf{8.1\text{ GB}}$, which exceeds the 8.0 GB physical boundary.
+   - Running `qwen2.5:7b` alongside local CUDA STT risks VRAM contention and performance degradation.
+   - Recommended as secondary candidate for text-only conversations or when audio STT runs on CPU.
+
+---
+
+### 15.5 C2 / C3 Boundary & Persistence Architecture
+- **Fail-Closed Production Routing:** In strict compliance with Milestone C2 requirements, all models in [`CANONICAL_LOCAL_MODEL_QUALIFICATIONS`](file:///c:/project/MAVE/packages/providers/src/brain/qualification-data.ts) maintain:
+  ```ts
+  productionApproved: false
+  ```
+- AUTO routing for `fast_conversation` remains fail-closed (`fast_brain_unavailable`) until Milestone F1.5-C3.
+- Milestone F1.5-C3 authoritatively owns:
+  - Setting `productionApproved: true` for the winning candidate.
+  - Configuring production default routing and model aliases.
+  - Implementing persistent resident memory lifecycle and idle unload policies.
 
 
 

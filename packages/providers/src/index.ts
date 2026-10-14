@@ -27,6 +27,7 @@ export {
   type LocalModelQualification,
   type OllamaTagModel,
   isGenerativeChatModel,
+  CANONICAL_LOCAL_MODEL_QUALIFICATIONS,
   OLLAMA_PROVIDER_ID,
   assertLoopbackEndpoint,
   normalizeOllamaModelId,

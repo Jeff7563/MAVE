@@ -19,6 +19,7 @@ import {
   ProviderHealthSchema
 } from '@mave/contracts';
 import { createLogger } from '@mave/shared';
+import { CANONICAL_LOCAL_MODEL_QUALIFICATIONS } from './qualification-data.js';
 
 const logger = createLogger({ name: 'mave:provider:ollama' });
 
@@ -82,7 +83,7 @@ export interface LocalModelQualification {
   readonly modelIdOrTag: string;
   /**
    * Whether this model has been empirically evaluated and approved for MAVE production routing.
-   * Default: false in C1.1. C2 will set this to true for selected models.
+   * Invariant: MUST be false in C2. C3 alone sets this to true upon production promotion.
    */
   readonly productionApproved: boolean;
   /**
@@ -102,15 +103,37 @@ export interface LocalModelQualification {
    */
   readonly targetRole?: 'FAST' | 'BALANCED' | 'REASONING';
   /**
-   * Optional empirical benchmark evidence collected during C2.
+   * Empirical 100-point qualification score from C2 benchmark.
+   */
+  readonly qualificationScore?: number;
+  /**
+   * Recommended production role: 'FAST' | 'BALANCED' | 'REASONING'.
+   */
+  readonly recommendedRole?: 'FAST' | 'BALANCED' | 'REASONING';
+  /**
+   * Whether this model is the recommended candidate for production Fast Brain promotion in C3.
+   */
+  readonly recommendedCandidate?: boolean;
+  /**
+   * Empirical benchmark evidence collected during C2.
    */
   readonly benchmarkEvidence?: {
+    readonly digest?: string;
+    readonly parameterSize?: string;
+    readonly quantization?: string;
+    readonly ollamaVersion?: string;
+    readonly benchmarkDate?: string;
+    readonly contextLengthUsed?: number;
+    readonly measuredColdTtftMs?: number;
     readonly measuredWarmTtftMs?: number;
     readonly measuredPromptEvalTokPerSec?: number;
     readonly measuredEvalTokPerSec?: number;
+    readonly measuredE2eTokPerSec?: number;
     readonly measuredTotalLatencyMs?: number;
-    readonly measuredVramBytes?: number;
-    readonly benchmarkDate?: string;
+    readonly residentVramBytes?: number;
+    readonly peakGpuMemoryBytes?: number;
+    readonly totalScore?: number;
+    readonly notes?: string;
   };
 }
 
@@ -121,6 +144,8 @@ export interface OllamaBrainProviderOptions {
   models?: ModelDescriptor[];
   keepAlive?: string | number;
   qualifications?: LocalModelQualification[];
+  defaultNumCtx?: number;
+  generationOptions?: Record<string, unknown>;
 }
 
 export interface OllamaTagModel {
@@ -217,6 +242,8 @@ export class OllamaBrainProvider implements ModelCatalogProvider {
   private readonly fetchFn: typeof fetch;
   private readonly customModels?: ModelDescriptor[];
   private readonly keepAlive?: string | number;
+  private readonly defaultNumCtx?: number;
+  private readonly generationOptions?: Record<string, unknown>;
   private readonly rawTagByModelId = new Map<string, string>();
   private readonly qualifications = new Map<string, LocalModelQualification>();
 
@@ -228,11 +255,12 @@ export class OllamaBrainProvider implements ModelCatalogProvider {
     this.fetchFn = options?.fetchFn ?? globalThis.fetch;
     this.customModels = options?.models;
     this.keepAlive = options?.keepAlive;
+    this.defaultNumCtx = options?.defaultNumCtx;
+    this.generationOptions = options?.generationOptions;
 
-    if (options?.qualifications) {
-      for (const qual of options.qualifications) {
-        this.setQualification(qual);
-      }
+    const quals = options?.qualifications ?? CANONICAL_LOCAL_MODEL_QUALIFICATIONS;
+    for (const qual of quals) {
+      this.setQualification(qual);
     }
   }
 
@@ -600,13 +628,24 @@ export class OllamaBrainProvider implements ModelCatalogProvider {
       });
     }
 
+    const modelOptions: Record<string, unknown> = {
+      temperature: options?.temperature ?? 0.7
+    };
+    if (this.defaultNumCtx !== undefined) {
+      modelOptions.num_ctx = this.defaultNumCtx;
+    }
+    if (options?.maxTokens !== undefined) {
+      modelOptions.num_predict = options.maxTokens;
+    }
+    if (this.generationOptions) {
+      Object.assign(modelOptions, this.generationOptions);
+    }
+
     const payload: Record<string, unknown> = {
       model: concreteTag,
       messages: ollamaMessages,
       stream: true,
-      options: {
-        temperature: options?.temperature ?? 0.7
-      }
+      options: modelOptions
     };
 
     if (this.keepAlive !== undefined) {
