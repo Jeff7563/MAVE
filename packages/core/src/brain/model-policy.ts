@@ -133,9 +133,13 @@ export class ModelPolicy {
       undefined;
 
     const allowFallback =
-      criteria.profileResolution?.allowFallback !== undefined
-        ? criteria.profileResolution.allowFallback
-        : true;
+      criteria.allowFallback !== undefined
+        ? criteria.allowFallback
+        : criteria.profileResolution?.allowFallback !== undefined
+          ? criteria.profileResolution.allowFallback
+          : preferredModelId !== undefined
+            ? false
+            : true;
 
     const defaultModelId = criteria.defaultModelId?.trim();
     const maxCost = criteria.maxCostClass;
@@ -207,14 +211,16 @@ export class ModelPolicy {
           `context_insufficient: contextClass '${model.contextClass}' is below required '${reqContextClass}'`
         );
       }
-      if (
-        reqContextTokens &&
-        model.contextWindowTokens !== undefined &&
-        model.contextWindowTokens < reqContextTokens
-      ) {
-        reasons.push(
-          `context_tokens_insufficient: contextWindowTokens ${model.contextWindowTokens} below required ${reqContextTokens}`
-        );
+      if (reqContextTokens) {
+        if (model.contextWindowTokens === undefined) {
+          reasons.push(
+            `context_tokens_unknown: requiredContextTokens is ${reqContextTokens} but model contextWindowTokens is undefined`
+          );
+        } else if (model.contextWindowTokens < reqContextTokens) {
+          reasons.push(
+            `context_tokens_insufficient: contextWindowTokens ${model.contextWindowTokens} below required ${reqContextTokens}`
+          );
+        }
       }
 
       if (reasons.length > 0) {

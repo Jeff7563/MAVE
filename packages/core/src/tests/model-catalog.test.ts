@@ -491,4 +491,153 @@ describe('ModelCatalogRuntime', () => {
 
     expect(prov.getChatCallCount()).toBe(0);
   });
+
+  describe('Hardened Provider Lifecycle & Cache Token Invalidation', () => {
+    it('rejects cached catalog snapshot on provider replacement before TTL expiry', async () => {
+      const registry = new BrainProviderRegistry();
+      const prov1 = createCatalogProvider({ id: 'repl-prov' });
+      registry.register(prov1);
+
+      const runtime = new ModelCatalogRuntime(registry, { defaultCatalogTtlMs: 60000 });
+
+      // First fetch caches snapshot from prov1
+      const snap1 = await runtime.getCatalog('repl-prov');
+      expect(prov1.getCatalogCallCount()).toBe(1);
+      expect(runtime.getCachedCatalog('repl-prov')).toBe(snap1);
+
+      // Replace with prov2 before TTL expires
+      const prov2 = createCatalogProvider({ id: 'repl-prov' });
+      registry.replace(prov2);
+
+      // getCachedCatalog should detect provider replacement and invalidate cache
+      expect(runtime.getCachedCatalog('repl-prov')).toBeUndefined();
+
+      // Next getCatalog must call prov2 and return a fresh snapshot
+      const snap2 = await runtime.getCatalog('repl-prov');
+      expect(prov2.getCatalogCallCount()).toBe(1);
+      expect(prov1.getCatalogCallCount()).toBe(1);
+      expect(snap2).not.toBe(snap1);
+      expect(runtime.getCachedCatalog('repl-prov')).toBe(snap2);
+    });
+
+    it('rejects cached catalog snapshot on provider unregister before TTL expiry', async () => {
+      const registry = new BrainProviderRegistry();
+      const prov = createCatalogProvider({ id: 'unreg-cache-prov' });
+      registry.register(prov);
+
+      const runtime = new ModelCatalogRuntime(registry, { defaultCatalogTtlMs: 60000 });
+
+      // First fetch caches snapshot
+      const snap = await runtime.getCatalog('unreg-cache-prov');
+      expect(snap).toBeDefined();
+      expect(runtime.getCachedCatalog('unreg-cache-prov')).toBe(snap);
+
+      // Unregister provider
+      registry.unregister('unreg-cache-prov');
+
+      // getCachedCatalog returns undefined and cleans cache
+      expect(runtime.getCachedCatalog('unreg-cache-prov')).toBeUndefined();
+
+      // getCatalog throws provider_not_found
+      await expect(runtime.getCatalog('unreg-cache-prov')).rejects.toThrow(ModelCatalogError);
+      try {
+        await runtime.getCatalog('unreg-cache-prov');
+      } catch (err) {
+        expect((err as ModelCatalogError).code).toBe('provider_not_found');
+      }
+    });
+
+    it('fetches fresh catalog on re-registration of same provider ID', async () => {
+      const registry = new BrainProviderRegistry();
+      const prov1 = createCatalogProvider({ id: 'rereg-prov' });
+      registry.register(prov1);
+
+      const runtime = new ModelCatalogRuntime(registry, { defaultCatalogTtlMs: 60000 });
+
+      const snap1 = await runtime.getCatalog('rereg-prov');
+      expect(prov1.getCatalogCallCount()).toBe(1);
+
+      registry.unregister('rereg-prov');
+
+      const prov2 = createCatalogProvider({ id: 'rereg-prov' });
+      registry.register(prov2);
+
+      const snap2 = await runtime.getCatalog('rereg-prov');
+      expect(prov2.getCatalogCallCount()).toBe(1);
+      expect(snap2).not.toBe(snap1);
+    });
+
+    it('fetches fresh catalog when the exact same provider instance object is re-registered', async () => {
+      const registry = new BrainProviderRegistry();
+      const prov = createCatalogProvider({ id: 'same-inst-prov' });
+      registry.register(prov);
+
+      const runtime = new ModelCatalogRuntime(registry, { defaultCatalogTtlMs: 60000 });
+
+      // First fetch caches prov snapshot
+      const snap1 = await runtime.getCatalog('same-inst-prov');
+      expect(prov.getCatalogCallCount()).toBe(1);
+
+      // Unregister prov
+      registry.unregister('same-inst-prov');
+
+      // Re-register the EXACT same object instance prov
+      registry.register(prov);
+
+      // Because lifecycle token changed upon re-registration, cache cannot be reused
+      const snap2 = await runtime.getCatalog('same-inst-prov');
+      expect(prov.getCatalogCallCount()).toBe(2);
+      expect(snap2).not.toBe(snap1);
+    });
+
+    it('sanitizes vendor exceptions preventing API keys and secrets from leaking', async () => {
+      const registry = new BrainProviderRegistry();
+      const prov = createCatalogProvider({
+        id: 'secret-prov',
+        throwError: true,
+        errorMessage: 'FATAL: Request failed with API_KEY=sk-proj-SUPER_SECRET_TOKEN_99999 and Bearer xyz'
+      });
+      registry.register(prov);
+
+      const runtime = new ModelCatalogRuntime(registry);
+
+      try {
+        await runtime.getCatalog('secret-prov');
+        expect.fail('Expected to throw');
+      } catch (err) {
+        const error = err as ModelCatalogError;
+        expect(error.code).toBe('catalog_unavailable');
+        expect(error.message).toBe('Model catalog fetch failed.');
+        expect(error.message).not.toContain('SUPER_SECRET');
+        expect(error.message).not.toContain('API_KEY');
+        expect(error.message).not.toContain('Bearer');
+      }
+    });
+
+    it('sanitizes malformed schema error without echoing raw vendor payloads', async () => {
+      const registry = new BrainProviderRegistry();
+      const prov = createCatalogProvider({
+        id: 'leak-prov',
+        malformedData: {
+          leakedCredentials: 'super-secret-password-12345',
+          corruptField: 999
+        }
+      });
+      registry.register(prov);
+
+      const runtime = new ModelCatalogRuntime(registry);
+
+      try {
+        await runtime.getCatalog('leak-prov');
+        expect.fail('Expected to throw');
+      } catch (err) {
+        const error = err as ModelCatalogError;
+        expect(error.code).toBe('catalog_invalid');
+        expect(error.message).toBe("Model catalog for provider 'leak-prov' returned malformed data.");
+        expect(error.message).not.toContain('super-secret-password');
+        expect(error.message).not.toContain('leakedCredentials');
+      }
+    });
+  });
 });
+

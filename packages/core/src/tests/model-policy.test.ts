@@ -244,6 +244,91 @@ describe('ModelPolicy', () => {
       expect(res.success).toBe(false);
       expect(res.rejections?.['mod-cloud']?.[0]).toContain('privacy_mismatch');
     });
+
+    it('strictly enforces fail-closed privacy when contradictory privacy inputs are provided', () => {
+      const models = [
+        createModel({ id: 'mod-cloud', privacyClass: 'standard_cloud' }),
+        createModel({
+          id: 'mod-local',
+          privacyClass: 'local_only',
+          capabilities: { local: true }
+        })
+      ];
+
+      const catalog = createCatalog('test-provider', models);
+
+      // effectiveLocalOnly: false, but overrides.localOnly: true -> must enforce localOnly
+      const res1 = ModelPolicy.select({
+        providerId: 'test-provider',
+        catalog,
+        effectiveLocalOnly: false,
+        overrides: { localOnly: true }
+      });
+      expect(res1.success).toBe(true);
+      expect(res1.modelId).toBe('mod-local');
+      expect(res1.rejections?.['mod-cloud']?.[0]).toContain('privacy_mismatch');
+
+      // effectiveLocalOnly: true, but overrides.localOnly: false -> cannot weaken effectiveLocalOnly!
+      const res2 = ModelPolicy.select({
+        providerId: 'test-provider',
+        catalog,
+        effectiveLocalOnly: true,
+        overrides: { localOnly: false }
+      });
+      expect(res2.success).toBe(true);
+      expect(res2.modelId).toBe('mod-local');
+      expect(res2.rejections?.['mod-cloud']?.[0]).toContain('privacy_mismatch');
+    });
+
+    it('fails closed when local privacy is requested and preferred model is cloud with allowFallback: false', () => {
+      const models = [
+        createModel({ id: 'mod-cloud', privacyClass: 'standard_cloud' }),
+        createModel({
+          id: 'mod-local',
+          privacyClass: 'local_only',
+          capabilities: { local: true }
+        })
+      ];
+
+      const catalog = createCatalog('test-provider', models);
+      const res = ModelPolicy.select({
+        providerId: 'test-provider',
+        catalog,
+        overrides: {
+          preferredModelId: 'mod-cloud',
+          localOnly: true
+        },
+        allowFallback: false
+      });
+
+      expect(res.success).toBe(false);
+      expect(res.reason).toContain("Preferred model 'mod-cloud' is ineligible");
+    });
+
+    it('falls back to eligible local model when local privacy is requested and preferred model is cloud with allowFallback: true', () => {
+      const models = [
+        createModel({ id: 'mod-cloud', privacyClass: 'standard_cloud' }),
+        createModel({
+          id: 'mod-local',
+          privacyClass: 'local_only',
+          capabilities: { local: true }
+        })
+      ];
+
+      const catalog = createCatalog('test-provider', models);
+      const res = ModelPolicy.select({
+        providerId: 'test-provider',
+        catalog,
+        overrides: {
+          preferredModelId: 'mod-cloud',
+          localOnly: true
+        },
+        allowFallback: true
+      });
+
+      expect(res.success).toBe(true);
+      expect(res.modelId).toBe('mod-local');
+    });
   });
 
   describe('4. Capability Filtering', () => {
@@ -358,6 +443,24 @@ describe('ModelPolicy', () => {
       expect(res.modelId).toBe('mod-large');
       expect(res.rejections?.['mod-small']?.[0]).toContain('context_insufficient');
     });
+
+    it('rejects models with undefined contextWindowTokens when requiredContextTokens is specified (context_tokens_unknown)', () => {
+      const models = [
+        createModel({ id: 'mod-unknown-tokens', contextClass: 'large', contextWindowTokens: undefined }),
+        createModel({ id: 'mod-known-tokens', contextClass: 'large', contextWindowTokens: 32768 })
+      ];
+
+      const catalog = createCatalog('test-provider', models);
+      const res = ModelPolicy.select({
+        providerId: 'test-provider',
+        catalog,
+        requiredContextTokens: 16000
+      });
+
+      expect(res.success).toBe(true);
+      expect(res.modelId).toBe('mod-known-tokens');
+      expect(res.rejections?.['mod-unknown-tokens']?.[0]).toContain('context_tokens_unknown');
+    });
   });
 
   describe('6. Explicit preferredModelId & allowFallback Semantics', () => {
@@ -460,6 +563,72 @@ describe('ModelPolicy', () => {
 
       expect(res.success).toBe(false);
       expect(res.reason).toContain('Preferred model \'mod-deprecated\' is ineligible');
+    });
+
+    it('strictly defaults allowFallback to false when preferredModelId is specified and allowFallback is undefined', () => {
+      const models = [
+        createModel({ id: 'mod-avail-1', status: 'available' }),
+        createModel({ id: 'mod-avail-2', status: 'available' }),
+        createModel({ id: 'mod-dep', status: 'deprecated' })
+      ];
+      const catalog = createCatalog('test-provider', models);
+
+      // 1. Missing model with allowFallback undefined -> fails closed
+      const resMissing = ModelPolicy.select({
+        providerId: 'test-provider',
+        catalog,
+        overrides: { preferredModelId: 'mod-nonexistent', localOnly: false }
+      });
+      expect(resMissing.success).toBe(false);
+      expect(resMissing.reason).toContain("Preferred model 'mod-nonexistent' not found");
+
+      // 2. Deprecated model with allowFallback undefined -> fails closed
+      const resIneligible = ModelPolicy.select({
+        providerId: 'test-provider',
+        catalog,
+        overrides: { preferredModelId: 'mod-dep', localOnly: false }
+      });
+      expect(resIneligible.success).toBe(false);
+      expect(resIneligible.reason).toContain("Preferred model 'mod-dep' is ineligible");
+
+      // 3. Valid model with allowFallback undefined -> succeeds with preferred model
+      const resValid = ModelPolicy.select({
+        providerId: 'test-provider',
+        catalog,
+        overrides: { preferredModelId: 'mod-avail-2', localOnly: false }
+      });
+      expect(resValid.success).toBe(true);
+      expect(resValid.modelId).toBe('mod-avail-2');
+    });
+
+    it('falls through to general selection when preferredModelId is missing and allowFallback is true at criteria level', () => {
+      const models = [createModel({ id: 'mod-a', qualityClass: 'fast' })];
+      const catalog = createCatalog('test-provider', models);
+
+      const res = ModelPolicy.select({
+        providerId: 'test-provider',
+        catalog,
+        overrides: { preferredModelId: 'mod-nonexistent', localOnly: false },
+        allowFallback: true
+      });
+
+      expect(res.success).toBe(true);
+      expect(res.modelId).toBe('mod-a');
+    });
+
+    it('fails closed when preferredModelId is missing and allowFallback is false at criteria level', () => {
+      const models = [createModel({ id: 'mod-a', qualityClass: 'fast' })];
+      const catalog = createCatalog('test-provider', models);
+
+      const res = ModelPolicy.select({
+        providerId: 'test-provider',
+        catalog,
+        overrides: { preferredModelId: 'mod-nonexistent', localOnly: false },
+        allowFallback: false
+      });
+
+      expect(res.success).toBe(false);
+      expect(res.reason).toContain("Preferred model 'mod-nonexistent' not found");
     });
   });
 

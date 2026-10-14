@@ -875,14 +875,17 @@ The Pre-M5 intelligence foundation is divided into ten disciplined phases:
    - Synchronous inspection via `getCachedCatalog(providerId)` and `hasCatalog(providerId)`.
    - Explicit invalidation via `invalidateCatalog(providerId?)` and `clearCatalogCache()`.
    - Concurrent calls to `refreshCatalog(providerId)` are single-flighted, sharing the active in-flight `Promise`.
+   - Cached catalog entries are bound to both the provider instance reference AND the registry lifecycle token (`getLifecycleToken()`). Any unregister, replace, or re-registration immediately invalidates cached catalog inventory even within the active TTL window and even if the identical JavaScript instance reference is re-registered.
 
 5. **Sanitized Error Normalization & Bounded Timeout:**
    - Bounded metadata timeout (default 5000ms via `catalogTimeoutMs`). Timed-out requests throw `ModelCatalogError('catalog_timeout', 'Model catalog fetch timed out.')`.
-   - Thrown provider errors normalize to `ModelCatalogError('catalog_unavailable', 'Model catalog fetch failed.')`, preventing sensitive filesystem paths or API tokens from leaking.
+   - Thrown provider errors normalize to `ModelCatalogError('catalog_unavailable', 'Model catalog fetch failed.')`. Schema validation errors normalize to `ModelCatalogError('catalog_invalid', "Model catalog for provider '<id>' returned malformed data.")`.
+   - Guaranteed sanitization: raw vendor payloads, API keys (`API_KEY=...`), bearer tokens, and internal filesystem paths never leak into error messages, stack traces, or diagnostics.
 
 6. **Stale-Result Protection Against Concurrency Races:**
    - If a provider is unregistered during fetch, the result is discarded and `ModelCatalogError('provider_not_found')` is thrown.
    - If a provider is replaced during fetch, the older instance's completed catalog is not cached for the replacement instance.
+   - `getCachedCatalog` and `getCatalog` perform active lifecycle token verification against the registry on every cache access, automatically evicting stale cached entries if the provider was unregistered, replaced, or re-registered.
 
 7. **Deep Immutability & JSON Safety:**
    - Snapshots returned by `ModelCatalogRuntime` are deep-cloned and frozen (`Object.freeze`) across all nested model descriptors and capability maps.
@@ -891,13 +894,15 @@ The Pre-M5 intelligence foundation is divided into ten disciplined phases:
 8. **Pure Synchronous Model Selection Policy (`ModelPolicy`):**
    - Pure, synchronous selection: consumes already-resolved data; makes zero I/O, network, or provider calls.
    - **Hard Constraint Filtering:**
-     - **Privacy Fail-Closed:** If `effectiveLocalOnly = true`, models with `privacyClass !== 'local_only'` are strictly excluded. If no local model is available, selection fails closed.
+     - **Privacy Fail-Closed:** `effectiveLocalOnly` is strictly fail-closed: resolved as `criteria.effectiveLocalOnly === true || criteria.overrides?.localOnly === true`. A `false` value in overrides or criteria cannot weaken a `true` value. If `effectiveLocalOnly = true`, models with `privacyClass !== 'local_only'` are strictly excluded. If no local model is available, selection fails closed.
      - **Operational Availability:** Only models with `status === 'available'` are eligible. `quota_limited`, `rate_limited`, `deprecated`, and `unavailable` are rejected.
      - **Required Capabilities:** Models must satisfy all required capabilities (`streaming`, `reasoning`, `coding`, `vision`, etc.). For optional language capabilities (`supportsThai`, `supportsEnglish`), `false` is rejected, `undefined` is permissive unless `strictLanguageCheck: true`.
      - **Cost & Latency Limits:** `maxCostClass` (`free < low < medium < high`) and `maxLatencyClass` (`interactive < balanced < heavy`) filter out non-compliant tiers.
-     - **Context Capacity:** `requiredContextClass` and `requiredContextTokens` filter insufficient windows.
-   - **Explicit Override Precedence:**
+     - **Context Capacity:** `requiredContextClass` and `requiredContextTokens` filter insufficient windows. When `requiredContextTokens` is specified, models with `contextWindowTokens === undefined` are rejected with `context_tokens_unknown`, enforcing fail-closed token capacity.
+   - **Explicit Override Precedence & Strict Fallback Defaults:**
      - `preferredModelId` selects the preferred model immediately if valid and eligible.
+     - If `preferredModelId` is specified and `allowFallback` is undefined, the default is STRICT (`allowFallback = false`), preventing silent drift to unintended models.
+     - Fallback to general policy selection ONLY occurs when explicitly permitted (`allowFallback: true` at criteria level or resolved profile level).
      - If preferred model is missing or ineligible: fails closed if `allowFallback === false`; falls back to general policy selection if `allowFallback === true`.
    - **Deterministic Lexicographic Ranking:**
      - Profile Quality Class rank:

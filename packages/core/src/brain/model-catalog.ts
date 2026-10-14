@@ -18,6 +18,7 @@ interface CachedCatalogEntry {
   readonly snapshot: ModelCatalogSnapshot;
   readonly cachedAt: number;
   readonly providerInstance: BrainProvider;
+  readonly lifecycleToken?: string;
 }
 
 /**
@@ -102,6 +103,7 @@ export class ModelCatalogRuntime {
     const trimmedId = this.normalizeLookupId(providerId);
     const provider = this.registry.get(trimmedId);
     if (!provider) {
+      this.catalogCache.delete(trimmedId);
       throw new ModelCatalogError(
         'provider_not_found',
         `Provider '${trimmedId}' is not registered`,
@@ -110,6 +112,7 @@ export class ModelCatalogRuntime {
     }
 
     if (!isModelCatalogProvider(provider)) {
+      this.catalogCache.delete(trimmedId);
       throw new ModelCatalogError(
         'catalog_not_supported',
         `Provider '${trimmedId}' does not support model catalogs`,
@@ -117,12 +120,28 @@ export class ModelCatalogRuntime {
       );
     }
 
+    const currentLifecycleToken =
+      typeof this.registry.getLifecycleToken === 'function'
+        ? this.registry.getLifecycleToken(trimmedId)
+        : undefined;
+
     if (!options?.forceRefresh && this.defaultCatalogTtlMs > 0) {
       const cached = this.catalogCache.get(trimmedId);
-      if (cached && cached.providerInstance === provider) {
-        const age = Date.now() - cached.cachedAt;
-        if (age < this.defaultCatalogTtlMs) {
-          return cached.snapshot;
+      if (cached) {
+        const isSameInstance = cached.providerInstance === provider;
+        const isSameLifecycle =
+          currentLifecycleToken !== undefined
+            ? cached.lifecycleToken === currentLifecycleToken
+            : true;
+
+        if (isSameInstance && isSameLifecycle) {
+          const age = Date.now() - cached.cachedAt;
+          if (age < this.defaultCatalogTtlMs) {
+            return cached.snapshot;
+          }
+        } else {
+          // Stale cache detected: provider replaced or re-registered
+          this.catalogCache.delete(trimmedId);
         }
       }
     }
@@ -206,7 +225,7 @@ export class ModelCatalogRuntime {
       if (!parseResult.success) {
         throw new ModelCatalogError(
           'catalog_invalid',
-          `Model catalog for provider '${trimmedId}' returned malformed data: ${parseResult.error.message}`,
+          `Model catalog for provider '${trimmedId}' returned malformed data.`,
           trimmedId
         );
       }
@@ -248,11 +267,17 @@ export class ModelCatalogRuntime {
         return deepFreezeCatalogSnapshot(validatedSnapshot);
       }
 
+      const currentLifecycleToken =
+        typeof this.registry.getLifecycleToken === 'function'
+          ? this.registry.getLifecycleToken(trimmedId)
+          : undefined;
+
       const frozenSnapshot = deepFreezeCatalogSnapshot(validatedSnapshot);
       this.catalogCache.set(trimmedId, {
         snapshot: frozenSnapshot,
         cachedAt: Date.now(),
-        providerInstance: capturedProvider
+        providerInstance: capturedProvider,
+        lifecycleToken: currentLifecycleToken
       });
 
       return frozenSnapshot;
@@ -274,10 +299,27 @@ export class ModelCatalogRuntime {
     if (!providerId || typeof providerId !== 'string') return undefined;
     const trimmedId = providerId.trim();
     const currentProvider = this.registry.get(trimmedId);
-    if (!currentProvider) return undefined;
+    if (!currentProvider) {
+      this.catalogCache.delete(trimmedId);
+      return undefined;
+    }
 
     const cached = this.catalogCache.get(trimmedId);
-    if (!cached || cached.providerInstance !== currentProvider) {
+    if (!cached) return undefined;
+
+    const currentLifecycleToken =
+      typeof this.registry.getLifecycleToken === 'function'
+        ? this.registry.getLifecycleToken(trimmedId)
+        : undefined;
+
+    const isSameInstance = cached.providerInstance === currentProvider;
+    const isSameLifecycle =
+      currentLifecycleToken !== undefined
+        ? cached.lifecycleToken === currentLifecycleToken
+        : true;
+
+    if (!isSameInstance || !isSameLifecycle) {
+      this.catalogCache.delete(trimmedId);
       return undefined;
     }
 

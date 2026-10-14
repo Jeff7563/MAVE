@@ -142,6 +142,7 @@ export interface ModelSelectionCriteria {
   readonly requiredContextTokens?: number;
   readonly requiredContextClass?: ModelContextClass;
   readonly strictLanguageCheck?: boolean;
+  readonly allowFallback?: boolean;
 }
 
 export interface ModelSelectionResult {

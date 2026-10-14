@@ -66,6 +66,7 @@ interface ProviderEntry {
   metadata?: ProviderRegistrationMetadata;
   revision: number;
   registeredAt: number;
+  registrationSequence: number;
 }
 
 interface CachedHealth {
@@ -93,6 +94,7 @@ export class BrainProviderRegistry {
   private readonly inFlightProbes = new Map<string, Promise<ProviderHealth>>();
   private readonly healthTimeoutMs: number;
   private readonly defaultHealthTtlMs: number;
+  private registrationSequence = 0;
 
   constructor(options?: BrainProviderRegistryOptions) {
     this.healthTimeoutMs = options?.healthTimeoutMs ?? 5000;
@@ -157,7 +159,8 @@ export class BrainProviderRegistry {
       provider,
       metadata,
       revision: 1,
-      registeredAt: Date.now()
+      registeredAt: Date.now(),
+      registrationSequence: ++this.registrationSequence
     });
   }
 
@@ -230,6 +233,21 @@ export class BrainProviderRegistry {
       return false;
     }
     return this.entries.has(providerId.trim());
+  }
+
+  /**
+   * Returns a deterministic lifecycle token for the provider's current registration.
+   * Changes whenever the provider is replaced or re-registered.
+   */
+  getLifecycleToken(providerId: string): string | undefined {
+    if (!providerId || typeof providerId !== 'string') {
+      return undefined;
+    }
+    const entry = this.entries.get(providerId.trim());
+    if (!entry) {
+      return undefined;
+    }
+    return `${entry.id}:${entry.registrationSequence}:${entry.revision}`;
   }
 
   /**
