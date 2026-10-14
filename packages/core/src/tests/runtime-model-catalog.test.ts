@@ -5,7 +5,7 @@ import {
   type RuntimeModelDescriptor
 } from '../brain/runtime-models/index.js';
 
-describe('RuntimeModelCatalog & Selection Engine', () => {
+describe('RuntimeModelCatalog & Selection Engine (Hardened Availability Semantics)', () => {
   let catalog: RuntimeModelCatalog;
 
   const mockClaudeModels: RuntimeModelDescriptor[] = [
@@ -17,7 +17,7 @@ describe('RuntimeModelCatalog & Selection Engine', () => {
       canonicalName: 'claude-sonnet-5',
       supportedRoles: ['BALANCED', 'CODING', 'AGENT', 'REASONING'],
       discoverySource: 'runtime_alias',
-      availability: 'available',
+      availability: 'unknown', // Conservative: alias starts unknown until session init
       discoveredAt: 1000,
       metadata: {
         priority: 1,
@@ -33,7 +33,7 @@ describe('RuntimeModelCatalog & Selection Engine', () => {
       canonicalName: 'claude-opus-5',
       supportedRoles: ['REASONING', 'CODING'],
       discoverySource: 'runtime_alias',
-      availability: 'available',
+      availability: 'unknown', // Conservative: alias starts unknown until session init
       discoveredAt: 1000,
       metadata: {
         priority: 1,
@@ -49,7 +49,7 @@ describe('RuntimeModelCatalog & Selection Engine', () => {
       canonicalName: 'claude-haiku-4-5-20251001',
       supportedRoles: ['FAST', 'BALANCED'],
       discoverySource: 'runtime_alias',
-      availability: 'available',
+      availability: 'unknown',
       discoveredAt: 1000,
       metadata: {
         priority: 2,
@@ -82,20 +82,19 @@ describe('RuntimeModelCatalog & Selection Engine', () => {
       expect(Object.isFrozen(sonnet!)).toBe(true);
       expect(Object.isFrozen(sonnet!.supportedRoles)).toBe(true);
 
-      // Attempted mutation should fail in strict mode
       expect(() => {
         (sonnet as any).availability = 'unavailable';
       }).toThrow();
     });
 
-    it('updates runtime model availability (e.g. quota_limited)', () => {
+    it('updates runtime model availability (e.g. quota_limited or verified available)', () => {
       const updated = catalog.updateRuntimeModel('claude-code', 'opus', {
-        availability: 'quota_limited'
+        availability: 'available'
       });
       expect(updated).toBe(true);
 
       const opus = catalog.getRuntimeModel('claude-code', 'opus');
-      expect(opus?.availability).toBe('quota_limited');
+      expect(opus?.availability).toBe('available');
     });
 
     it('clears specific runtime or all runtimes', () => {
@@ -104,8 +103,9 @@ describe('RuntimeModelCatalog & Selection Engine', () => {
     });
   });
 
-  describe('AUTO Selection Mode', () => {
-    it('selects default model for BALANCED role (sonnet)', () => {
+  describe('AUTO Selection Mode (Available vs Unknown)', () => {
+    it('selects optimistically when only UNKNOWN models are registered, recording unknown status in reason', () => {
+      // All Claude models in beforeEach start with availability = 'unknown'
       const result = catalog.selectModel({
         runtimeProviderId: 'claude-code',
         role: 'BALANCED',
@@ -115,18 +115,26 @@ describe('RuntimeModelCatalog & Selection Engine', () => {
       expect(result.selectedModelId).toBe('sonnet');
       expect(result.mode).toBe('AUTO');
       expect(result.fallbackOccurred).toBe(false);
+      expect(result.reason).toContain('availability: unknown / optimistic selection');
     });
 
-    it('selects default model for REASONING role (opus over sonnet)', () => {
+    it('strictly ranks verified AVAILABLE models ahead of UNKNOWN models', () => {
+      // Mark opus as verified available, but leave sonnet as unknown
+      catalog.updateRuntimeModel('claude-code', 'opus', {
+        availability: 'available'
+      });
+
+      // For CODING: both sonnet and opus are eligible.
+      // Sonnet has higher role priority (1 vs 2), but is UNKNOWN.
+      // Opus is verified AVAILABLE. Therefore opus MUST win!
       const result = catalog.selectModel({
         runtimeProviderId: 'claude-code',
-        role: 'REASONING',
+        role: 'CODING',
         mode: 'AUTO'
       });
 
       expect(result.selectedModelId).toBe('opus');
-      expect(result.role).toBe('REASONING');
-      expect(result.fallbackOccurred).toBe(false);
+      expect(result.reason).toContain('verified model');
     });
 
     it('selects default model for FAST role (haiku)', () => {
@@ -173,8 +181,7 @@ describe('RuntimeModelCatalog & Selection Engine', () => {
       }
     });
 
-    it('skips quota_limited models and selects next available matching model', () => {
-      // Mark opus as quota_limited
+    it('skips quota_limited models and selects next eligible candidate', () => {
       catalog.updateRuntimeModel('claude-code', 'opus', {
         availability: 'quota_limited'
       });
@@ -189,7 +196,7 @@ describe('RuntimeModelCatalog & Selection Engine', () => {
       expect(result.selectedModelId).toBe('sonnet');
     });
 
-    it('throws no_available_model when all matching models are unavailable', () => {
+    it('throws no_available_model when all matching models are unavailable or quota_limited', () => {
       catalog.updateRuntimeModel('claude-code', 'haiku', {
         availability: 'quota_limited'
       });
@@ -214,8 +221,8 @@ describe('RuntimeModelCatalog & Selection Engine', () => {
     });
   });
 
-  describe('PREFERRED Selection Mode', () => {
-    it('selects preferred model when eligible and available', () => {
+  describe('PREFERRED Selection Mode (Accurate Error Semantics)', () => {
+    it('selects preferred model with UNKNOWN availability without pretending it is verified available', () => {
       const result = catalog.selectModel({
         runtimeProviderId: 'claude-code',
         role: 'CODING',
@@ -226,6 +233,24 @@ describe('RuntimeModelCatalog & Selection Engine', () => {
       expect(result.selectedModelId).toBe('opus');
       expect(result.fallbackOccurred).toBe(false);
       expect(result.mode).toBe('PREFERRED');
+      expect(result.reason).toContain('unverified availability (unknown');
+    });
+
+    it('selects preferred model when verified available', () => {
+      catalog.updateRuntimeModel('claude-code', 'opus', {
+        availability: 'available'
+      });
+
+      const result = catalog.selectModel({
+        runtimeProviderId: 'claude-code',
+        role: 'CODING',
+        mode: 'PREFERRED',
+        preferredModelId: 'opus'
+      });
+
+      expect(result.selectedModelId).toBe('opus');
+      expect(result.fallbackOccurred).toBe(false);
+      expect(result.reason).toContain('verified available');
     });
 
     it('falls back to auto selection when preferred model is quota_limited and allowFallback=true', () => {
@@ -246,7 +271,7 @@ describe('RuntimeModelCatalog & Selection Engine', () => {
       expect(result.reason).toContain('fell back to auto-selected model');
     });
 
-    it('throws locked_model_unavailable when preferred model is quota_limited and allowFallback=false', () => {
+    it('throws preferred_model_unavailable when preferred model is quota_limited and allowFallback=false', () => {
       catalog.updateRuntimeModel('claude-code', 'opus', {
         availability: 'quota_limited'
       });
@@ -260,25 +285,58 @@ describe('RuntimeModelCatalog & Selection Engine', () => {
           allowFallback: false
         })
       ).toThrowError(RuntimeModelSelectionError);
+
+      try {
+        catalog.selectModel({
+          runtimeProviderId: 'claude-code',
+          role: 'CODING',
+          mode: 'PREFERRED',
+          preferredModelId: 'opus',
+          allowFallback: false
+        });
+      } catch (err: any) {
+        expect(err.code).toBe('preferred_model_unavailable');
+      }
     });
 
-    it('falls back to auto selection when preferred model does not support role', () => {
-      // haiku does not support REASONING
-      const result = catalog.selectModel({
-        runtimeProviderId: 'claude-code',
-        role: 'REASONING',
-        mode: 'PREFERRED',
-        preferredModelId: 'haiku',
-        allowFallback: true
-      });
+    it('throws preferred_model_not_found when preferred model does not exist and allowFallback=false', () => {
+      try {
+        catalog.selectModel({
+          runtimeProviderId: 'claude-code',
+          role: 'CODING',
+          mode: 'PREFERRED',
+          preferredModelId: 'non-existent-model',
+          allowFallback: false
+        });
+        expect.fail('Should have thrown preferred_model_not_found');
+      } catch (err: any) {
+        expect(err.code).toBe('preferred_model_not_found');
+      }
+    });
 
-      expect(result.selectedModelId).toBe('opus');
-      expect(result.fallbackOccurred).toBe(true);
+    it('throws preferred_model_incompatible when preferred model does not support role and allowFallback=false', () => {
+      // haiku does not support REASONING
+      try {
+        catalog.selectModel({
+          runtimeProviderId: 'claude-code',
+          role: 'REASONING',
+          mode: 'PREFERRED',
+          preferredModelId: 'haiku',
+          allowFallback: false
+        });
+        expect.fail('Should have thrown preferred_model_incompatible');
+      } catch (err: any) {
+        expect(err.code).toBe('preferred_model_incompatible');
+      }
     });
   });
 
-  describe('LOCKED Selection Mode', () => {
-    it('selects locked model when exact match, compatible, and available', () => {
+  describe('LOCKED Selection Mode (Exact Match & Silent Switching Forbidden)', () => {
+    it('selects locked model when exact match and available', () => {
+      catalog.updateRuntimeModel('claude-code', 'opus', {
+        availability: 'available'
+      });
+
       const result = catalog.selectModel({
         runtimeProviderId: 'claude-code',
         role: 'REASONING',
@@ -289,18 +347,24 @@ describe('RuntimeModelCatalog & Selection Engine', () => {
       expect(result.selectedModelId).toBe('opus');
       expect(result.fallbackOccurred).toBe(false);
       expect(result.mode).toBe('LOCKED');
+      expect(result.reason).toContain('verified available');
+    });
+
+    it('allows exact attempt when locked model has UNKNOWN availability without silent switching', () => {
+      // opus starts unknown
+      const result = catalog.selectModel({
+        runtimeProviderId: 'claude-code',
+        role: 'REASONING',
+        mode: 'LOCKED',
+        lockedModelId: 'opus'
+      });
+
+      expect(result.selectedModelId).toBe('opus');
+      expect(result.fallbackOccurred).toBe(false);
+      expect(result.reason).toContain('availability: unknown; exact model will be attempted without fallback');
     });
 
     it('throws locked_model_not_found if model does not exist in runtime', () => {
-      expect(() =>
-        catalog.selectModel({
-          runtimeProviderId: 'claude-code',
-          role: 'REASONING',
-          mode: 'LOCKED',
-          lockedModelId: 'gpt-4o'
-        })
-      ).toThrowError(RuntimeModelSelectionError);
-
       try {
         catalog.selectModel({
           runtimeProviderId: 'claude-code',
@@ -308,21 +372,13 @@ describe('RuntimeModelCatalog & Selection Engine', () => {
           mode: 'LOCKED',
           lockedModelId: 'gpt-4o'
         });
+        expect.fail('Should have thrown locked_model_not_found');
       } catch (err: any) {
         expect(err.code).toBe('locked_model_not_found');
       }
     });
 
     it('throws locked_model_incompatible if locked model does not support requested role', () => {
-      expect(() =>
-        catalog.selectModel({
-          runtimeProviderId: 'claude-code',
-          role: 'AGENT',
-          mode: 'LOCKED',
-          lockedModelId: 'haiku'
-        })
-      ).toThrowError(RuntimeModelSelectionError);
-
       try {
         catalog.selectModel({
           runtimeProviderId: 'claude-code',
@@ -330,6 +386,7 @@ describe('RuntimeModelCatalog & Selection Engine', () => {
           mode: 'LOCKED',
           lockedModelId: 'haiku'
         });
+        expect.fail('Should have thrown locked_model_incompatible');
       } catch (err: any) {
         expect(err.code).toBe('locked_model_incompatible');
       }
@@ -340,15 +397,6 @@ describe('RuntimeModelCatalog & Selection Engine', () => {
         availability: 'quota_limited'
       });
 
-      expect(() =>
-        catalog.selectModel({
-          runtimeProviderId: 'claude-code',
-          role: 'REASONING',
-          mode: 'LOCKED',
-          lockedModelId: 'opus'
-        })
-      ).toThrowError(RuntimeModelSelectionError);
-
       try {
         catalog.selectModel({
           runtimeProviderId: 'claude-code',
@@ -356,6 +404,7 @@ describe('RuntimeModelCatalog & Selection Engine', () => {
           mode: 'LOCKED',
           lockedModelId: 'opus'
         });
+        expect.fail('Should have thrown locked_model_unavailable');
       } catch (err: any) {
         expect(err.code).toBe('locked_model_unavailable');
       }

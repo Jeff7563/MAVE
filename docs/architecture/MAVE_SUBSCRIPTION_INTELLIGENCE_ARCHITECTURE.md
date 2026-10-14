@@ -246,30 +246,50 @@ MAVE defines three deterministic user selection modes:
 ├─────────────────┼─────────────────────────────────────────────────────────────┤
 │ **AUTO**        │ Evaluates role compatibility, filters available models,     │
 │                 │ and resolves ties via deterministic priority scoring.       │
-│ **PREFERRED**   │ Validates preferred model; if unavailable or incompatible,  │
-│                 │ falls back to AUTO (annotating fallbackOccurred: true).     │
-│                 │ If allowFallback: false, fails closed with clear error.     │
-│ **LOCKED**      │ Strictly requires exact model match, role compatibility,    │
-│                 │ and available status. Fails closed with error if missing,   │
-│                 │ incompatible, or quota-limited. Silent switching FORBIDDEN. │
+│                 │ Ranks AVAILABLE strictly above UNKNOWN. Selects UNKNOWN     │
+│                 │ only optimistically if no verified AVAILABLE model exists.  │
+│ **PREFERRED**   │ Validates preferred model; if AVAILABLE, selects it.        │
+│                 │ If UNKNOWN, selects it (without pretending it is verified). │
+│                 │ If UNAVAILABLE/exhausted: falls back to AUTO if allowed     │
+│                 │ (fallbackOccurred: true); else fails closed with error.     │
+│ **LOCKED**      │ Strictly requires exact model match and role compatibility. │
+│                 │ Attempts exact model if AVAILABLE or UNKNOWN. Fails closed  │
+│                 │ if UNAVAILABLE or quota-limited. Silent switching FORBIDDEN.│
 └─────────────────┴─────────────────────────────────────────────────────────────┘
 ```
 
-### 8.1 Deterministic Tie-Breaking Order (AUTO Selection)
-When multiple candidate models in a subscription runtime satisfy a requested Model Role:
-1. **Role-Specific Priority:** Explicit `metadata.rolePriority[role]` or `metadata.defaultFor` (lower score = higher preference).
-2. **Generic Model Priority:** `metadata.priority` rating from CLI or cache.
-3. **Discovery Source Hierarchy:** `runtime_enumerated` > `runtime_observed` > `runtime_alias` > `runtime_cache` > `configured` > `unknown`.
-4. **Deterministic Collation:** Alphabetical sort on `modelId` ensuring 100% reproducible selection across restarts.
+### 8.1 Conservative Availability Principles: Discovery != Availability != Entitlement
+1. **`runtime_enumerated`:** Models discovered via live non-quota introspection for the currently authenticated account (e.g. `agy models`) are marked `available`.
+2. **`runtime_observed`:** Models verified dynamically during streaming sessions (e.g. Claude session `init` event emitting `model: 'claude-sonnet-5'`) transition to `available` upon verified initialization.
+3. **`runtime_alias`:** CLI aliases (`sonnet`, `opus`, `haiku`) start as **`unknown`**. Alias existence does NOT prove current account entitlement.
+4. **`runtime_cache`:** Local CLI caches (`~/.codex/models_cache.json`) start as **`unknown`**. Cache file existence does NOT guarantee active subscription entitlement, and stale cache entries (`fetched_at` older than 7 days) are explicitly flagged `metadata.stale = true`.
+5. **`configured`:** Static fallback configurations start as **`unknown`**.
+6. **`unavailable` / `quota_limited` / `rate_limited`:** Strictly excluded from selection in all modes.
 
-### 8.2 Execution Handoff & Contract Gap Evaluation
-An audit of the execution path was conducted to verify how the resolved `selectedModelId` passes to child processes:
-- **Contract Boundary:** Under `@mave/contracts`, `BrainRequestOptions` already defines `modelId?: ModelId` (Line 419 of `brain.ts`).
-- **Handoff Mechanics:**
-  - `ClaudeCodeBrainProvider`: `options?.modelId || request.overrides?.preferredModelId || this.defaultModel` $\to$ `--model <model>`.
-  - `AntigravityBrainProvider`: `options?.modelId || request.overrides?.preferredModelId || this.model` $\to$ `--model <model>`.
-  - `CodexBrainProvider`: `options?.modelId || request.overrides?.preferredModelId || this.defaultModel` $\to$ `-m <model>`.
-- **Finding:** **ZERO CONTRACT EXPANSION REQUIRED.** `BrainRequestOptions.modelId` connects the caller directly to subscription provider child processes. No public contract changes or workarounds are needed.
+### 8.2 Deterministic Tie-Breaking Order (AUTO Selection)
+When multiple candidate models in a subscription runtime satisfy a requested Model Role:
+1. **Availability Hierarchy:** Verified `available` models (score 1) strictly outrank unverified `unknown` models (score 2).
+2. **Role-Specific Priority:** Explicit `metadata.rolePriority[role]` or `metadata.defaultFor` (lower score = higher preference).
+3. **Generic Model Priority:** `metadata.priority` rating from CLI or cache.
+4. **Discovery Source Hierarchy:** `runtime_enumerated` > `runtime_observed` > `runtime_alias` > `runtime_cache` > `configured` > `unknown`.
+5. **Deterministic Collation:** Alphabetical sort on `modelId` ensuring 100% reproducible selection across restarts.
+
+### 8.3 Execution Handoff & Provider Bypass Elimination
+F1.4.1 established the clear semantic flow:
+```text
+CALLER PREFERENCE                     ROUTING / SELECTION LAYER                   EXECUTION TARGET
+BrainRequest.overrides.preferredModelId ──────► selectRuntimeModel() ──────► BrainRequestOptions.modelId
+(User intent & provenance)                    (Deterministic resolution)    (Per-invocation execution)
+```
+
+- **Strict Provider Invariant (No Preference Bypass):**
+  Subscription runtime providers (`ClaudeCodeBrainProvider`, `AntigravityBrainProvider`) strictly **NEVER** consume `request.overrides.preferredModelId` directly as an execution target. Only the routing and model selection layer interprets caller preferences. Providers receive the resolved execution target exclusively via `options?.modelId || this.defaultModel`.
+- **Concurrency & State Isolation:**
+  `BrainRequestOptions.modelId` travels strictly per invocation. Provider singleton instances maintain zero mutable current-model state, ensuring simultaneous concurrent requests execute with independent model options safely without cross-contamination.
+- **Midstream Retry Prohibition (F1.4 Preservation):**
+  Once provider execution begins with a selected model (even an `unknown` model selected optimistically), there is NO automatic midstream cross-provider retry. If the runtime CLI or cloud rejects the model, the turn fails cleanly with `model_unavailable` rather than executing an unexpected silent fallback.
+- **Contract Boundary Status:**
+  `BrainRequestOptions.modelId` is semantically generic across all `BrainProvider` kinds (both direct `model_provider` and `agent_runtime_provider`). **ZERO CONTRACT EXPANSION REQUIRED.**
 
 ---
 

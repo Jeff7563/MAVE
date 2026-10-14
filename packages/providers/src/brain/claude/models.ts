@@ -103,7 +103,7 @@ export function getClaudeDefaultRuntimeModels(): RuntimeModelDescriptor[] {
       canonicalName: 'claude-sonnet-5',
       supportedRoles: ['BALANCED', 'CODING', 'AGENT', 'REASONING'],
       discoverySource: 'runtime_alias',
-      availability: 'available',
+      availability: 'unknown', // Conservative: alias existence != active account entitlement
       discoveredAt: now,
       selectionMechanism: '--model flag',
       metadata: {
@@ -125,7 +125,7 @@ export function getClaudeDefaultRuntimeModels(): RuntimeModelDescriptor[] {
       canonicalName: 'claude-opus-5',
       supportedRoles: ['REASONING', 'CODING'],
       discoverySource: 'runtime_alias',
-      availability: 'available',
+      availability: 'unknown', // Conservative: alias existence != active account entitlement
       discoveredAt: now,
       selectionMechanism: '--model flag',
       metadata: {
@@ -145,7 +145,7 @@ export function getClaudeDefaultRuntimeModels(): RuntimeModelDescriptor[] {
       canonicalName: 'claude-haiku-4-5-20251001',
       supportedRoles: ['FAST', 'BALANCED'],
       discoverySource: 'runtime_alias',
-      availability: 'available',
+      availability: 'unknown', // Conservative: alias existence != active account entitlement
       discoveredAt: now,
       selectionMechanism: '--model flag',
       metadata: {

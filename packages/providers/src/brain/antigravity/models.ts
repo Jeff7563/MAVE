@@ -160,10 +160,11 @@ export function getAntigravityDefaultRuntimeModels(): RuntimeModelDescriptor[] {
   ].join('\n');
 
   const models = parseAntigravityModelsOutput(rawDefaultText, now);
-  // Mark default static list as configured
+  // Mark default static list as configured with unknown availability
   return models.map((m) => ({
     ...m,
-    discoverySource: 'configured' as const
+    discoverySource: 'configured' as const,
+    availability: 'unknown' as const
   }));
 }
 

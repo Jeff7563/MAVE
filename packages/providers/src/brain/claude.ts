@@ -249,11 +249,10 @@ export class ClaudeCodeBrainProvider implements BrainProvider {
       return;
     }
 
-    // 2. Resolve model: options.modelId > overrides.preferredModelId > this.defaultModel
-    const effectiveModel =
-      options?.modelId ||
-      request.overrides?.preferredModelId ||
-      this.defaultModel;
+    // 2. Resolve execution model: options.modelId > this.defaultModel
+    // INVARIANT: Provider execution must NOT directly consume request.overrides.preferredModelId.
+    // Only the routing/selection layer resolves caller preference into options.modelId.
+    const effectiveModel = options?.modelId || this.defaultModel;
 
     // 3. Construct prompt strictly from BrainRequest
     const prompt = buildClaudeCodePrompt(request);

@@ -30,13 +30,22 @@ function matchesIdentifier(descriptor: RuntimeModelDescriptor, target: string): 
 /**
  * Computes deterministic sort score for candidate models satisfying a Model Role.
  * Lower score = higher preference.
+ *
+ * Invariant: AVAILABLE models rank strictly ahead of UNKNOWN models.
  */
 function compareCandidates(
   a: RuntimeModelDescriptor,
   b: RuntimeModelDescriptor,
   role: ModelRole
 ): number {
-  // 1. Check role-specific priority from metadata if available
+  // 1. Availability ranking: 'available' (1) strictly ranks ahead of 'unknown' (2)
+  const aAvailScore = a.availability === 'available' ? 1 : 2;
+  const bAvailScore = b.availability === 'available' ? 1 : 2;
+  if (aAvailScore !== bAvailScore) {
+    return aAvailScore - bAvailScore;
+  }
+
+  // 2. Check role-specific priority from metadata if available
   const aRolePrio = (a.metadata?.rolePriority as Record<string, number> | undefined)?.[role] ??
     (Array.isArray(a.metadata?.defaultFor) && a.metadata?.defaultFor.includes(role) ? 0 : 50);
   const bRolePrio = (b.metadata?.rolePriority as Record<string, number> | undefined)?.[role] ??
@@ -46,21 +55,21 @@ function compareCandidates(
     return aRolePrio - bRolePrio;
   }
 
-  // 2. Generic priority number from metadata (lower is better)
+  // 3. Generic priority number from metadata (lower is better)
   const aPrio = typeof a.metadata?.priority === 'number' ? a.metadata.priority : 100;
   const bPrio = typeof b.metadata?.priority === 'number' ? b.metadata.priority : 100;
   if (aPrio !== bPrio) {
     return aPrio - bPrio;
   }
 
-  // 3. Discovery source hierarchy (enumerated > observed > alias > cache > configured > unknown)
+  // 4. Discovery source hierarchy (enumerated > observed > alias > cache > configured > unknown)
   const aSourceWeight = DISCOVERY_SOURCE_WEIGHT[a.discoverySource] ?? 99;
   const bSourceWeight = DISCOVERY_SOURCE_WEIGHT[b.discoverySource] ?? 99;
   if (aSourceWeight !== bSourceWeight) {
     return aSourceWeight - bSourceWeight;
   }
 
-  // 4. Deterministic string collation by modelId
+  // 5. Deterministic string collation by modelId
   return a.modelId.localeCompare(b.modelId);
 }
 
@@ -113,7 +122,12 @@ export function selectRuntimeModel(
       );
     }
 
-    if (matched.availability !== 'available') {
+    // Strictly reject known unavailable, quota-limited, or rate-limited models
+    if (
+      matched.availability === 'unavailable' ||
+      matched.availability === 'quota_limited' ||
+      matched.availability === 'rate_limited'
+    ) {
       throw new RuntimeModelSelectionError(
         'locked_model_unavailable',
         `Locked model '${matched.modelId}' is not available (status: '${matched.availability}') in runtime '${runtimeProviderId}'. Locked mode forbids fallback.`,
@@ -121,13 +135,17 @@ export function selectRuntimeModel(
       );
     }
 
+    // Model is either 'available' or 'unknown' (selectable exact attempt, will fail at runtime if unentitled)
+    const isUnknown = matched.availability === 'unknown';
     return {
       selectedModelId: matched.modelId,
       descriptor: matched,
       mode: 'LOCKED',
       role,
       fallbackOccurred: false,
-      reason: `Exact locked model match for '${targetId}' (${matched.displayName})`
+      reason: isUnknown
+        ? `Exact locked model match for '${targetId}' (${matched.displayName}) (availability: unknown; exact model will be attempted without fallback)`
+        : `Exact locked model match for '${targetId}' (${matched.displayName}) (verified available)`
     };
   }
 
@@ -140,14 +158,25 @@ export function selectRuntimeModel(
     const matched = models.find((m) => matchesIdentifier(m, preferredId));
     const allowFallback = request.allowFallback !== false;
 
-    if (matched && matched.supportedRoles.includes(role) && matched.availability === 'available') {
+    // A preferred model is selectable if it supports the role and is not known to be unavailable/limited
+    const isSelectable =
+      matched &&
+      matched.supportedRoles.includes(role) &&
+      matched.availability !== 'unavailable' &&
+      matched.availability !== 'quota_limited' &&
+      matched.availability !== 'rate_limited';
+
+    if (isSelectable && matched) {
+      const isVerified = matched.availability === 'available';
       return {
         selectedModelId: matched.modelId,
         descriptor: matched,
         mode: 'PREFERRED',
         role,
         fallbackOccurred: false,
-        reason: `Preferred model '${preferredId}' successfully matched and available`
+        reason: isVerified
+          ? `Preferred model '${preferredId}' (${matched.displayName}) matched and verified available`
+          : `Preferred model '${preferredId}' (${matched.displayName}) matched with unverified availability (unknown; entitlement will be tested at runtime)`
       };
     }
 
@@ -155,20 +184,20 @@ export function selectRuntimeModel(
     if (!allowFallback) {
       if (!matched) {
         throw new RuntimeModelSelectionError(
-          'locked_model_not_found',
+          'preferred_model_not_found',
           `Preferred model '${preferredId}' not found and allowFallback=false`,
           { runtimeProviderId, role, mode }
         );
       }
       if (!matched.supportedRoles.includes(role)) {
         throw new RuntimeModelSelectionError(
-          'locked_model_incompatible',
+          'preferred_model_incompatible',
           `Preferred model '${matched.modelId}' incompatible with role '${role}' and allowFallback=false`,
           { runtimeProviderId, role, mode }
         );
       }
       throw new RuntimeModelSelectionError(
-        'locked_model_unavailable',
+        'preferred_model_unavailable',
         `Preferred model '${matched.modelId}' is unavailable (status: '${matched.availability}') and allowFallback=false`,
         { runtimeProviderId, role, mode }
       );
@@ -222,9 +251,15 @@ function runAutoSelection(
     );
   }
 
-  // 2. Availability filter
-  const availableCandidates = roleCandidates.filter((m) => m.availability === 'available');
-  if (availableCandidates.length === 0) {
+  // 2. Filter out known unavailable / exhausted models
+  const selectableCandidates = roleCandidates.filter(
+    (m) =>
+      m.availability !== 'unavailable' &&
+      m.availability !== 'quota_limited' &&
+      m.availability !== 'rate_limited'
+  );
+
+  if (selectableCandidates.length === 0) {
     const statuses = roleCandidates.map((m) => `${m.modelId}:${m.availability}`).join(', ');
     throw new RuntimeModelSelectionError(
       'no_available_model',
@@ -233,19 +268,40 @@ function runAutoSelection(
     );
   }
 
-  // 3. Deterministic tie-breaking sort
-  const sorted = [...availableCandidates].sort((a, b) => compareCandidates(a, b, role));
-  const chosen = sorted[0];
+  // 3. Separate into verified 'available' vs unverified 'unknown' candidates
+  const availableCandidates = selectableCandidates.filter((m) => m.availability === 'available');
+
+  if (availableCandidates.length > 0) {
+    // Deterministic sort among verified available models
+    const sorted = [...availableCandidates].sort((a, b) => compareCandidates(a, b, role));
+    const chosen = sorted[0];
+    if (!chosen) {
+      throw new RuntimeModelSelectionError(
+        'no_available_model',
+        `Unexpected empty candidate list for role '${role}' in runtime '${runtimeProviderId}'`,
+        { runtimeProviderId, role, mode: 'AUTO' }
+      );
+    }
+
+    return {
+      descriptor: chosen,
+      reason: `Auto-selected verified model '${chosen.modelId}' (${chosen.displayName}) for role '${role}'`
+    };
+  }
+
+  // 4. No verified available candidate: optimistic selection among selectable 'unknown' candidates
+  const sortedUnknown = [...selectableCandidates].sort((a, b) => compareCandidates(a, b, role));
+  const chosen = sortedUnknown[0];
   if (!chosen) {
     throw new RuntimeModelSelectionError(
       'no_available_model',
-      `Unexpected empty candidate list for role '${role}' in runtime '${runtimeProviderId}'`,
+      `No candidate models for role '${role}' in runtime '${runtimeProviderId}'`,
       { runtimeProviderId, role, mode: 'AUTO' }
     );
   }
 
   return {
     descriptor: chosen,
-    reason: `Auto-selected model '${chosen.modelId}' (${chosen.displayName}) for role '${role}'`
+    reason: `Auto-selected model '${chosen.modelId}' (${chosen.displayName}) for role '${role}' (availability: unknown / optimistic selection; entitlement unverified until execution)`
   };
 }

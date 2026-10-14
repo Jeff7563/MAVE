@@ -79,6 +79,9 @@ export type RuntimeModelSelectionErrorCode =
   | 'locked_model_not_found'
   | 'locked_model_incompatible'
   | 'locked_model_unavailable'
+  | 'preferred_model_not_found'
+  | 'preferred_model_incompatible'
+  | 'preferred_model_unavailable'
   | 'no_available_model';
 
 export class RuntimeModelSelectionError extends Error {

@@ -151,7 +151,7 @@ export function parseCodexModelsCache(
       canonicalName: slug,
       supportedRoles: mapping.roles,
       discoverySource: 'runtime_cache',
-      availability: 'available',
+      availability: 'unknown', // Conservative: local cache != active account entitlement
       discoveredAt: now,
       selectionMechanism: '-m flag',
       metadata: {
@@ -184,7 +184,7 @@ export function getCodexDefaultRuntimeModels(): RuntimeModelDescriptor[] {
       canonicalName: 'gpt-5.6-sol',
       supportedRoles: ['CODING', 'AGENT', 'BALANCED', 'REASONING'],
       discoverySource: 'configured',
-      availability: 'available',
+      availability: 'unknown',
       discoveredAt: now,
       selectionMechanism: '-m flag',
       metadata: {
@@ -201,7 +201,7 @@ export function getCodexDefaultRuntimeModels(): RuntimeModelDescriptor[] {
       canonicalName: 'gpt-6.1-sol',
       supportedRoles: ['REASONING', 'CODING', 'AGENT', 'BALANCED'],
       discoverySource: 'configured',
-      availability: 'available',
+      availability: 'unknown',
       discoveredAt: now,
       selectionMechanism: '-m flag',
       metadata: {
@@ -217,7 +217,7 @@ export function getCodexDefaultRuntimeModels(): RuntimeModelDescriptor[] {
       canonicalName: 'gpt-6-luna',
       supportedRoles: ['FAST', 'BALANCED'],
       discoverySource: 'configured',
-      availability: 'available',
+      availability: 'unknown',
       discoveredAt: now,
       selectionMechanism: '-m flag',
       metadata: {
@@ -233,7 +233,7 @@ export function getCodexDefaultRuntimeModels(): RuntimeModelDescriptor[] {
       canonicalName: 'gpt-6-astra',
       supportedRoles: ['REASONING', 'CODING'],
       discoverySource: 'configured',
-      availability: 'available',
+      availability: 'unknown',
       discoveredAt: now,
       selectionMechanism: '-m flag',
       metadata: {

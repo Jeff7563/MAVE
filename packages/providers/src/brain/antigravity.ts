@@ -222,10 +222,10 @@ export class AntigravityBrainProvider implements BrainProvider {
       '--sandbox',
       '--disable-slash-commands'
     ];
-    const effectiveModel =
-      options?.modelId ||
-      request.overrides?.preferredModelId ||
-      this.model;
+    // 2. Resolve execution model: options.modelId > this.model
+    // INVARIANT: Provider execution must NOT directly consume request.overrides.preferredModelId.
+    // Only the routing/selection layer resolves caller preference into options.modelId.
+    const effectiveModel = options?.modelId || this.model;
     if (effectiveModel) {
       args.push('--model', effectiveModel);
     }
