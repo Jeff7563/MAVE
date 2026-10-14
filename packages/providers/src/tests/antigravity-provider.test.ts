@@ -243,10 +243,10 @@ describe('AntigravityBrainProvider', () => {
   });
 
   describe('Parser, Error Classification & Redaction', () => {
-    it('classifies quota and rate limit errors as provider_limit', () => {
-      expect(classifyAntigravityError('Resource has been exhausted (e.g. check quota).')).toBe('provider_limit');
-      expect(classifyAntigravityError('Rate limit exceeded: 429 Too Many Requests')).toBe('provider_limit');
-      expect(classifyAntigravityError('Daily credit quota reached')).toBe('provider_limit');
+    it('classifies quota and rate limit errors as quota_limited', () => {
+      expect(classifyAntigravityError('Resource has been exhausted (e.g. check quota).')).toBe('quota_limited');
+      expect(classifyAntigravityError('Rate limit exceeded: 429 Too Many Requests')).toBe('quota_limited');
+      expect(classifyAntigravityError('Daily credit quota reached')).toBe('quota_limited');
     });
 
     it('classifies auth errors as provider_auth', () => {
@@ -548,7 +548,7 @@ describe('AntigravityBrainProvider', () => {
 
       const errorEvent = events.find((e) => e.type === 'error') as any;
       expect(errorEvent).toBeDefined();
-      expect(errorEvent.error.code).toBe('provider_limit');
+      expect(errorEvent.error.code).toBe('quota_limited');
       expect(errorEvent.error.message).toContain('Quota exceeded');
       expect(errorEvent.error.retryable).toBe(true);
     });

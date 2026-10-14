@@ -39,6 +39,10 @@ import {
   type BrainRoutingErrorCode,
   type RouteTelemetry
 } from './types.js';
+import {
+  RuntimeQuotaStore,
+  type QuotaRoutingPreference
+} from './quota/index.js';
 
 export interface BrainRouterOptions {
   registry: BrainProviderRegistry;
@@ -47,6 +51,8 @@ export interface BrainRouterOptions {
   catalogRuntime?: ModelCatalogRuntime;
   runtimeModelCatalog?: RuntimeModelCatalog;
   runtimePriorities?: Record<ModelRole, readonly string[]>;
+  quotaStore?: RuntimeQuotaStore;
+  quotaPreference?: QuotaRoutingPreference;
   defaultProvider?: string;
   fallbackChain?: string[];
   /** Accepted for configuration compatibility and routing timeout budget. Default: 4000ms. */
@@ -128,6 +134,8 @@ export class BrainRouter {
   private readonly catalogRuntime: ModelCatalogRuntime;
   private readonly runtimeModelCatalog: RuntimeModelCatalog;
   private readonly runtimePriorities: Record<ModelRole, readonly string[]>;
+  private readonly quotaStore: RuntimeQuotaStore;
+  private readonly quotaPreference: QuotaRoutingPreference;
   private readonly defaultProvider?: string;
   private readonly fallbackChain: string[];
   private readonly timeoutMs: number;
@@ -145,6 +153,8 @@ export class BrainRouter {
       catalogRuntime?: ModelCatalogRuntime;
       runtimeModelCatalog?: RuntimeModelCatalog;
       runtimePriorities?: Record<ModelRole, readonly string[]>;
+      quotaStore?: RuntimeQuotaStore;
+      quotaPreference?: QuotaRoutingPreference;
       maxProviderBudget?: number;
       allowPaidApis?: boolean;
     }
@@ -159,6 +169,8 @@ export class BrainRouter {
         registryOrOptions.runtimeModelCatalog ?? new RuntimeModelCatalog();
       this.runtimePriorities =
         registryOrOptions.runtimePriorities ?? DEFAULT_RUNTIME_PRIORITIES;
+      this.quotaStore = registryOrOptions.quotaStore ?? new RuntimeQuotaStore();
+      this.quotaPreference = registryOrOptions.quotaPreference ?? 'priority_first';
       this.defaultProvider = registryOrOptions.defaultProvider;
       this.fallbackChain = registryOrOptions.fallbackChain ?? [];
       this.timeoutMs = registryOrOptions.timeoutMs ?? 4000;
@@ -174,6 +186,8 @@ export class BrainRouter {
         defaultOptions?.runtimeModelCatalog ?? new RuntimeModelCatalog();
       this.runtimePriorities =
         defaultOptions?.runtimePriorities ?? DEFAULT_RUNTIME_PRIORITIES;
+      this.quotaStore = defaultOptions?.quotaStore ?? new RuntimeQuotaStore();
+      this.quotaPreference = defaultOptions?.quotaPreference ?? 'priority_first';
       this.defaultProvider = defaultOptions?.defaultProvider;
       this.fallbackChain = defaultOptions?.fallbackChain ?? [];
       this.timeoutMs = defaultOptions?.timeoutMs ?? 4000;
@@ -204,6 +218,14 @@ export class BrainRouter {
 
   getRuntimePriorities(): Record<ModelRole, readonly string[]> {
     return this.runtimePriorities;
+  }
+
+  getQuotaStore(): RuntimeQuotaStore {
+    return this.quotaStore;
+  }
+
+  getQuotaPreference(): QuotaRoutingPreference {
+    return this.quotaPreference;
   }
 
   isPaidApisAllowed(): boolean {
@@ -266,6 +288,10 @@ export class BrainRouter {
       selectionReason?: string;
       evaluatedProviderIds?: string[];
       skippedRuntimes?: Array<{ runtimeId: string; reason: string }>;
+      providerQuotaState?: Record<string, string>;
+      quotaSkippedProviders?: Array<{ providerId: string; status: string; reason?: string; resetAt?: number }>;
+      quotaPreference?: string;
+      quotaSelectionReason?: string;
     }
   ): BrainRouteDecision {
     const telemetry: RouteTelemetry = {
@@ -291,7 +317,13 @@ export class BrainRouter {
       ...(s3Context?.runtimeModelsEvaluated !== undefined ? { runtimeModelsEvaluated: s3Context.runtimeModelsEvaluated } : {}),
       ...(s3Context?.selectionReason ? { selectionReason: s3Context.selectionReason } : {}),
       ...(s3Context?.evaluatedProviderIds ? { evaluatedProviderIds: s3Context.evaluatedProviderIds } : {}),
-      ...(s3Context?.skippedRuntimes && s3Context.skippedRuntimes.length > 0 ? { skippedRuntimes: s3Context.skippedRuntimes } : {})
+      ...(s3Context?.skippedRuntimes && s3Context.skippedRuntimes.length > 0 ? { skippedRuntimes: s3Context.skippedRuntimes } : {}),
+      ...(s3Context?.providerQuotaState ? { providerQuotaState: s3Context.providerQuotaState } : {}),
+      ...(s3Context?.quotaSkippedProviders && s3Context.quotaSkippedProviders.length > 0
+        ? { quotaSkippedProviders: s3Context.quotaSkippedProviders }
+        : {}),
+      ...(s3Context?.quotaPreference ? { quotaPreference: s3Context.quotaPreference } : {}),
+      ...(s3Context?.quotaSelectionReason ? { quotaSelectionReason: s3Context.quotaSelectionReason } : {})
     };
 
     return {
@@ -532,7 +564,59 @@ export class BrainRouter {
       );
     }
 
-    const primaryCandidateId = candidateIds[0]!;
+    // Pre-evaluate quota states
+    const providerQuotaState: Record<string, string> = {};
+    const quotaSkippedProviders: Array<{ providerId: string; status: string; reason?: string; resetAt?: number }> = [];
+
+    for (const c of candidateIds) {
+      const qState = this.quotaStore.get(c);
+      providerQuotaState[c] = qState.status;
+    }
+
+    // 6a. LOCKED runtime quota enforcement: fail immediately without fallback
+    if (runtimeMode === 'LOCKED' && preferredProvider) {
+      if (this.quotaStore.isBlocked(preferredProvider)) {
+        const qState = this.quotaStore.get(preferredProvider);
+        throw new BrainRoutingError(
+          qState.status === 'rate_limited' ? 'rate_limited' : 'quota_limited',
+          `Locked runtime '${preferredProvider}' is quota limited: ${qState.reason || 'subscription quota exhausted'}`,
+          [],
+          []
+        );
+      }
+    }
+
+    // 6b. PREFERRED runtime quota enforcement without fallback
+    if (runtimeMode === 'PREFERRED' && preferredProvider && !allowFallback) {
+      if (this.quotaStore.isBlocked(preferredProvider)) {
+        const qState = this.quotaStore.get(preferredProvider);
+        throw new BrainRoutingError(
+          qState.status === 'rate_limited' ? 'rate_limited' : 'quota_limited',
+          `Preferred runtime '${preferredProvider}' is quota limited and fallback is disabled: ${qState.reason || 'subscription quota exhausted'}`,
+          [],
+          []
+        );
+      }
+    }
+
+    // 6c. Order candidates respecting quota availability
+    let orderedCandidateIds = [...candidateIds];
+    if (profileId === 'agent_work' && (runtimeMode === 'AUTO' || (runtimeMode === 'PREFERRED' && allowFallback))) {
+      if (this.quotaPreference === 'available_first') {
+        const available: string[] = [];
+        const rest: string[] = [];
+        for (const id of orderedCandidateIds) {
+          if (!this.quotaStore.isBlocked(id) && this.quotaStore.get(id).status === 'available') {
+            available.push(id);
+          } else {
+            rest.push(id);
+          }
+        }
+        orderedCandidateIds = [...available, ...rest];
+      }
+    }
+
+    const primaryCandidateId = orderedCandidateIds[0]!;
     const isExplicitPreferred = Boolean(preferredProvider && preferredProvider === primaryCandidateId);
     const attemptedProviderIds: string[] = [];
     const attemptedModelIds: string[] = [];
@@ -554,7 +638,7 @@ export class BrainRouter {
     const deadline = startTime + routingTimeoutMs;
 
     // 7. Iterate through candidate providers
-    for (const id of candidateIds) {
+    for (const id of orderedCandidateIds) {
       if (signal?.aborted) {
         throw new BrainRoutingError(
           'cancelled',
@@ -575,6 +659,22 @@ export class BrainRouter {
 
       if (maxProviderBudget !== undefined && providersContacted >= maxProviderBudget) {
         break;
+      }
+
+      // Quota check: Skip known quota-blocked subscription runtime before execution
+      if (this.quotaStore.isBlocked(id)) {
+        const qState = this.quotaStore.get(id);
+        quotaSkippedProviders.push({
+          providerId: id,
+          status: qState.status,
+          reason: qState.reason,
+          resetAt: qState.resetAt
+        });
+        skippedRuntimes.push({
+          runtimeId: id,
+          reason: qState.status
+        });
+        continue;
       }
 
       evaluatedCandidateIds.push(id);
@@ -993,7 +1093,14 @@ export class BrainRouter {
             runtimeModelsEvaluated: totalModelsEvaluated,
             selectionReason: candidateResult.reason,
             evaluatedProviderIds: evaluatedCandidateIds,
-            skippedRuntimes
+            skippedRuntimes,
+            providerQuotaState,
+            quotaSkippedProviders,
+            quotaPreference: this.quotaPreference,
+            quotaSelectionReason:
+              quotaSkippedProviders.length > 0
+                ? `Selected runtime '${id}' after skipping quota-limited candidates: [${quotaSkippedProviders.map((p) => p.providerId).join(', ')}]`
+                : undefined
           }
         );
       }
@@ -1046,7 +1153,14 @@ export class BrainRouter {
           runtimeModelsEvaluated: totalModelsEvaluated,
           selectionReason: firstDegradedCandidate.reason,
           evaluatedProviderIds: evaluatedCandidateIds,
-          skippedRuntimes
+          skippedRuntimes,
+          providerQuotaState,
+          quotaSkippedProviders,
+          quotaPreference: this.quotaPreference,
+          quotaSelectionReason:
+            quotaSkippedProviders.length > 0
+              ? `Selected degraded runtime '${firstDegradedCandidate.providerId}' after skipping quota-limited candidates: [${quotaSkippedProviders.map((p) => p.providerId).join(', ')}]`
+              : undefined
         }
       );
     }
@@ -1058,6 +1172,10 @@ export class BrainRouter {
     if (effectiveLocalOnly || hasLocalOnlyMismatch) {
       errorCode = 'local_provider_unavailable';
       errorMessage = 'No local provider or model available satisfying localOnly constraint';
+    } else if (candidateIds.length > 0 && candidateIds.every((c) => this.quotaStore.isBlocked(c))) {
+      const anyRateLimited = candidateIds.some((c) => this.quotaStore.get(c).status === 'rate_limited');
+      errorCode = anyRateLimited ? 'rate_limited' : 'quota_limited';
+      errorMessage = `All candidate subscription runtimes [${candidateIds.join(', ')}] are currently quota limited`;
     } else if (
       hasPaidApiBlocked &&
       candidateIds.every((c) => {

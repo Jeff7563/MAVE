@@ -515,7 +515,7 @@ export class AntigravityBrainProvider implements BrainProvider {
                 error: {
                   code,
                   message: redactDiagnosticText(rawMsg),
-                  retryable: code === 'provider_limit' || code === 'provider_unavailable'
+                  retryable: code === 'quota_limited' || code === 'rate_limited' || code === 'provider_limit' || code === 'provider_unavailable'
                 }
               };
               return;
@@ -556,7 +556,7 @@ export class AntigravityBrainProvider implements BrainProvider {
               error: {
                 code,
                 message: redactedStderr || `Antigravity CLI exited with non-zero code ${item.code}`,
-                retryable: code === 'provider_limit' || code === 'provider_unavailable'
+                retryable: code === 'quota_limited' || code === 'rate_limited' || code === 'provider_limit' || code === 'provider_unavailable'
               }
             };
             return;

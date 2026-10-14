@@ -518,13 +518,21 @@ export class CodexBrainProvider implements BrainProvider {
             if (item.code !== 0 || fatalErrorMessage) {
               const rawErr = fatalErrorMessage || stderrBuffer.trim() || `OpenAI Codex CLI exited with code ${item.code}`;
               const classifiedCode = classifyCodexError(rawErr);
+              let resetAt: number | undefined;
+              try {
+                const parsed = JSON.parse(rawErr);
+                if (typeof parsed.resets_at === 'number') resetAt = parsed.resets_at;
+                else if (typeof parsed.reset_at === 'number') resetAt = parsed.reset_at;
+                else if (typeof parsed.error?.resets_at === 'number') resetAt = parsed.error.resets_at;
+              } catch {}
               yield {
                 type: 'error',
                 requestId,
                 error: {
                   code: classifiedCode,
                   message: redactDiagnosticText(rawErr),
-                  retryable: classifiedCode === 'rate_limited'
+                  retryable: classifiedCode === 'rate_limited',
+                  details: resetAt ? { resetAt } : undefined
                 }
               };
               return;

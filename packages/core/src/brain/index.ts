@@ -7,4 +7,5 @@ export * from './model-policy.js';
 export * from './task-policy.js';
 export * from './runtime-policy.js';
 export * from './runtime-models/index.js';
+export * from './quota/index.js';
 

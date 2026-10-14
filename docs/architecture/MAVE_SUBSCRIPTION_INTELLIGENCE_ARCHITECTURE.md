@@ -460,24 +460,94 @@ MAVE strictly restores and enforces canonical F1.4 routing telemetry semantics:
 
 ---
 
-## 11. Quota-Aware Routing & Intent-Preserving Fallback
+## 11. Quota-Aware Routing Engine & Subscription Fallback (F1.5-S4 Implementation)
 
-### 11.1 Multi-Factor Routing Inputs
-Future routing decisions synthesize:
-`Task Profile` + `Runtime Health` + `Runtime Availability` + `Model Availability` + `Subscription Quota State` + `Model Role` + `User Mode (Auto/Preferred/Locked)` + `Billing Policy` + `Privacy Policy`.
+### 11.1 Architectural Invariants & Non-Negotiable Boundaries
+1. **Health $\neq$ Quota (No Health Distortion):**
+   - Health represents binary operational infrastructure status (`healthy`, `degraded`, `unhealthy`, `unconfigured`).
+   - Quota represents subscription billing/capacity exhaustion (`quota_limited`, `rate_limited`).
+   - A runtime whose quota is temporarily exhausted remains `healthy` in provider health checks; its operational infrastructure is not degraded or broken.
+2. **Zero Breaking Changes to `@mave/contracts`:**
+   - Canonical brain error codes (`'quota_limited'`, `'rate_limited'`) and model availability schemas already existed. No new error types or interface mutations were introduced to `@mave/contracts`.
+3. **Pre-Execution Only Routing Fallback (F1.4 Invariant):**
+   - Fallback to alternative subscription runtimes occurs **STRICTLY PRE-EXECUTION** within `BrainRouter.route()`.
+   - Once `provider.chat()` invocation begins, **NO mid-stream cross-provider fallback** is permitted.
+   - If a provider yields or throws `quota_limited` / `rate_limited` mid-turn:
+     - The request terminates cleanly with a typed `request_failed` event.
+     - `executionTelemetry` records `routeAttempts: 1` and `selectedProviderId`.
+     - `RuntimeQuotaStore` records the quota limitation.
+     - Next-turn requests automatically skip the exhausted runtime and route cleanly to the next eligible candidate.
+4. **Strict Provider-Kind Boundaries:**
+   - `agent_work` tasks are restricted exclusively to `agent_runtime_provider` instances (`Claude Code`, `Codex`, `Antigravity`).
+   - Under no circumstances does an exhausted subscription agent runtime fall back to a direct `model_provider` or local LLM.
+5. **Paid API Safety (Default-Deny Policy):**
+   - Metered/Paid APIs remain strictly blocked (`allowPaidApis: false`).
+   - Quota exhaustion on subscription runtimes never triggers accidental fallback to paid APIs. Credential presence != billing permission.
 
-### 11.2 Quota Fallback Hierarchy
-When a subscription runtime hits its window quota (e.g. Claude 5-hour limit):
+### 11.2 State & Storage (`RuntimeQuotaStore`)
+- Located in `@mave/core/brain/quota/store.ts`.
+- Manages in-memory tracking of subscription quota states per provider ID:
+  ```typescript
+  interface RuntimeQuotaState {
+    readonly providerId: string;
+    readonly status: 'unknown' | 'available' | 'quota_limited' | 'rate_limited';
+    readonly observedAt: number;
+    readonly resetAt?: number;
+    readonly source: 'runtime_error' | 'successful_execution' | 'explicit_probe' | 'manual_invalidation' | 'unknown';
+    readonly reason?: string;
+    readonly lifecycleToken?: string;
+  }
+  ```
+- **Concurreny & Stale Observation Protection:**
+  - Observations with older timestamps (`observedAt < existing.observedAt`) are rejected.
+  - For simultaneous observations with identical timestamps, higher-severity status wins (`quota_limited` > `rate_limited` > `available` > `unknown`).
+- **Sensitive Text Sanitization:**
+  - Error reasons undergo automatic pattern redaction (`[REDACTED]`) to guarantee zero exposure of API tokens, bearer headers, or session cookies in quota diagnostics or logs.
+- **Provider Instance Lifecycle Binding:**
+  - If a provider is unregistered and re-registered with a new lifecycle token, previous quota observations are unlinked and expire immediately to `'unknown'`.
+
+### 11.3 Window Expiration Semantics
+- **No Hardcoded Assumptions:**
+  - MAVE does not assume a global "5-hour" limit. `resetAt` is stored only when explicitly reported by provider events/headers (e.g., Claude `rate_limit_event.resetsAt`, OpenAI HTTP 429 reset headers).
+- **Expiration to Unknown:**
+  - When `clock() >= resetAt`, the quota block expires strictly to status `'unknown'`, **NEVER** automatically to `'available'`.
+  - Entitlement must be proven by successful runtime execution or explicit probe.
+  - Active blocks are evaluated dynamically via `isQuotaBlocked(state, now)`.
+
+### 11.4 Pre-Execution Routing Selection Policy
+- In `BrainRouter.route()`:
+  - **LOCKED Mode:** If the locked runtime is quota-limited, router fails immediately with `quota_limited` / `rate_limited` (`attemptedProviderIds: []`). Fallback is forbidden.
+  - **PREFERRED Mode (`allowFallback: false`):** If preferred runtime is quota-limited, router fails immediately with `quota_limited` (`attemptedProviderIds: []`).
+  - **PREFERRED Mode (`allowFallback: true`):** Skips quota-limited preferred runtime and falls back to the next eligible priority candidate.
+  - **AUTO Mode:** Evaluates candidate runtimes in configured priority order; skips quota-limited runtimes pre-execution.
+  - **Quota Routing Preferences:**
+    - `priority_first` (default): Preserves configured priority order among all non-blocked candidates (`available` and `unknown`), preventing transient one-off runs from demoting the primary runtime.
+    - `available_first`: Prioritizes verified `available` runtimes ahead of `unknown` runtimes.
+- **Telemetry Invariant:**
+  - Skipped quota-blocked runtimes are never contacted, never pushed to `attemptedProviderIds`, and never increment `routeAttempts`.
+  - Diagnostics surface `quotaSkippedProviders`, `providerQuotaState`, `quotaPreference`, and `quotaSelectionReason`.
+
+### 11.5 Next-Turn Execution Fallback & Telemetry
 ```text
-Primary Subscription Runtime (e.g. Claude Code - REASONING)
-     ↓ [Quota limit reached]
-Compatible Subscription Runtime (e.g. Codex - REASONING)
-     ↓ [Unavailable / Limit reached]
-Compatible Subscription Runtime (e.g. Antigravity - REASONING)
-     ↓ [All subscription routes exhausted]
-Compatible Local Provider (Local REASONING)
-     ↓ [No local provider]
-Fail Closed / Inform User (Paid APIs remain BLOCKED unless enabled)
+TURN 1:
+User Request
+  → Router selects Claude Code (Primary)
+  → Execution begins: claude.chat()
+  → Claude encounters quota limit: emits error ('quota_limited', resetAt)
+  → ConversationRuntime emits request_failed ('quota_limited')
+  → QuotaStore records Claude Code as quota_limited
+  → Request terminates cleanly (routeAttempts = 1, NO midstream fallback)
+
+TURN 2:
+User Follow-up Request
+  → Router pre-evaluates candidates
+  → Claude Code is skipped (QuotaStore.isBlocked = true)
+  → Router selects Codex (attemptedProviderIds = ['codex'], routeAttempts = 0)
+  → Execution begins: codex.chat()
+  → Codex succeeds: emits completed
+  → ConversationRuntime emits response_completed
+  → QuotaStore records Codex as available
+  → Turn 2 completes cleanly (routeAttempts = 1)
 ```
 
 ---
@@ -490,7 +560,9 @@ Fail Closed / Inform User (Paid APIs remain BLOCKED unless enabled)
 - **F1.5-S2.1 (COMPLETE):** Runtime model handoff and availability hardening (`options.modelId` per-invocation).
 - **F1.5-S3 (COMPLETE):** Task $\to$ Runtime $\to$ Model deterministic routing engine (`TaskPolicy`, `RuntimePolicy`, AUTO/PREFERRED/LOCKED).
 - **F1.5-S3.1 (COMPLETE):** Routing telemetry & executable provider hardening (`attemptedProviderIds` vs evaluated candidates).
-- **F1.5-S3.2 (CURRENT / COMPLETE):** Codex subscription runtime normalization (`CodexBrainProvider`, ChatGPT auth, billing isolation, headless execution, tool suppression).
-- **F1.5-S4 (NEXT):** Quota-aware subscription fallback and window recovery monitoring.
+- **F1.5-S3.2 (COMPLETE):** Codex subscription runtime normalization (`CodexBrainProvider`, ChatGPT auth, billing isolation, headless execution, tool suppression).
+- **F1.5-S3.3 (COMPLETE):** Tri-runtime live smoke verification (Claude Code, OpenAI Codex, Google Antigravity).
+- **F1.5-S4 (COMPLETE):** Quota-aware subscription runtime routing & next-turn fallback engine (`RuntimeQuotaStore`, pre-execution routing skip, fail-closed boundaries).
+
 
 

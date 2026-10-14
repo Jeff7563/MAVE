@@ -9,6 +9,7 @@ import type {
   Session
 } from '@mave/contracts';
 import type { BrainRouter } from '../brain/router.js';
+import { RuntimeQuotaStore } from '../brain/quota/index.js';
 import { ContextManager } from './context-manager.js';
 import type { SessionManager } from './session-manager.js';
 import {
@@ -23,6 +24,7 @@ export interface ConversationRuntimeOptions {
   contextManager?: ContextManager;
   router: BrainRouter;
   store?: ConversationStore;
+  quotaStore?: RuntimeQuotaStore;
   requestIdFactory?: () => string;
   clock?: () => number;
   defaultTimeoutMs?: number;
@@ -51,6 +53,7 @@ export class ConversationRuntime {
   private readonly contextManager: ContextManager;
   private readonly router: BrainRouter;
   private readonly store?: ConversationStore;
+  private readonly quotaStore: RuntimeQuotaStore;
   private readonly requestIdFactory: () => string;
   private readonly clock: () => number;
   private readonly defaultTimeoutMs: number;
@@ -62,13 +65,21 @@ export class ConversationRuntime {
     return this.activeRequests.get(requestId)?.executionTelemetry ?? this.lastExecutionTelemetry.get(requestId);
   }
 
+  getQuotaStore(): RuntimeQuotaStore {
+    return this.quotaStore;
+  }
+
   constructor(options: ConversationRuntimeOptions) {
     this.sessionManager = options.sessionManager;
     this.contextManager = options.contextManager ?? new ContextManager();
     this.router = options.router;
     this.store = options.store;
-    this.requestIdFactory = options.requestIdFactory ?? (() => randomUUID());
     this.clock = options.clock ?? (() => Date.now());
+    this.quotaStore =
+      options.quotaStore ??
+      (typeof options.router.getQuotaStore === 'function' ? options.router.getQuotaStore() : undefined) ??
+      new RuntimeQuotaStore({ clock: this.clock });
+    this.requestIdFactory = options.requestIdFactory ?? (() => randomUUID());
     this.defaultTimeoutMs =
       options.defaultTimeoutMs !== undefined && options.defaultTimeoutMs > 0
         ? options.defaultTimeoutMs
@@ -400,7 +411,11 @@ export class ConversationRuntime {
       const requiredCapabilities: Partial<BrainCapabilities> | undefined =
         request.requiredCapabilities !== undefined
           ? request.requiredCapabilities
-          : request.profileId !== undefined || request.taskIntent !== undefined
+          : request.profileId !== undefined ||
+            request.taskIntent !== undefined ||
+            request.preferredProviderId !== undefined ||
+            request.preferredRuntimeId !== undefined ||
+            request.lockedRuntimeId !== undefined
             ? undefined
             : DEFAULT_REQUIRED_CAPABILITIES;
 
@@ -733,6 +748,14 @@ export class ConversationRuntime {
               record.timeoutTimer = null;
             }
 
+            // Record successful execution quota observation
+            this.quotaStore.record({
+              providerId,
+              status: 'available',
+              source: 'successful_execution',
+              observedAt: this.clock()
+            });
+
             const finalText = accumulatedText.length > 0 ? accumulatedText : (event.text ?? '');
             const finalCompletedTurn = this.sessionManager.updateTurn(sessionId, assistantTurn.id, {
               status: 'completed',
@@ -907,6 +930,22 @@ export class ConversationRuntime {
             if (record.timeoutTimer) {
               clearTimeout(record.timeoutTimer);
               record.timeoutTimer = null;
+            }
+
+            // Record quota limit observation if provider returned quota_limited or rate_limited
+            if (event.error.code === 'quota_limited' || event.error.code === 'rate_limited') {
+              const resetAt =
+                event.error.details && typeof event.error.details === 'object' && 'resetAt' in event.error.details
+                  ? Number((event.error.details as Record<string, unknown>).resetAt)
+                  : undefined;
+              this.quotaStore.record({
+                providerId,
+                status: event.error.code,
+                source: 'runtime_error',
+                reason: event.error.message,
+                resetAt: resetAt && Number.isFinite(resetAt) ? resetAt : undefined,
+                observedAt: this.clock()
+              });
             }
 
             const finalFailedTurn = this.sessionManager.updateTurn(sessionId, assistantTurn.id, {
@@ -1104,6 +1143,20 @@ export class ConversationRuntime {
             }
 
             const errorMsg = err instanceof Error ? err.message : String(err);
+            const rawCode =
+              err && typeof err === 'object' && 'code' in err && typeof (err as { code: unknown }).code === 'string'
+                ? (err as { code: string }).code
+                : undefined;
+            if (rawCode === 'quota_limited' || rawCode === 'rate_limited') {
+              this.quotaStore.record({
+                providerId,
+                status: rawCode,
+                source: 'runtime_error',
+                reason: errorMsg,
+                observedAt: this.clock()
+              });
+            }
+
             const finalFailedTurn = this.sessionManager.updateTurn(sessionId, assistantTurn.id, {
               status: 'failed',
               content: accumulatedText,

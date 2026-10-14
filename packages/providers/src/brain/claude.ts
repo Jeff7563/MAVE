@@ -532,13 +532,24 @@ export class ClaudeCodeBrainProvider implements BrainProvider {
                 try {
                   child.kill();
                 } catch {}
+                const resetsAt =
+                  rlEv.rate_limit_info?.resetsAt ??
+                  rlEv.rate_limit_info?.unifiedWindows?.five_hour?.resetsAt ??
+                  rlEv.rate_limit_info?.unifiedWindows?.seven_day?.resetsAt;
+                const windowType = rlEv.rate_limit_info?.rateLimitType;
                 yield {
                   type: 'error',
                   requestId,
                   error: {
                     code: 'quota_limited',
-                    message: 'Claude Code subscription quota limit reached (5-hour window).',
-                    retryable: false
+                    message: windowType
+                      ? `Claude Code subscription quota limit reached (${windowType}).`
+                      : 'Claude Code subscription quota limit reached.',
+                    retryable: false,
+                    details: {
+                      ...(resetsAt ? { resetAt: resetsAt } : {}),
+                      ...(windowType ? { rateLimitType: windowType } : {})
+                    }
                   }
                 };
                 return;

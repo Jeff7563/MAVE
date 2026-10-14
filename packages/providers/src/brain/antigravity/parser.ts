@@ -97,15 +97,20 @@ export function mapAntigravityUsage(rawUsage?: {
 export function classifyAntigravityError(errorMessage: string): BrainErrorCode {
   const lower = errorMessage.toLowerCase();
 
-  // Quota / rate limits / context window limits
+  // 1. Quota & rate limits
   if (
     lower.includes('quota') ||
-    lower.includes('limit') ||
     lower.includes('resource_exhausted') ||
-    lower.includes('capacity') ||
-    lower.includes('credit') ||
     lower.includes('rate limit') ||
+    lower.includes('rate_limit') ||
     lower.includes('too many requests') ||
+    lower.includes('429')
+  ) {
+    return 'quota_limited';
+  }
+
+  // 2. Context window limits & token capacity
+  if (
     lower.includes('context window') ||
     lower.includes('context length') ||
     lower.includes('maximum tokens') ||

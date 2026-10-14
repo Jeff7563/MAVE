@@ -42,9 +42,12 @@ export interface BrainRoutingDiagnostics {
   modelSelectionMode?: string;
   runtimeModelsEvaluated?: number;
   selectionReason?: string;
-  internalErrorCode?: string;
   evaluatedProviderIds?: string[];
   skippedRuntimes?: Array<{ runtimeId: string; reason: string }>;
+  providerQuotaState?: Record<string, string>;
+  quotaSkippedProviders?: Array<{ providerId: string; status: string; reason?: string; resetAt?: number }>;
+  quotaPreference?: string;
+  quotaSelectionReason?: string;
 }
 
 export interface BrainRouteRequest {
