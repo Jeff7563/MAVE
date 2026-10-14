@@ -736,15 +736,15 @@ The Pre-M5 intelligence foundation is divided into ten disciplined phases:
 - **Goal:** Codify the F1.0 architecture into stable, typed, vendor-neutral contracts and Zod schemas in `@mave/contracts`.
 - **Scope:** `ProviderKind`, `ProviderDescriptor`, `ModelDescriptor`, `ModelCatalogSnapshot`, `BrainCapabilities`, `BrainTelemetry`, `RouteTelemetry`, `GenerationUsage`, `GenerationTiming`, and normalized error codes. 100% test pass rate with full backward compatibility.
 
-### Phase F1.2 — Provider Registry & Health Hardening (Final Runtime Hardening)
+### Phase F1.2 — Provider Registry & Health Hardening ✅ COMPLETE
 - **Goal:** Turn `BrainProviderRegistry` into a hardened, race-safe runtime registry supporting dynamic registration with canonical IDs, metadata authority enforcement, explicit replacement, safe unregistration, provider descriptors, non-quota health probing, single-flight probe coordination, sanitized error normalization, and immutable snapshots.
 - **Scope:** Hardened `BrainProviderRegistry`, canonical ID validation (no whitespace mutation), metadata authority boundary, unprobed provider health absence (`getDescriptor` returns `undefined` without fabricating fake statuses), revision guards against stale probe results, single-flight deduplication, sanitized timeout and throw normalization, in-memory TTL health caching, dynamic `ProviderDescriptor` synthesis with dynamic health hydration, and JSON-safe `ProviderRegistrySnapshot`. 100% test pass rate with zero M2/M3/M4 regressions.
 
-### Phase F1.3 — Model Catalog & Model Policy ← NEXT
-- **Goal:** Implement `ModelCatalog` and deterministic `ModelPolicy` in `@mave/core`.
-- **Scope:** Provider catalog retrieval, model selection rules, deprecation handling.
+### Phase F1.3 — Model Catalog & Model Policy Runtime ✅ COMPLETE
+- **Goal:** Implement MAVE's canonical model inventory runtime (`ModelCatalogRuntime`) and deterministic model-selection policy (`ModelPolicy`) inside an already chosen provider.
+- **Scope:** Dynamic catalog retrieval via `ModelCatalogProvider`, canonical schema validation, unique `ModelId` enforcement, registered provider identity invariant (`registry provider.id === snapshot.providerId === model.providerId`), bounded metadata timeout (default 5000ms), in-memory TTL caching (default 60000ms), explicit refresh, invalidation, single-flight concurrent fetch deduplication, stale-result protection against concurrent unregister and replacement, deep-cloned JSON-safe immutability, zero text generation during discovery, pure synchronous `ModelPolicy` with hard constraint filtering (fail-closed `local_only` privacy, availability status, required capabilities, max cost/latency limits, context capacity), explicit `preferredModelId` with `allowFallback` semantics, profile-based quality class ranking, defaultModelId preference, and deterministic lexical tie-breaking. 100% test pass rate with zero regressions.
 
-### Phase F1.4 — Intelligence Routing & Intent-Preserving Fallback
+### Phase F1.4 — Intelligence Routing & Intent-Preserving Fallback ← NEXT
 - **Goal:** Upgrade `BrainRouter` to support two-stage routing (Provider $\to$ Model), fallback budgets, and strict fail-closed privacy constraints.
 - **Scope:** Routing algorithms, fallback limits, unit tests.
 
@@ -852,6 +852,66 @@ The Pre-M5 intelligence foundation is divided into ten disciplined phases:
    - `getSnapshot(): ProviderRegistrySnapshot` returns deep-cloned, frozen, JSON-safe snapshots (`providers: readonly ProviderDescriptor[]`, `health: Record<string, ProviderHealth>`, `generatedAt: number`).
    - Only includes descriptors and health for providers with actual probed health.
    - Guarantees zero sensitive internal exception text, no raw class instances, and isolated clones immune to external caller mutation.
+
+### 21.3 Phase F1.3 Implemented Runtime Architecture (Model Catalog & Model Policy Runtime)
+
+1. **Separation of Concerns & Capability Boundary:**
+   - `BrainProviderRegistry` owns provider instances and operational health.
+   - `ModelCatalogRuntime` owns model inventory snapshots, TTL caching, discovery, and concurrency control.
+   - `ModelPolicy` owns deterministic model selection rules given an already chosen provider.
+   - Only providers implementing the `ModelCatalogProvider` capability interface (`isModelCatalogProvider`) support catalog retrieval. Providers without catalog support (e.g. `AntigravityBrainProvider` agent runtime) reject cleanly with `ModelCatalogError('catalog_not_supported')` without fabricating fake models.
+
+2. **Metadata-Only Discovery & Zero Generation Overhead:**
+   - `ModelCatalogRuntime.getCatalog()` invokes exclusively `provider.getCatalog()`.
+   - Never calls `chat()`, never generates tokens, never consumes model quota, and never runs tools.
+
+3. **Schema Validation, Duplicate Rejection & Provider Identity Invariant:**
+   - Every raw catalog response is validated against canonical `ModelCatalogSnapshotSchema`.
+   - Invariant enforced: `registry provider.id === snapshot.providerId === every ModelDescriptor.providerId`.
+   - Duplicate `ModelId`s within a catalog are strictly rejected with `ModelCatalogError('catalog_invalid')`.
+
+4. **In-Memory TTL Caching, Invalidation & Single-Flight Concurrency:**
+   - Configurable in-memory cache TTL (default 60000ms via `defaultCatalogTtlMs`).
+   - Synchronous inspection via `getCachedCatalog(providerId)` and `hasCatalog(providerId)`.
+   - Explicit invalidation via `invalidateCatalog(providerId?)` and `clearCatalogCache()`.
+   - Concurrent calls to `refreshCatalog(providerId)` are single-flighted, sharing the active in-flight `Promise`.
+
+5. **Sanitized Error Normalization & Bounded Timeout:**
+   - Bounded metadata timeout (default 5000ms via `catalogTimeoutMs`). Timed-out requests throw `ModelCatalogError('catalog_timeout', 'Model catalog fetch timed out.')`.
+   - Thrown provider errors normalize to `ModelCatalogError('catalog_unavailable', 'Model catalog fetch failed.')`, preventing sensitive filesystem paths or API tokens from leaking.
+
+6. **Stale-Result Protection Against Concurrency Races:**
+   - If a provider is unregistered during fetch, the result is discarded and `ModelCatalogError('provider_not_found')` is thrown.
+   - If a provider is replaced during fetch, the older instance's completed catalog is not cached for the replacement instance.
+
+7. **Deep Immutability & JSON Safety:**
+   - Snapshots returned by `ModelCatalogRuntime` are deep-cloned and frozen (`Object.freeze`) across all nested model descriptors and capability maps.
+   - Entirely JSON-serializable without Map, Set, functions, or Error objects.
+
+8. **Pure Synchronous Model Selection Policy (`ModelPolicy`):**
+   - Pure, synchronous selection: consumes already-resolved data; makes zero I/O, network, or provider calls.
+   - **Hard Constraint Filtering:**
+     - **Privacy Fail-Closed:** If `effectiveLocalOnly = true`, models with `privacyClass !== 'local_only'` are strictly excluded. If no local model is available, selection fails closed.
+     - **Operational Availability:** Only models with `status === 'available'` are eligible. `quota_limited`, `rate_limited`, `deprecated`, and `unavailable` are rejected.
+     - **Required Capabilities:** Models must satisfy all required capabilities (`streaming`, `reasoning`, `coding`, `vision`, etc.). For optional language capabilities (`supportsThai`, `supportsEnglish`), `false` is rejected, `undefined` is permissive unless `strictLanguageCheck: true`.
+     - **Cost & Latency Limits:** `maxCostClass` (`free < low < medium < high`) and `maxLatencyClass` (`interactive < balanced < heavy`) filter out non-compliant tiers.
+     - **Context Capacity:** `requiredContextClass` and `requiredContextTokens` filter insufficient windows.
+   - **Explicit Override Precedence:**
+     - `preferredModelId` selects the preferred model immediately if valid and eligible.
+     - If preferred model is missing or ineligible: fails closed if `allowFallback === false`; falls back to general policy selection if `allowFallback === true`.
+   - **Deterministic Lexicographic Ranking:**
+     - Profile Quality Class rank:
+       - `fast_conversation`: fast + interactive (0) $\to$ fast (1) $\to$ balanced + interactive (2) $\to$ balanced (3) $\to$ reasoning (4)
+       - `deep_reasoning`: reasoning (0) $\to$ balanced (1) $\to$ fast (2)
+       - `research`: balanced (0) $\to$ reasoning (1) $\to$ fast (2)
+       - `local_offline`: fast (0) $\to$ balanced (1) $\to$ reasoning (2)
+       - `agent_work`: balanced (0) $\to$ reasoning (1) $\to$ fast (2)
+     - Provider default model preference: `defaultModelId` gets priority over non-defaults.
+     - Latency class preference: interactive $\to$ balanced $\to$ heavy.
+     - Cost class preference: free $\to$ low $\to$ medium $\to$ high.
+     - Stable Tie-breaker: lexicographic `model.id.localeCompare()`. Zero magic scores or arbitrary weights.
+   - **Rejection Diagnostics:**
+     - Typed, structured diagnostic rejection reasons recorded per model without exposing prompts or credentials.
 
 ---
 

@@ -1,4 +1,10 @@
-export { MockBrainProvider, type MockBrainOptions } from './mock.js';
+export {
+  MockBrainProvider,
+  type MockBrainOptions,
+  MockModelCatalogProvider,
+  type MockModelCatalogOptions,
+  createDefaultMockModels
+} from './mock.js';
 export {
   AntigravityBrainProvider,
   type AntigravityBrainProviderOptions,

@@ -2,7 +2,13 @@ import type {
   BrainCapabilities,
   BrainProfileDefinition,
   BrainProfileId,
-  BrainProvider
+  BrainProvider,
+  BrainRouteOverrides,
+  ModelCatalogSnapshot,
+  ModelContextClass,
+  ModelCostClass,
+  ModelDescriptor,
+  ModelLatencyClass
 } from '@mave/contracts';
 
 export interface BrainRouteRequest {
@@ -88,4 +94,63 @@ export class BrainRegistryError extends Error {
     this.name = 'BrainRegistryError';
     this.code = code;
   }
+}
+
+export type ModelCatalogErrorCode =
+  | 'catalog_not_supported'
+  | 'catalog_unavailable'
+  | 'catalog_timeout'
+  | 'catalog_invalid'
+  | 'provider_not_found';
+
+export class ModelCatalogError extends Error {
+  readonly code: ModelCatalogErrorCode;
+  readonly providerId?: string;
+
+  constructor(code: ModelCatalogErrorCode, message: string, providerId?: string) {
+    super(message);
+    this.name = 'ModelCatalogError';
+    this.code = code;
+    this.providerId = providerId;
+  }
+}
+
+export interface ModelCatalogRuntimeOptions {
+  /**
+   * Maximum duration in milliseconds allowed for a model catalog retrieval before timing out.
+   * Default: 5000ms.
+   */
+  catalogTimeoutMs?: number;
+  /**
+   * In-memory cache TTL in milliseconds for model catalog snapshots.
+   * Default: 60000ms (1 minute).
+   */
+  defaultCatalogTtlMs?: number;
+}
+
+export interface ModelSelectionCriteria {
+  readonly providerId: string;
+  readonly catalog: ModelCatalogSnapshot;
+  readonly profileId?: BrainProfileId;
+  readonly profileResolution?: BrainProfileResolution;
+  readonly overrides?: BrainRouteOverrides;
+  readonly effectiveLocalOnly?: boolean;
+  readonly defaultModelId?: string;
+  readonly requiredCapabilities?: Partial<BrainCapabilities>;
+  readonly maxCostClass?: ModelCostClass;
+  readonly maxLatencyClass?: ModelLatencyClass;
+  readonly requiredContextTokens?: number;
+  readonly requiredContextClass?: ModelContextClass;
+  readonly strictLanguageCheck?: boolean;
+}
+
+export interface ModelSelectionResult {
+  readonly success: boolean;
+  readonly providerId: string;
+  readonly selectedModel?: ModelDescriptor;
+  readonly modelId?: string;
+  readonly reason: string;
+  readonly candidateCount: number;
+  readonly eligibleCount: number;
+  readonly rejections?: Record<string, string[]>;
 }

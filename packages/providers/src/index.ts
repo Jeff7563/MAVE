@@ -9,6 +9,9 @@ export {
 export {
   MockBrainProvider,
   type MockBrainOptions,
+  MockModelCatalogProvider,
+  type MockModelCatalogOptions,
+  createDefaultMockModels,
   AntigravityBrainProvider,
   type AntigravityBrainProviderOptions,
   type SpawnFactory

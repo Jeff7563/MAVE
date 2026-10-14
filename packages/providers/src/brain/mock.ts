@@ -5,10 +5,19 @@ import type {
   BrainProvider,
   BrainRequest,
   BrainRequestOptions,
+  ModelCatalogProvider,
+  ModelCatalogSnapshot,
+  ModelDescriptor,
+  ProviderDescriptor,
   ProviderHealth,
   ProviderHealthStatus
 } from '@mave/contracts';
-import { BrainCapabilitiesSchema, ProviderHealthSchema } from '@mave/contracts';
+import {
+  BrainCapabilitiesSchema,
+  ModelCatalogSnapshotSchema,
+  ProviderDescriptorSchema,
+  ProviderHealthSchema
+} from '@mave/contracts';
 
 export interface MockBrainOptions {
   /** Provider identifier. Defaults to 'mock'. */
@@ -324,6 +333,187 @@ export class MockBrainProvider implements BrainProvider {
       };
 
       signal.addEventListener('abort', onAbort, { once: true });
+    });
+  }
+}
+
+/**
+ * Creates canonical neutral mock models for deterministic testing.
+ */
+export function createDefaultMockModels(providerId: string): ModelDescriptor[] {
+  return [
+    {
+      id: 'mock-fast-v1',
+      providerId,
+      displayName: 'Mock Fast v1',
+      status: 'available',
+      latencyClass: 'interactive',
+      qualityClass: 'fast',
+      costClass: 'low',
+      contextClass: 'standard',
+      contextWindowTokens: 8192,
+      capabilities: {
+        streaming: true,
+        fastChat: true,
+        reasoning: false,
+        coding: false,
+        toolUse: false,
+        multimodal: false,
+        vision: false,
+        webResearch: false,
+        longContext: false,
+        local: false
+      },
+      privacyClass: 'standard_cloud'
+    },
+    {
+      id: 'mock-balanced-v1',
+      providerId,
+      displayName: 'Mock Balanced v1',
+      status: 'available',
+      latencyClass: 'balanced',
+      qualityClass: 'balanced',
+      costClass: 'medium',
+      contextClass: 'large',
+      contextWindowTokens: 32768,
+      capabilities: {
+        streaming: true,
+        fastChat: true,
+        reasoning: true,
+        coding: false,
+        toolUse: false,
+        multimodal: false,
+        vision: false,
+        webResearch: false,
+        longContext: false,
+        local: false
+      },
+      privacyClass: 'standard_cloud'
+    },
+    {
+      id: 'mock-reasoning-v1',
+      providerId,
+      displayName: 'Mock Reasoning v1',
+      status: 'available',
+      latencyClass: 'heavy',
+      qualityClass: 'reasoning',
+      costClass: 'high',
+      contextClass: 'massive',
+      contextWindowTokens: 128000,
+      capabilities: {
+        streaming: true,
+        fastChat: false,
+        reasoning: true,
+        coding: false,
+        toolUse: false,
+        multimodal: false,
+        vision: false,
+        webResearch: false,
+        longContext: true,
+        local: false
+      },
+      privacyClass: 'standard_cloud'
+    },
+    {
+      id: 'mock-local-v1',
+      providerId,
+      displayName: 'Mock Local v1',
+      status: 'available',
+      latencyClass: 'interactive',
+      qualityClass: 'fast',
+      costClass: 'free',
+      contextClass: 'standard',
+      contextWindowTokens: 4096,
+      capabilities: {
+        streaming: true,
+        fastChat: true,
+        reasoning: false,
+        coding: false,
+        toolUse: false,
+        multimodal: false,
+        vision: false,
+        webResearch: false,
+        longContext: false,
+        local: true
+      },
+      privacyClass: 'local_only'
+    }
+  ];
+}
+
+export interface MockModelCatalogOptions extends MockBrainOptions {
+  models?: ModelDescriptor[];
+  catalogDelayMs?: number;
+  catalogThrow?: boolean;
+  catalogMessage?: string;
+  descriptor?: Partial<ProviderDescriptor>;
+}
+
+export class MockModelCatalogProvider
+  extends MockBrainProvider
+  implements ModelCatalogProvider
+{
+  private catalogOpts: MockModelCatalogOptions;
+  private catalogCallCount = 0;
+
+  constructor(options?: MockModelCatalogOptions) {
+    super(options);
+    this.catalogOpts = { ...options };
+  }
+
+  getCatalogCallCount(): number {
+    return this.catalogCallCount;
+  }
+
+  setCatalogModels(models: ModelDescriptor[]): void {
+    this.catalogOpts.models = models;
+  }
+
+  setCatalogThrow(shouldThrow: boolean, message?: string): void {
+    this.catalogOpts.catalogThrow = shouldThrow;
+    this.catalogOpts.catalogMessage = message;
+  }
+
+  setCatalogDelay(delayMs: number): void {
+    this.catalogOpts.catalogDelayMs = delayMs;
+  }
+
+  async getCatalog(): Promise<ModelCatalogSnapshot> {
+    this.catalogCallCount++;
+    if (this.catalogOpts.catalogDelayMs && this.catalogOpts.catalogDelayMs > 0) {
+      await new Promise((resolve) => setTimeout(resolve, this.catalogOpts.catalogDelayMs));
+    }
+    if (this.catalogOpts.catalogThrow) {
+      throw new Error(
+        this.catalogOpts.catalogMessage ||
+          `Simulated catalog fetch failure for ${this.id}`
+      );
+    }
+    const models = this.catalogOpts.models ?? createDefaultMockModels(this.id);
+    return ModelCatalogSnapshotSchema.parse({
+      providerId: this.id,
+      models,
+      refreshedAt: Date.now()
+    });
+  }
+
+  getDescriptor(): ProviderDescriptor {
+    return ProviderDescriptorSchema.parse({
+      id: this.id,
+      kind: 'model_provider',
+      displayName:
+        this.catalogOpts.descriptor?.displayName ??
+        `Mock Model Provider (${this.id})`,
+      accessPath: 'local_runtime',
+      capabilities: this.getCapabilities(),
+      health: {
+        status: this.catalogOpts.healthStatus ?? 'healthy',
+        message: this.catalogOpts.healthMessage,
+        checkedAt: Date.now()
+      },
+      defaultModelId:
+        this.catalogOpts.descriptor?.defaultModelId ?? 'mock-fast-v1',
+      documentationUrl: this.catalogOpts.descriptor?.documentationUrl
     });
   }
 }
