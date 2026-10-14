@@ -174,7 +174,7 @@ Every model exposed by a provider adapter is described by a canonical, typed des
 
 ```ts
 export interface ModelDescriptor {
-  /** Unique normalized model ID (e.g., 'gemini-flash-conversation', 'claude-sonnet-reasoning') */
+  /** Unique MAVE-normalized stable ModelId (e.g., 'mock-fast-v1', 'openai-fast-primary', 'anthropic-reasoning-primary', 'local-model-offline') */
   readonly id: string;
   /** Owning provider identifier matching BrainProvider.id */
   readonly providerId: string;
@@ -191,26 +191,22 @@ export interface ModelDescriptor {
   readonly costClass: 'free' | 'low' | 'medium' | 'high';
   /** Context window capacity class */
   readonly contextClass: 'standard' | 'large' | 'massive';
+  /** Exact integer context window token capacity (optional) */
+  readonly contextWindowTokens?: number;
 
   /** Feature capabilities */
-  readonly supportsStreaming: boolean;
-  readonly supportsVision: boolean;
-  readonly supportsToolUse: boolean;
-  readonly supportsStructuredOutput: boolean;
-  readonly supportsReasoning: boolean;
-  readonly supportsLongContext: boolean;
-  readonly supportsThai: boolean;
-  readonly supportsEnglish: boolean;
-  readonly supportsCancellation: boolean;
+  readonly capabilities: BrainCapabilities;
 
   /** Privacy & data protection class */
-  readonly privacyClass: 'public_cloud' | 'private_cloud' | 'local_airgapped';
+  readonly privacyClass: 'local_only' | 'private_cloud' | 'standard_cloud';
 }
 ```
 
-### 4.2 Dynamic Catalog Management
-- Provider adapters expose their supported catalog via `getCatalog(): Promise<ModelDescriptor[]>`.
-- Adding, updating, or deprecating a vendor model requires changes only inside `@mave/providers` (or user configuration), requiring **zero modifications to `@mave/core` routing logic**.
+### 4.2 Dynamic Catalog Management & Capability Boundary
+- **`ModelCatalogProvider` Capability Interface:** Providers that maintain a dynamic model catalog implement `ModelCatalogProvider`, exposing `getCatalog(): Promise<ModelCatalogSnapshot>` and `getDescriptor(): ProviderDescriptor`.
+- **`BrainProvider` Remains Catalog-Free:** The base `BrainProvider` interface is preserved without catalog methods, maintaining 100% backward compatibility with M2/M3/M4 providers (`MockBrainProvider`, `AntigravityBrainProvider`). Callers narrow via `isModelCatalogProvider(provider)`.
+- **Single Source of Truth for Models:** `ModelCatalogSnapshot` is the **sole source of truth** for model inventory (`models: ModelDescriptor[]`). `ProviderDescriptor` holds provider-level metadata only (`id`, `kind`, `displayName`, `accessPath`, `capabilities`, `health`, `defaultModelId?`, `documentationUrl?`); it does not duplicate model lists. `defaultModelId` is provider configuration, not catalog inventory.
+- **Adapter-Private Concrete Model Identifiers:** Concrete vendor revision strings (e.g., `gpt-4o-2024-08-06`, `claude-3-7-sonnet-20250219`) remain strictly adapter-private configuration details, requiring **zero modifications to `@mave/core` routing logic** when vendor versions rotate.
 
 ---
 
@@ -381,10 +377,11 @@ Fallback must preserve the user's intent. Uncontrolled fallback creates jarring 
 
 ### 9.1 Invariant: No Silent Profile Downgrades
 - A 1-second conversational query must **never silently fall back to a 10-second agent harness** like Antigravity.
-- If all providers matching the requested `fast_conversation` profile are unavailable, MAVE reports an explicit, normalized error (`FAST_BRAIN_UNAVAILABLE`) rather than freezing the voice loop.
+- If all providers matching the requested `fast_conversation` profile are unavailable, MAVE reports an explicit, normalized error (`fast_brain_unavailable`) rather than freezing the voice loop.
 
 ### 9.2 Fallback Chains & Latency Budget
-- **Maximum Attempt Budget:** At most 2 provider attempts per conversational turn.
+- **Maximum Provider Budget:** At most 2 distinct provider attempts (`providerAttempts <= 2`) per conversational turn.
+- **Atomic Route Attempt vs Provider Limit:** The 2-provider limit is distinct from atomic model route attempts: fallback within the same provider (Model 1 $\to$ Model 2) consumes route attempts without incrementing distinct provider attempts.
 - **Voice Mode Fallback Latency Budget:** Cumulative fallback routing must not exceed $4.0\text{ seconds}$.
 - **Fallback Chain Resolution:**
   $$\text{Provider A (Model 1)} \longrightarrow \text{Provider A (Model 2)} \longrightarrow \text{Provider B (Model 1)} \longrightarrow \text{Graceful Error}$$
@@ -421,20 +418,35 @@ Provider adapters normalize vendor-specific streaming protocols (SSE, NDJSON, We
 Production surfaces (Capsule, Quick Info card) remain MAVE-branded and uncluttered. Rich provider telemetry is routed exclusively to Developer Diagnostics:
 
 ```ts
-export interface BrainUsageTelemetry {
-  readonly requestId: string;
-  readonly sessionId: string;
-  readonly providerId: string;
-  readonly modelId: string;
-  readonly profileId: BrainProfileId;
-  readonly timeToFirstTokenMs: number;
-  readonly totalLatencyMs: number;
+export interface GenerationUsage {
   readonly promptTokens?: number;
   readonly completionTokens?: number;
   readonly totalTokens?: number;
   readonly estimatedCostUsd?: number;
+}
+
+export interface GenerationTiming {
+  readonly timeToFirstTokenMs?: number;
+  readonly totalDurationMs?: number;
+}
+
+export interface RouteTelemetry {
+  readonly selectedProviderId: string;
+  readonly selectedModelId?: string;
+  readonly profileId?: BrainProfileId;
+  readonly routeReason?: RouteReason | string;
   readonly fallbackUsed: boolean;
   readonly attemptedProviderIds: string[];
+  readonly attemptedModelIds: string[];
+  readonly routeAttempts: number;
+}
+
+export interface BrainTelemetry {
+  readonly requestId: string;
+  readonly sessionId: string;
+  readonly route: RouteTelemetry;
+  readonly timing?: GenerationTiming;
+  readonly usage?: GenerationUsage;
   readonly finishReason?: string;
 }
 ```
@@ -449,13 +461,14 @@ While MAVE routes automatically by default, power users and developers may set e
                           PREVALENCE HIERARCHY
                           
      1. Privacy Policy (Strict Fail-Closed Constraint)
-        └── If local_only=true, cloud providers are FORBIDDEN.
+        └── BrainRequest.localOnly is the canonical privacy constraint.
+        └── If effectiveLocalOnly=true, cloud providers are STRICTLY FORBIDDEN.
         
      2. Security & Capability Requirements
         └── Cannot route to a provider missing required capabilities.
         
      3. Explicit Caller Override (User Setting / Developer Chat)
-        └── Preferred Provider ID / Specific Model ID.
+        └── Preferred Provider ID / Specific Model ID / Route Overrides.
         
      4. Profile Policy Mapping
         └── Configured profile-to-provider mappings.
@@ -464,7 +477,8 @@ While MAVE routes automatically by default, power users and developers may set e
         └── Health-checked primary candidate with fallback.
 ```
 
-If a user explicitly requests an unavailable model or provider, MAVE **does not silently substitute an unrelated provider**. It reports the issue and requests guidance or provides a clear override error.
+- **Fail-Closed Privacy Invariant:** Canonical privacy is defined on `BrainRequest.localOnly`. Under `resolveEffectiveLocalOnly(request)`, if either `request.localOnly === true` OR `overrides.localOnly === true`, execution strictly remains `localOnly=true`. An override of `localOnly=false` can **never** weaken or cancel an active privacy constraint.
+- **Unavailable Override Handling:** If a user explicitly requests an unavailable model or provider, MAVE **does not silently substitute an unrelated provider**. It reports the issue and requests guidance or provides a clear override error.
 
 ---
 
@@ -670,25 +684,36 @@ Scenario F: Air-Gapped Privacy Query
 
 # 20. Error Taxonomy & Graceful Degradation
 
-MAVE standardizes intelligence errors to prevent raw stack traces from reaching the user:
+MAVE standardizes intelligence errors to prevent raw stack traces from reaching the user. Canonical emitted error codes are strictly **lowercase snake_case**:
 
 ```ts
-export type CanonicalIntelligenceErrorCode =
-  | 'FAST_BRAIN_UNAVAILABLE'
-  | 'PROFILE_UNAVAILABLE'
-  | 'MODEL_UNAVAILABLE'
-  | 'PROVIDER_UNCONFIGURED'
-  | 'QUOTA_LIMITED'
-  | 'RATE_LIMITED'
-  | 'AUTH_REQUIRED'
-  | 'LOCAL_PROVIDER_UNAVAILABLE'
-  | 'ROUTING_TIMEOUT'
-  | 'GENERATION_CANCELLED';
+export type CanonicalBrainErrorCode =
+  // M2 foundational codes
+  | 'provider_unavailable'
+  | 'provider_timeout'
+  | 'provider_auth'
+  | 'provider_limit'
+  | 'provider_invalid_response'
+  | 'cancelled'
+  | 'runtime_error'
+  // Pre-M5 normalized codes
+  | 'fast_brain_unavailable'
+  | 'profile_unavailable'
+  | 'model_unavailable'
+  | 'provider_unconfigured'
+  | 'quota_limited'
+  | 'rate_limited'
+  | 'auth_required'
+  | 'local_provider_unavailable'
+  | 'routing_timeout'
+  | 'generation_cancelled';
 ```
 
+*(Note: Legacy uppercase strings such as `'FAST_BRAIN_UNAVAILABLE'` or `'QUOTA_LIMITED'` are accepted during parsing for compatibility and automatically normalized to lowercase).*
+
 ### 20.1 Fail-Closed vs Fail-Open Policies
-- **Privacy Constraints:** **FAIL CLOSED**. If local-only operation is requested and no local provider is available, MAVE aborts the request and alerts the user (`LOCAL_PROVIDER_UNAVAILABLE`). Cloud fallback is never attempted.
-- **Fast Brain Availability:** **FALLBACK WITHIN PROFILE**. If primary fast provider is down, alternate fast provider is tried. If none exist, fail gracefully with voice feedback (`FAST_BRAIN_UNAVAILABLE`).
+- **Privacy Constraints:** **FAIL CLOSED**. If local-only operation is requested and no local provider is available, MAVE aborts the request and alerts the user (`local_provider_unavailable`). Cloud fallback is never attempted.
+- **Fast Brain Availability:** **FALLBACK WITHIN PROFILE**. If primary fast provider is down, alternate fast provider is tried. If none exist, fail gracefully with voice feedback (`fast_brain_unavailable`).
 - **Explicit Override:** **FAIL CLOSED TO USER CONFIRMATION**. If a user explicitly requested provider X and it is offline, MAVE alerts the user rather than silently switching to provider Y.
 
 ---
