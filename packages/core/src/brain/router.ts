@@ -37,6 +37,12 @@ export interface BrainRouterOptions {
   timeoutMs?: number;
   /** Maximum distinct providers evaluated per turn. Default: 2. */
   maxProviderBudget?: number;
+  /**
+   * Whether paid/metered API providers are allowed to be routed.
+   * Default: false (Subscription-first + local secondary; paid APIs disabled by default).
+   * Invariant: Credential presence != permission to incur API billing.
+   */
+  allowPaidApis?: boolean;
 }
 
 function isRouterOptions(
@@ -106,6 +112,7 @@ export class BrainRouter {
   private readonly fallbackChain: string[];
   private readonly timeoutMs: number;
   private readonly maxProviderBudget?: number;
+  private readonly allowPaidApis: boolean;
 
   constructor(
     registryOrOptions: BrainProviderRegistry | BrainRouterOptions,
@@ -116,6 +123,7 @@ export class BrainRouter {
       profilePolicy?: BrainProfilePolicy;
       catalogRuntime?: ModelCatalogRuntime;
       maxProviderBudget?: number;
+      allowPaidApis?: boolean;
     }
   ) {
     if (isRouterOptions(registryOrOptions)) {
@@ -127,6 +135,7 @@ export class BrainRouter {
       this.fallbackChain = registryOrOptions.fallbackChain ?? [];
       this.timeoutMs = registryOrOptions.timeoutMs ?? 4000;
       this.maxProviderBudget = registryOrOptions.maxProviderBudget;
+      this.allowPaidApis = registryOrOptions.allowPaidApis ?? false;
     } else {
       this.registry = registryOrOptions;
       this.profilePolicy = defaultOptions?.profilePolicy ?? new BrainProfilePolicy();
@@ -136,6 +145,7 @@ export class BrainRouter {
       this.fallbackChain = defaultOptions?.fallbackChain ?? [];
       this.timeoutMs = defaultOptions?.timeoutMs ?? 4000;
       this.maxProviderBudget = defaultOptions?.maxProviderBudget;
+      this.allowPaidApis = defaultOptions?.allowPaidApis ?? false;
     }
   }
 
@@ -149,6 +159,10 @@ export class BrainRouter {
 
   getCatalogRuntime(): ModelCatalogRuntime {
     return this.catalogRuntime;
+  }
+
+  isPaidApisAllowed(): boolean {
+    return this.allowPaidApis;
   }
 
   /**
@@ -193,7 +207,8 @@ export class BrainRouter {
     profileId: BrainProfileId | undefined,
     startTime: number,
     providersEvaluated: number,
-    modelsEvaluated: number
+    modelsEvaluated: number,
+    paidApisBlockedCount = 0
   ): BrainRouteDecision {
     const telemetry: RouteTelemetry = {
       selectedProviderId: candidate.providerId,
@@ -209,7 +224,8 @@ export class BrainRouter {
     const diagnostics: BrainRoutingDiagnostics = {
       routingTimeMs: Math.max(0, Date.now() - startTime),
       providersEvaluated,
-      modelsEvaluated
+      modelsEvaluated,
+      ...(paidApisBlockedCount > 0 ? { paidApisBlockedCount } : {})
     };
 
     return {
@@ -383,6 +399,9 @@ export class BrainRouter {
     let providersContacted = 0;
     let totalModelsEvaluated = 0;
     const maxProviderBudget = request.maxProviderBudget ?? this.maxProviderBudget;
+    const effectiveAllowPaidApis = request.allowPaidApis ?? this.allowPaidApis;
+    let paidApisBlockedCount = 0;
+    let hasPaidApiBlocked = false;
 
     let anyCandidateRegistered = false;
     let allRegisteredFailedCapabilities = true;
@@ -436,7 +455,31 @@ export class BrainRouter {
 
       allRegisteredFailedCapabilities = false;
 
-      const providerKind = this.getProviderKind(id);
+      let providerMetadata;
+      try {
+        providerMetadata = this.registry.getProviderMetadata(id);
+      } catch {
+        // metadata unresolvable or missing
+      }
+
+      const providerKind = providerMetadata?.kind ?? this.getProviderKind(id);
+      const accessClass =
+        providerMetadata?.accessClass ??
+        (id === 'antigravity' || id === 'codex' || id === 'claude_code'
+          ? 'subscription'
+          : capabilities.local
+            ? 'local'
+            : 'paid_api');
+
+      // Guard 0: Billing / Access Policy
+      // Hard Invariant: MAVE default intelligence strategy is Subscription-First + Local-Secondary.
+      // Metered/Paid APIs are disabled by default.
+      // Credential presence != permission to incur API billing.
+      if (accessClass === 'paid_api' && !effectiveAllowPaidApis) {
+        paidApisBlockedCount++;
+        hasPaidApiBlocked = true;
+        continue;
+      }
 
       // Guard 1: Knowledge provider must never be final brain route
       if (providerKind === 'knowledge_provider') {
@@ -712,7 +755,8 @@ export class BrainRouter {
           profileId,
           startTime,
           attemptedProviderIds.length,
-          totalModelsEvaluated
+          totalModelsEvaluated,
+          paidApisBlockedCount
         );
       }
 
@@ -754,7 +798,8 @@ export class BrainRouter {
         profileId,
         startTime,
         attemptedProviderIds.length,
-        totalModelsEvaluated
+        totalModelsEvaluated,
+        paidApisBlockedCount
       );
     }
 
@@ -765,6 +810,18 @@ export class BrainRouter {
     if (effectiveLocalOnly || hasLocalOnlyMismatch) {
       errorCode = 'local_provider_unavailable';
       errorMessage = 'No local provider or model available satisfying localOnly constraint';
+    } else if (
+      hasPaidApiBlocked &&
+      candidateIds.every((c) => {
+        try {
+          return this.registry.getProviderMetadata(c).accessClass === 'paid_api';
+        } catch {
+          return false;
+        }
+      })
+    ) {
+      errorCode = 'provider_unavailable';
+      errorMessage = `Candidate provider(s) [${candidateIds.join(', ')}] require paid API billing which is disabled by default policy (allowPaidApis = false). Credential presence does not grant billing permission.`;
     } else if (profileId === 'fast_conversation') {
       errorCode = 'fast_brain_unavailable';
       errorMessage = 'Fast conversation brain is unavailable';

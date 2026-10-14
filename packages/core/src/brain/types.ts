@@ -16,10 +16,20 @@ import type {
 
 export type { RouteTelemetry };
 
+export const CANONICAL_PROVIDER_ACCESS_CLASSES = [
+  'subscription',
+  'local',
+  'paid_api'
+] as const;
+
+export type ProviderAccessClass = (typeof CANONICAL_PROVIDER_ACCESS_CLASSES)[number];
+export type ProviderBillingClass = ProviderAccessClass;
+
 export interface BrainRoutingDiagnostics {
   routingTimeMs: number;
   providersEvaluated: number;
   modelsEvaluated: number;
+  paidApisBlockedCount?: number;
   errorType?: string;
   sanitizedError?: string;
 }
@@ -39,6 +49,12 @@ export interface BrainRouteRequest {
   requiredContextClass?: ModelContextClass;
   strictLanguageCheck?: boolean;
   allowFallback?: boolean;
+  /**
+   * Explicit opt-in permission to allow paid/metered API providers for this request.
+   * Hard Invariant: Default is false (Subscription-first + local secondary; paid APIs disabled by default).
+   * Credential presence != permission to incur API billing.
+   */
+  allowPaidApis?: boolean;
   maxProviderBudget?: number;
   signal?: AbortSignal;
   timeoutMs?: number;

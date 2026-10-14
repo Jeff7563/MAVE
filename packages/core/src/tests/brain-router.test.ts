@@ -1726,5 +1726,243 @@ describe('BrainRouter', () => {
       }
     });
   });
+
+  describe('Billing & Access Policy (Subscription-First Foundation)', () => {
+    it('1. subscription provider is allowed and routed by default', async () => {
+      const registry = new BrainProviderRegistry();
+      const subProvider = createStubCatalogProvider({
+        id: 'provider-sub',
+        models: [createModel({ id: 'm-sub', providerId: 'provider-sub' })]
+      });
+      registry.register(subProvider, { accessClass: 'subscription' });
+
+      const router = new BrainRouter({
+        registry,
+        defaultProvider: 'provider-sub'
+      });
+
+      const decision = await router.route();
+      expect(decision.providerId).toBe('provider-sub');
+      expect(decision.modelId).toBe('m-sub');
+    });
+
+    it('2. local provider is allowed and routed by default', async () => {
+      const registry = new BrainProviderRegistry();
+      const localProvider = createStubCatalogProvider({
+        id: 'provider-local',
+        capabilities: { local: true },
+        models: [createModel({ id: 'm-local', providerId: 'provider-local', privacyClass: 'local_only' })]
+      });
+      registry.register(localProvider, { accessClass: 'local' });
+
+      const router = new BrainRouter({
+        registry,
+        defaultProvider: 'provider-local'
+      });
+
+      const decision = await router.route();
+      expect(decision.providerId).toBe('provider-local');
+      expect(decision.modelId).toBe('m-local');
+    });
+
+    it('3. paid_api provider is blocked by default even when healthy', async () => {
+      const registry = new BrainProviderRegistry();
+      const paidProvider = createStubCatalogProvider({
+        id: 'provider-paid',
+        healthStatus: 'healthy',
+        models: [createModel({ id: 'm-paid', providerId: 'provider-paid' })]
+      });
+      registry.register(paidProvider, { accessClass: 'paid_api' });
+
+      const router = new BrainRouter({
+        registry,
+        defaultProvider: 'provider-paid'
+      });
+
+      await expect(router.route()).rejects.toThrow(BrainRoutingError);
+      try {
+        await router.route();
+      } catch (err) {
+        expect(err).toBeInstanceOf(BrainRoutingError);
+        expect((err as BrainRoutingError).code).toBe('provider_unavailable');
+        expect((err as BrainRoutingError).message).toContain('paid API billing which is disabled by default policy');
+      }
+    });
+
+    it('4. credential presence does not enable paid API without permission (API key != billing permission)', async () => {
+      const registry = new BrainProviderRegistry();
+      // Simulate openai registered as paid_api with credentials active
+      const openaiProvider = createStubCatalogProvider({
+        id: 'openai',
+        healthStatus: 'healthy',
+        models: [createModel({ id: 'gpt-4o', providerId: 'openai' })]
+      });
+      registry.register(openaiProvider, { accessClass: 'paid_api' });
+
+      const router = new BrainRouter({
+        registry,
+        defaultProvider: 'openai'
+      });
+
+      expect(router.isPaidApisAllowed()).toBe(false);
+
+      // Attempt routing with preferredProviderId: 'openai' without explicit permission
+      await expect(router.route({ preferredProviderId: 'openai' })).rejects.toThrow(BrainRoutingError);
+      try {
+        await router.route({ preferredProviderId: 'openai' });
+      } catch (err) {
+        expect(err).toBeInstanceOf(BrainRoutingError);
+        expect((err as BrainRoutingError).code).toBe('provider_unavailable');
+        expect((err as BrainRoutingError).message).toContain('paid API billing which is disabled by default policy');
+      }
+    });
+
+    it('5. explicit paid API enablement at router level permits paid API selection', async () => {
+      const registry = new BrainProviderRegistry();
+      const paidProvider = createStubCatalogProvider({
+        id: 'provider-paid',
+        models: [createModel({ id: 'm-paid', providerId: 'provider-paid' })]
+      });
+      registry.register(paidProvider, { accessClass: 'paid_api' });
+
+      const router = new BrainRouter({
+        registry,
+        defaultProvider: 'provider-paid',
+        allowPaidApis: true
+      });
+
+      expect(router.isPaidApisAllowed()).toBe(true);
+      const decision = await router.route();
+      expect(decision.providerId).toBe('provider-paid');
+      expect(decision.modelId).toBe('m-paid');
+    });
+
+    it('6. explicit paid API enablement at request level overrides router default', async () => {
+      const registry = new BrainProviderRegistry();
+      const paidProvider = createStubCatalogProvider({
+        id: 'provider-paid',
+        models: [createModel({ id: 'm-paid', providerId: 'provider-paid' })]
+      });
+      registry.register(paidProvider, { accessClass: 'paid_api' });
+
+      const router = new BrainRouter({
+        registry,
+        defaultProvider: 'provider-paid',
+        allowPaidApis: false
+      });
+
+      // Without request-level flag: blocked
+      await expect(router.route()).rejects.toThrow(BrainRoutingError);
+
+      // With request-level flag: allowed
+      const decision = await router.route({ allowPaidApis: true });
+      expect(decision.providerId).toBe('provider-paid');
+      expect(decision.modelId).toBe('m-paid');
+    });
+
+    it('7. billing policy cannot bypass localOnly privacy constraint', async () => {
+      const registry = new BrainProviderRegistry();
+      const paidProvider = createStubCatalogProvider({
+        id: 'provider-paid-cloud',
+        models: [createModel({ id: 'm-cloud', providerId: 'provider-paid-cloud', privacyClass: 'standard_cloud' })]
+      });
+      registry.register(paidProvider, { accessClass: 'paid_api' });
+
+      const router = new BrainRouter({
+        registry,
+        defaultProvider: 'provider-paid-cloud',
+        allowPaidApis: true
+      });
+
+      // Even with allowPaidApis: true, localOnly fails closed against standard_cloud
+      await expect(router.route({ localOnly: true })).rejects.toThrow(BrainRoutingError);
+      try {
+        await router.route({ localOnly: true });
+      } catch (err) {
+        expect(err).toBeInstanceOf(BrainRoutingError);
+        expect((err as BrainRoutingError).code).toBe('local_provider_unavailable');
+      }
+    });
+
+    it('8. billing policy cannot bypass profile semantics or capabilities', async () => {
+      const registry = new BrainProviderRegistry();
+      // Paid provider that lacks fastChat
+      const slowPaidProvider = createStubCatalogProvider({
+        id: 'provider-slow-paid',
+        capabilities: { streaming: true, fastChat: false },
+        models: [createModel({ id: 'm-slow', providerId: 'provider-slow-paid', capabilities: { fastChat: false } })]
+      });
+      registry.register(slowPaidProvider, { accessClass: 'paid_api' });
+
+      const router = new BrainRouter({
+        registry,
+        defaultProvider: 'provider-slow-paid',
+        allowPaidApis: true
+      });
+
+      // fast_conversation profile requires fastChat: true
+      await expect(router.route({ profileId: 'fast_conversation' })).rejects.toThrow(BrainRoutingError);
+      try {
+        await router.route({ profileId: 'fast_conversation' });
+      } catch (err) {
+        expect(err).toBeInstanceOf(BrainRoutingError);
+        expect((err as BrainRoutingError).code).toBe('fast_brain_unavailable');
+      }
+    });
+
+    it('9. agent runtime provider cannot silently satisfy fast_conversation even under subscription policy', async () => {
+      const registry = new BrainProviderRegistry();
+      const subAgent = createStubProvider({
+        id: 'antigravity',
+        capabilities: { streaming: true, fastChat: true, coding: true },
+        omitCatalog: true
+      });
+      registry.register(subAgent, {
+        kind: 'agent_runtime_provider',
+        accessClass: 'subscription'
+      });
+
+      const router = new BrainRouter({
+        registry,
+        defaultProvider: 'antigravity'
+      });
+
+      // fast_conversation strictly requires model_provider; agent_runtime is rejected
+      await expect(router.route({ profileId: 'fast_conversation' })).rejects.toThrow(BrainRoutingError);
+      try {
+        await router.route({ profileId: 'fast_conversation' });
+      } catch (err) {
+        expect(err).toBeInstanceOf(BrainRoutingError);
+        expect((err as BrainRoutingError).code).toBe('fast_brain_unavailable');
+      }
+    });
+
+    it('10. diagnostics records paidApisBlockedCount when paid API is bypassed to healthy subscription fallback', async () => {
+      const registry = new BrainProviderRegistry();
+      const paidP = createStubCatalogProvider({
+        id: 'p-paid-primary',
+        models: [createModel({ id: 'm-paid', providerId: 'p-paid-primary' })]
+      });
+      const subP = createStubCatalogProvider({
+        id: 'p-sub-fallback',
+        models: [createModel({ id: 'm-sub', providerId: 'p-sub-fallback' })]
+      });
+
+      registry.register(paidP, { accessClass: 'paid_api' });
+      registry.register(subP, { accessClass: 'subscription' });
+
+      const router = new BrainRouter({
+        registry,
+        defaultProvider: 'p-paid-primary',
+        fallbackChain: ['p-sub-fallback'],
+        allowPaidApis: false
+      });
+
+      const decision = await router.route();
+      expect(decision.providerId).toBe('p-sub-fallback');
+      expect(decision.fallbackUsed).toBe(true);
+      expect(decision.diagnostics?.paidApisBlockedCount).toBe(1);
+    });
+  });
 });
 

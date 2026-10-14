@@ -12,7 +12,7 @@ import {
   ProviderDescriptorSchema,
   ProviderHealthSchema
 } from '@mave/contracts';
-import { BrainRegistryError } from './types.js';
+import { BrainRegistryError, type ProviderAccessClass, type ProviderBillingClass } from './types.js';
 
 export interface BrainProviderRegistryOptions {
   /**
@@ -37,6 +37,8 @@ export interface ProviderRegistrationMetadata {
   readonly kind?: ProviderKind;
   readonly displayName?: string;
   readonly accessPath?: ProviderAccessPath;
+  readonly accessClass?: ProviderAccessClass;
+  readonly billingClass?: ProviderBillingClass;
   readonly defaultModelId?: string;
   readonly documentationUrl?: string;
 }
@@ -49,6 +51,7 @@ export interface ProviderMetadata {
   readonly kind: ProviderKind;
   readonly displayName: string;
   readonly accessPath: ProviderAccessPath;
+  readonly accessClass: ProviderAccessClass;
   readonly capabilities: BrainCapabilities;
   readonly defaultModelId?: string;
   readonly documentationUrl?: string;
@@ -298,19 +301,43 @@ export class BrainProviderRegistry {
     const accessPath: ProviderAccessPath =
       entry.metadata?.accessPath ??
       (trimmedId === 'antigravity' ? 'official_cli' : 'local_runtime');
+    const isPaidCloudApi =
+      trimmedId === 'openai' ||
+      trimmedId === 'anthropic' ||
+      trimmedId === 'gemini' ||
+      trimmedId === 'groq' ||
+      accessPath === 'official_api';
+
+    const isSubscriptionRuntime =
+      trimmedId === 'antigravity' ||
+      trimmedId === 'codex' ||
+      trimmedId === 'claude_code' ||
+      accessPath === 'official_cli';
+
+    const accessClass: ProviderAccessClass =
+      entry.metadata?.accessClass ??
+      entry.metadata?.billingClass ??
+      (isSubscriptionRuntime
+        ? 'subscription'
+        : isPaidCloudApi
+          ? 'paid_api'
+          : 'local');
     const displayName: string =
       entry.metadata?.displayName ??
       (trimmedId === 'antigravity'
         ? 'Google Antigravity'
         : trimmedId === 'mock'
           ? 'Mock Brain Provider'
-          : trimmedId);
+          : trimmedId === 'openai'
+            ? 'OpenAI API Provider'
+            : trimmedId);
 
     return Object.freeze({
       id: entry.id,
       kind,
       displayName,
       accessPath,
+      accessClass,
       capabilities: Object.freeze({ ...entry.provider.getCapabilities() }),
       defaultModelId: entry.metadata?.defaultModelId,
       documentationUrl: entry.metadata?.documentationUrl

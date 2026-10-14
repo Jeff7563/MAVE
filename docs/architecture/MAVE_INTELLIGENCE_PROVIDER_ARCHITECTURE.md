@@ -6,6 +6,7 @@
 **Historical Base:** M0, M1, M2, M3, M4 COMPLETE  
 **Current Milestone Track:** Pre-M5 Foundation (F1 Intelligence Provider Runtime & F2 Real Brain Tuning)  
 **Primary Purpose:** Define MAVE's canonical intelligence provider, model catalog, routing, fallback, telemetry, and knowledge architecture, establishing a vendor-neutral orchestration foundation across direct model providers, agent runtimes, and knowledge sources before granting execution authority in Milestone 5.
+**Canonical Subscription Architecture:** [`MAVE_SUBSCRIPTION_INTELLIGENCE_ARCHITECTURE.md`](MAVE_SUBSCRIPTION_INTELLIGENCE_ARCHITECTURE.md)
 
 ---
 
@@ -1002,7 +1003,65 @@ The Pre-M5 intelligence foundation is divided into ten disciplined phases:
      | **Anthropic** | `claude-haiku-5-5` | Messages API (`/v1/messages`) | Custom SSE (`content_block_delta`) | `ANTHROPIC_API_KEY` | Candidate for F2 | Deferred to F2 |
      | **Groq** | `llama-3.1-8b-instant` / `llama-3.3-70b` | OpenAI-compatible completions | SSE | `GROQ_API_KEY` | Candidate for F2 | Deferred to F2 |
 
-   - **Status:** F1.5 IMPLEMENTATION CURRENT — LIVE VERIFICATION PENDING.
+   - **Status:** F1.5-P OPTIONAL PAID API ADAPTER IMPLEMENTATION CURRENT — LIVE VERIFICATION OPTIONAL / PENDING.
+
+### 21.5 Phase F1.5-S Implemented Runtime Architecture (Subscription-First Foundation & Access/Billing Policy)
+
+1. **Strategic Pivot — Subscription-First Intelligence:**
+   - **Default Intelligence Strategy:** **SUBSCRIPTION FIRST + LOCAL SECONDARY + PAID API OPTIONAL / DISABLED BY DEFAULT**.
+   - MAVE defaults to user-already-paid consumer/developer subscription runtimes (ChatGPT/Codex, Claude Pro/Team, Google/Antigravity) and private local model fallbacks.
+   - Metered cloud APIs (OpenAI API, Anthropic API, Gemini API, Groq API) remain strictly **optional** and **disabled by default**.
+
+2. **OpenAI API Provider Status (F1.5-P Preserved):**
+   - `OpenAIBrainProvider` is NOT deleted or rewritten. It is preserved as MAVE's production-ready Optional Paid API Provider adapter.
+   - Architecture: Dual-endpoint Responses API (`POST /v1/responses`, `store: false`) and Chat Completions fallback (`POST /v1/chat/completions`), non-generation health check (`GET /v1/models`), Progressive SSE streaming, and 20 comprehensive unit tests.
+   - Current Status: **IMPLEMENTED**, **OPTIONAL**, **LIVE UNVERIFIED**, **DISABLED BY DEFAULT**. No API key is requested, and zero API quota is spent during standard MAVE operation.
+
+3. **Critical Invariant — Credential Presence != Billing Permission:**
+   - A user having `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, or `GEMINI_API_KEY` in their shell/system environment for other projects does NOT grant MAVE permission to incur metered API charges.
+   - Automatic routing and explicit overrides strictly refuse to route to `paid_api` providers unless explicit billing permission is granted via policy configuration.
+
+4. **Access / Billing Classification (`ProviderAccessClass`):**
+   - `@mave/core` introduces a canonical provider access and billing classification orthogonal to model token economics (`ModelCostClass`):
+     - `subscription`: Usage drawn from an already-paid consumer/developer subscription quota (e.g. ChatGPT, Claude Pro, Google One/Gemini Advanced).
+     - `local`: Runs on the user's local hardware without per-token charges (e.g. Ollama, Llama.cpp, in-memory mocks).
+     - `paid_api`: Official metered commercial API that incurs per-token financial billing.
+
+5. **BrainRouter Billing Policy Enforcement:**
+   - `BrainRouterOptions` and `BrainRouteRequest` support `allowPaidApis?: boolean` (default: `false`).
+   - `BrainRouter.route()` enforces a strict billing gate in the candidate evaluation loop: if `meta.accessClass === 'paid_api'` and `allowPaidApis !== true`, the candidate provider is skipped BEFORE health probing and BEFORE catalog fetching.
+   - If an explicit user override requests a paid provider (`preferredProviderId = 'openai'`) without `allowPaidApis: true`, routing fails closed with `provider_unavailable`, notifying the user that paid API billing is disabled by policy.
+   - Enabling paid APIs (`allowPaidApis: true`) CANNOT bypass privacy constraints (`localOnly: true` remains strictly fail-closed) and CANNOT bypass profile boundaries (`fast_conversation` still strictly requires interactive `model_provider`).
+
+6. **MCP Boundary — MCP is NOT Billing and NOT the Brain:**
+   - **MCP (Model Context Protocol)** is an RPC transport and tool interface (connecting MAVE to external software like Roblox Studio, Blender, GitHub).
+   - MCP alone does NOT dictate whether an intelligence route is subscription, local, or paid.
+   - Router selects PROVIDERS, not MCP transports. MCP tools remain strictly under the M5 Tool Router and Permission Policy; no execution authority is granted in Pre-M5.
+
+7. **Empirical Subscription Runtime Audit:**
+   - **OpenAI Codex:**
+     - Discovered locally: `C:\Users\Jeffy\AppData\Local\OpenAI\Codex\bin\9614f1d9b40d9c4f\codex.exe` (`codex-cli 0.162.0-alpha.17.2`).
+     - Auth: `chatgpt` OAuth tokens (`~/.codex/auth.json`), zero stored API keys, connected via `wss://chatgpt.com/backend-api/` (`wire API: responses`).
+     - Non-interactive execution: `codex exec --json --ephemeral -s read-only`.
+     - Classification: `agent_runtime_provider`. Includes command runner, filesystem sandbox, and multi-step agent loop; structurally unsuited for $\le 1\text{--}3\text{s}$ voice TTFT.
+   - **Anthropic Claude Code:**
+     - Discovered locally: `C:\Users\Jeffy\.local\bin\claude.exe` (`v2.1.272`).
+     - Auth: `claude.ai` OAuth (`subscriptionType: "pro"`, `apiProvider: "firstParty"`).
+     - Non-interactive execution: `claude -p "<prompt>" --output-format json --tools "" --safe-mode`.
+     - API Billing Risk: If `ANTHROPIC_API_KEY` is present in env, Claude Code may prioritize paid API billing over subscription. MAVE must sanitize child process environment.
+     - Classification: `agent_runtime_provider`. CLI startup + project scanning overhead ($>3\text{--}8\text{s}$) unsuited for interactive voice TTFT.
+   - **Google Antigravity:**
+     - Operational locally: `C:\Users\Jeffy\AppData\Local\agy\bin\agy.exe` (`v1.3.4`).
+     - Auth: Google subscription credentials.
+     - Integration: `AntigravityBrainProvider` via `--print --output-format stream-json`.
+     - Classification: `agent_runtime_provider`. Turn latency (4–12s) unsuited for interactive voice TTFT.
+
+8. **Architectural Finding — THE SUBSCRIPTION FAST-BRAIN GAP:**
+   - All three available subscription runtimes (`Codex`, `Claude Code`, `Antigravity`) are **`agent_runtime_provider`** systems designed for workspace execution, tool orchestration, and multi-step engineering.
+   - Under MAVE's frozen F1.1 provider-kind semantics, `fast_conversation` strictly requires a direct `model_provider` with `streaming: true` and `fastChat: true`.
+   - Faking provider-kind to artificially route an agent runtime into `fast_conversation` violates MAVE latency constraints and architectural integrity.
+   - **Formal Diagnosis: SUBSCRIPTION FAST-BRAIN GAP confirmed.** Fast conversational voice requires a future local Fast Brain or explicit paid API opt-in.
+   - **Next Normalization Candidate:** Claude Code (`ClaudeCodeBrainProvider`) selected as the next additive subscription provider for agent/deep tasks in F1.7.
 
 ---
 

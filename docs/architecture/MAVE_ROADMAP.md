@@ -144,9 +144,23 @@ Goal: วางรากฐาน Intelligence Provider Architecture, Multi-Mode
 
 Detailed Architecture Record:
 - [`MAVE_INTELLIGENCE_PROVIDER_ARCHITECTURE.md`](MAVE_INTELLIGENCE_PROVIDER_ARCHITECTURE.md)
+- [`MAVE_SUBSCRIPTION_INTELLIGENCE_ARCHITECTURE.md`](MAVE_SUBSCRIPTION_INTELLIGENCE_ARCHITECTURE.md)
 
 Program Sequence:
-1. **F1 — Intelligence Provider Runtime**: Provider + Model contracts, Registry & non-quota health checks, Model Catalog & Model Policy, Intent-preserving fallback, Production Fast Brain integration ($\text{TTFT} \le 1.0\text{--}3.0\text{s}$), Deep Brain route, and diagnostics.
+- **F1.0 Architecture Audit & Modernization** ✅ COMPLETE
+- **F1.1 Provider & Model Contracts** ✅ COMPLETE + FROZEN
+- **F1.2 Provider Registry & Health Hardening** ✅ COMPLETE + HARDENED
+- **F1.3 Model Catalog & Model Policy Runtime** ✅ COMPLETE + HARDENED
+- **F1.4 Intelligence Routing & Intent-Preserving Fallback** ✅ COMPLETE + HARDENED
+- **F1.4.1 Typed Model Execution Handoff** ✅ COMPLETE
+- **F1.5-P Optional Paid API Adapter (`OpenAIBrainProvider`)** ✅ IMPLEMENTED (OPTIONAL / DISABLED BY DEFAULT)
+- **F1.5-S Subscription Runtime Foundation & Billing Policy** ✅ COMPLETE (SUBSCRIPTION-FIRST ADOPTED)
+- **F1.6 Production Deep Brain** ← NEXT
+- **F1.7 Agent Runtime Normalization (`ClaudeCode` / `Antigravity` / `Codex`)**
+- **F1.8 Research / Truth Routing**
+- **F1.9 Diagnostics, Quota & Reliability**
+- **F1.10 End-to-End Provider Foundation Closeout**
+
 2. **F2 — Real Brain Integration / Tuning**: Live model benchmarking, bilingual conversational tuning (Thai/English), prompt optimization, and voice latency calibration.
 3. **UI Redesign**: Desktop UI refinement, Developer Diagnostics UI, settings interface.
 4. **Full MAVE E2E Stabilization**: End-to-end integration across Voice, Surface, Brain, and Fallback.

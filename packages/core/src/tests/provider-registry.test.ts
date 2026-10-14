@@ -550,4 +550,45 @@ describe('BrainProviderRegistry Hardened Lifecycle & Health Suite', () => {
     registry.clearHealthCache();
     expect(registry.getHealth('p2')).toBeUndefined();
   });
+
+  it('24. correctly derives and freezes default accessClass for canonical providers', () => {
+    const registry = new BrainProviderRegistry();
+    const pSub = createTestProvider({ id: 'antigravity' });
+    const pLocal = createTestProvider({ id: 'mock', capabilities: { local: true } });
+    const pPaid = createTestProvider({ id: 'openai' });
+    const pApi = createTestProvider({ id: 'custom-cloud' });
+
+    registry.register(pSub);
+    registry.register(pLocal);
+    registry.register(pPaid);
+    registry.register(pApi, { accessPath: 'official_api' });
+
+    const metaSub = registry.getProviderMetadata('antigravity');
+    expect(metaSub.accessClass).toBe('subscription');
+    expect(Object.isFrozen(metaSub)).toBe(true);
+
+    const metaLocal = registry.getProviderMetadata('mock');
+    expect(metaLocal.accessClass).toBe('local');
+
+    const metaPaid = registry.getProviderMetadata('openai');
+    expect(metaPaid.accessClass).toBe('paid_api');
+
+    const metaApi = registry.getProviderMetadata('custom-cloud');
+    expect(metaApi.accessClass).toBe('paid_api');
+  });
+
+  it('25. honors explicit registration accessClass and billingClass metadata', () => {
+    const registry = new BrainProviderRegistry();
+    const p1 = createTestProvider({ id: 'p-explicit-sub' });
+    const p2 = createTestProvider({ id: 'p-explicit-paid' });
+    const p3 = createTestProvider({ id: 'p-billing-alias' });
+
+    registry.register(p1, { accessClass: 'subscription' });
+    registry.register(p2, { accessClass: 'paid_api' });
+    registry.register(p3, { billingClass: 'local' });
+
+    expect(registry.getProviderMetadata('p-explicit-sub').accessClass).toBe('subscription');
+    expect(registry.getProviderMetadata('p-explicit-paid').accessClass).toBe('paid_api');
+    expect(registry.getProviderMetadata('p-billing-alias').accessClass).toBe('local');
+  });
 });

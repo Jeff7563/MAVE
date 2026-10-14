@@ -126,7 +126,12 @@ export class ConversationManager {
     this.providerRegistry = options.providerRegistry ?? new BrainProviderRegistry();
     this.mockProvider = options.mockProvider ?? new MockModelCatalogProvider();
     if (!this.providerRegistry.has(this.mockProvider.id)) {
-      this.providerRegistry.register(this.mockProvider);
+      this.providerRegistry.register(this.mockProvider, {
+        kind: 'model_provider',
+        accessPath: 'local_runtime',
+        accessClass: 'local',
+        displayName: 'Mock Brain Provider'
+      });
     }
 
     let defaultAntigravityDir: string;
@@ -150,7 +155,12 @@ export class ConversationManager {
       new AntigravityBrainProvider({ workingDirectory });
 
     if (!this.providerRegistry.has(this.antigravityProvider.id)) {
-      this.providerRegistry.register(this.antigravityProvider);
+      this.providerRegistry.register(this.antigravityProvider, {
+        kind: 'agent_runtime_provider',
+        accessPath: 'official_cli',
+        accessClass: 'subscription',
+        displayName: 'Google Antigravity'
+      });
     }
 
     this.openaiProvider =
@@ -158,15 +168,21 @@ export class ConversationManager {
       new OpenAIBrainProvider();
 
     if (!this.providerRegistry.has(this.openaiProvider.id)) {
-      this.providerRegistry.register(this.openaiProvider);
+      this.providerRegistry.register(this.openaiProvider, {
+        kind: 'model_provider',
+        accessPath: 'official_api',
+        accessClass: 'paid_api',
+        displayName: 'OpenAI API Provider'
+      });
     }
 
-    // 3. Brain Router (default provider: 'mock')
+    // 3. Brain Router (default provider: 'mock', subscription-first, paid APIs disabled by default)
     this.router =
       options.router ??
       new BrainRouter({
         registry: this.providerRegistry,
-        defaultProvider: this.mockProvider.id
+        defaultProvider: this.mockProvider.id,
+        allowPaidApis: false
       });
 
     // 4. Session Manager
