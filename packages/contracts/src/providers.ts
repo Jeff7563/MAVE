@@ -1,5 +1,11 @@
 import type { WakeEngineStatus } from './state.js';
-export type { BrainProvider } from './brain.js';
+export type {
+  BrainProvider,
+  ModelCatalogProvider,
+  ProviderDescriptor,
+  ModelDescriptor,
+  ModelCatalogSnapshot
+} from './brain.js';
 
 export interface VoiceProvider {
   connect(): Promise<void>;

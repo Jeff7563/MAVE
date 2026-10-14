@@ -8,9 +8,11 @@ import type {
 export interface BrainRouteRequest {
   profileId?: BrainProfileId;
   preferredProviderId?: string;
+  preferredModelId?: string;
   defaultProviderId?: string;
   fallbackChain?: string[];
   requiredCapabilities?: Partial<BrainCapabilities>;
+  localOnly?: boolean;
 }
 
 export interface BrainProfileResolution {
@@ -18,6 +20,7 @@ export interface BrainProfileResolution {
   definition: BrainProfileDefinition;
   requiredCapabilities: Partial<BrainCapabilities>;
   preferredProviderId?: string;
+  preferredModelId?: string;
   fallbackChain?: string[];
   allowFallback: boolean;
 }
@@ -39,9 +42,12 @@ export class BrainProfilePolicyError extends Error {
 export interface BrainRouteDecision {
   provider: BrainProvider;
   providerId: string;
+  modelId?: string;
   reason: string;
   fallbackUsed: boolean;
   attemptedProviderIds: string[];
+  attemptedModelIds?: string[];
+  routeAttempts?: number;
 }
 
 export type BrainRoutingErrorCode =

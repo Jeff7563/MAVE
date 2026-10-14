@@ -702,15 +702,15 @@ The Pre-M5 intelligence foundation is divided into ten disciplined phases:
  (Now)                                       Brain   Brain  Runtime
 ```
 
-### Phase F1.0 — Architecture Audit & Modernization (CURRENT)
+### Phase F1.0 — Architecture Audit & Modernization ✅ COMPLETE
 - **Goal:** Modernize `MAVE_INTELLIGENCE_PROVIDER_ARCHITECTURE.md` into the canonical post-M4 architecture.
 - **Scope:** Complete architectural documentation, taxonomy, catalog design, routing pipeline, and audit. Zero runtime code changes.
 
-### Phase F1.1 — Provider & Model Contracts
-- **Goal:** Update `@mave/contracts` with `ModelDescriptor`, `ProviderDescriptor`, expanded `BrainCapabilities`, and normalized usage telemetry.
-- **Scope:** TypeScript interfaces, Zod schemas, contract unit tests.
+### Phase F1.1 — Provider & Model Contracts ✅ COMPLETE
+- **Goal:** Codify the F1.0 architecture into stable, typed, vendor-neutral contracts and Zod schemas in `@mave/contracts`.
+- **Scope:** `ProviderKind`, `ProviderDescriptor`, `ModelDescriptor`, `ModelCatalogSnapshot`, `BrainCapabilities`, `BrainTelemetry`, `RouteTelemetry`, `GenerationUsage`, `GenerationTiming`, and normalized error codes. 100% test pass rate with full backward compatibility.
 
-### Phase F1.2 — Provider Registry & Health Hardening
+### Phase F1.2 — Provider Registry & Health Hardening ← NEXT
 - **Goal:** Extend `BrainProviderRegistry` to support dynamic registration, provider descriptors, and non-quota health checks.
 - **Scope:** Registry lifecycle, health monitoring, error normalization.
 
@@ -745,6 +745,28 @@ The Pre-M5 intelligence foundation is divided into ten disciplined phases:
 ### Phase F1.10 — End-to-End Provider Foundation Closeout
 - **Goal:** Finalize verification across voice, ambient surface, text chat, and fallback scenarios.
 - **Scope:** Full test pass baseline, performance benchmarks, and milestone closeout documentation.
+
+### 21.1 Pre-M5 F1.1 Contract Decisions & Typings
+
+1. **Fallback Terminology Clarification:**
+   - **`routeAttempt`**: An atomic invocation of a specific `(ProviderId, ModelId)` pair.
+   - **`providerAttempts`**: The distinct count/list of provider adapters contacted (`attemptedProviderIds: string[]`).
+   - **`modelAttempts`**: The distinct count/list of models contacted (`attemptedModelIds: string[]`).
+   - In F1.4 routing algorithms, max 2 distinct providers contacted corresponds to `attemptedProviderIds.length <= 2`, while total atomic route attempts across primary and fallback models is capped by policy.
+2. **Provider Taxonomy:**
+   - Strongly typed `ProviderKind` (`model_provider`, `agent_runtime_provider`, `knowledge_provider`). No vendor brands in taxonomy enum.
+3. **Decoupled Health & Readiness (Single Source of Truth):**
+   - Eliminated redundant `configured: boolean` in favor of canonical `ProviderHealth.status: 'unconfigured' | 'healthy' | 'degraded' | 'quota_limited' | 'rate_limited' | 'auth_error' | 'unavailable' | 'unhealthy'`.
+   - Decoupled `ModelAvailabilityStatus` (`available`, `quota_limited`, `rate_limited`, `deprecated`, `unavailable`).
+4. **Model Catalog Integrity:**
+   - `ModelCatalogSnapshot` validates via Zod `superRefine` that every nested `ModelDescriptor.providerId` matches the parent `snapshot.providerId`.
+5. **Additive Backward Compatibility:**
+   - Extended `BrainCapabilities` with optional `structuredOutput`, `cancellation`, `supportsThai`, `supportsEnglish` to guarantee 100% backward compatibility for all existing M2/M3/M4 providers and test fixtures.
+   - `BrainProvider.getCatalog?()` and `getDescriptor?()` are optional, with `ModelCatalogProvider` extending `BrainProvider` for catalog-capable providers.
+6. **Telemetry Separation:**
+   - Decoupled into `GenerationUsage` (tokens, cost), `GenerationTiming` (TTFT, total latency), and `RouteTelemetry` (selected provider/model, route reason, attempts, fallback flags).
+7. **Local Privacy Enforcement:**
+   - Machine-readable `localOnly: boolean` on `BrainRequest` and `BrainRouteOverrides`. Cloud models are rejected deterministically when `localOnly=true`.
 
 ---
 

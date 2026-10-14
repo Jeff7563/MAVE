@@ -5,22 +5,47 @@ import {
   BrainErrorCodeSchema,
   BrainErrorSchema,
   BrainEventSchema,
+  BrainProfileIdSchema,
   BrainRequestSchema,
   BrainResponseSchema,
+  BrainRouteOverridesSchema,
+  BrainTelemetrySchema,
   BrainUsageSchema,
   ConversationRoleSchema,
   ConversationTurnSchema,
   ConversationTurnStatusSchema,
   DefaultMaveConfig,
+  GenerationTimingSchema,
+  GenerationUsageSchema,
   MaveConfigSchema,
   MaveMessageSchema,
+  ModelAvailabilityStatusSchema,
+  ModelCatalogSnapshotSchema,
+  ModelContextClassSchema,
+  ModelCostClassSchema,
+  ModelDescriptorSchema,
+  ModelIdSchema,
+  ModelLatencyClassSchema,
+  ModelPrivacyClassSchema,
+  ModelQualityClassSchema,
+  ProviderAccessPathSchema,
+  ProviderDescriptorSchema,
   ProviderHealthSchema,
+  ProviderHealthStatusSchema,
+  ProviderIdSchema,
+  ProviderKindSchema,
+  RouteReasonSchema,
+  RouteTelemetrySchema,
   SessionSchema,
   SessionStatusSchema,
   StreamingChunkSchema,
   type BrainCapabilities,
   type BrainEvent,
-  type BrainProvider
+  type BrainProvider,
+  type BrainTelemetry,
+  type ModelCatalogSnapshot,
+  type ModelDescriptor,
+  type ProviderDescriptor
 } from '../index.js';
 
 describe('Brain Capability & Config Contracts', () => {
@@ -49,7 +74,11 @@ describe('Brain Capability & Config Contracts', () => {
       vision: false,
       webResearch: false,
       longContext: true,
-      local: false
+      local: false,
+      structuredOutput: true,
+      cancellation: true,
+      supportsThai: true,
+      supportsEnglish: true
     };
     const parsed = BrainCapabilitiesSchema.parse(custom);
     expect(parsed).toEqual(custom);
@@ -407,5 +436,444 @@ describe('Settings Schema & Backward Compatibility', () => {
     expect(parsed.brain.fallbackChain).toEqual(['mock']);
     expect(parsed.brain.timeoutMs).toBe(20000);
     expect(parsed.realtime).toBeUndefined();
+  });
+});
+
+describe('Pre-M5 F1.1 Provider & Model Contracts', () => {
+  describe('Provider & Model Identity Schemas', () => {
+    it('validates canonical ProviderKind values', () => {
+      const validKinds = ['model_provider', 'agent_runtime_provider', 'knowledge_provider'];
+      for (const kind of validKinds) {
+        expect(ProviderKindSchema.parse(kind)).toBe(kind);
+      }
+      expect(() => ProviderKindSchema.parse('invalid_kind')).toThrow();
+      expect(() => ProviderKindSchema.parse('openai')).toThrow(); // No vendor names in kind
+    });
+
+    it('validates ProviderId and ModelId non-empty strings and trims whitespace', () => {
+      expect(ProviderIdSchema.parse('mock-provider')).toBe('mock-provider');
+      expect(ProviderIdSchema.parse('  gemini-provider  ')).toBe('gemini-provider');
+      expect(() => ProviderIdSchema.parse('')).toThrow();
+      expect(() => ProviderIdSchema.parse('   ')).toThrow();
+
+      expect(ModelIdSchema.parse('mock-fast-model')).toBe('mock-fast-model');
+      expect(ModelIdSchema.parse('  flash-model  ')).toBe('flash-model');
+      expect(() => ModelIdSchema.parse('')).toThrow();
+      expect(() => ModelIdSchema.parse('   ')).toThrow();
+    });
+
+    it('validates ProviderAccessPath values', () => {
+      const validPaths = ['official_api', 'official_cli', 'official_client', 'local_runtime'];
+      for (const p of validPaths) {
+        expect(ProviderAccessPathSchema.parse(p)).toBe(p);
+      }
+      expect(() => ProviderAccessPathSchema.parse('unofficial_scraper')).toThrow();
+    });
+  });
+
+  describe('Health & Availability Schemas', () => {
+    it('validates extended ProviderHealthStatus values including quota and auth states', () => {
+      const validStatuses = [
+        'healthy',
+        'degraded',
+        'unhealthy',
+        'unconfigured',
+        'quota_limited',
+        'rate_limited',
+        'auth_error',
+        'unavailable'
+      ];
+      for (const s of validStatuses) {
+        expect(ProviderHealthStatusSchema.parse(s)).toBe(s);
+      }
+      expect(() => ProviderHealthStatusSchema.parse('dead')).toThrow();
+    });
+
+    it('validates ModelAvailabilityStatus values', () => {
+      const validStatuses = ['available', 'quota_limited', 'rate_limited', 'deprecated', 'unavailable'];
+      for (const s of validStatuses) {
+        expect(ModelAvailabilityStatusSchema.parse(s)).toBe(s);
+      }
+      expect(() => ModelAvailabilityStatusSchema.parse('healthy')).toThrow(); // 'healthy' is for providers, not models
+    });
+  });
+
+  describe('Brain Profile vs Capability Invariant', () => {
+    it('enforces that BrainProfileId is never accepted as a BrainCapability key', () => {
+      const profileId = 'fast_conversation';
+      expect(BrainProfileIdSchema.parse(profileId)).toBe(profileId);
+
+      // BrainCapabilities is a record of boolean feature flags, not profile names
+      const caps = BrainCapabilitiesSchema.parse({
+        streaming: true,
+        fastChat: true,
+        reasoning: false
+      });
+      expect(caps).not.toHaveProperty('fast_conversation');
+      expect(caps.fastChat).toBe(true);
+      expect(caps.streaming).toBe(true);
+    });
+
+    it('validates new optional capability flags', () => {
+      const caps = BrainCapabilitiesSchema.parse({
+        structuredOutput: true,
+        cancellation: true,
+        supportsThai: true,
+        supportsEnglish: true
+      });
+      expect(caps.structuredOutput).toBe(true);
+      expect(caps.cancellation).toBe(true);
+      expect(caps.supportsThai).toBe(true);
+      expect(caps.supportsEnglish).toBe(true);
+
+      const defaultCaps = BrainCapabilitiesSchema.parse({});
+      expect(defaultCaps.structuredOutput).toBeUndefined();
+    });
+  });
+
+  describe('Model Qualitative Classes', () => {
+    it('validates ModelLatencyClass, ModelQualityClass, ModelCostClass, ModelContextClass, ModelPrivacyClass', () => {
+      expect(ModelLatencyClassSchema.parse('interactive')).toBe('interactive');
+      expect(ModelLatencyClassSchema.parse('balanced')).toBe('balanced');
+      expect(ModelLatencyClassSchema.parse('heavy')).toBe('heavy');
+      expect(() => ModelLatencyClassSchema.parse('instant')).toThrow();
+
+      expect(ModelQualityClassSchema.parse('fast')).toBe('fast');
+      expect(ModelQualityClassSchema.parse('balanced')).toBe('balanced');
+      expect(ModelQualityClassSchema.parse('reasoning')).toBe('reasoning');
+
+      expect(ModelCostClassSchema.parse('free')).toBe('free');
+      expect(ModelCostClassSchema.parse('low')).toBe('low');
+      expect(ModelCostClassSchema.parse('medium')).toBe('medium');
+      expect(ModelCostClassSchema.parse('high')).toBe('high');
+
+      expect(ModelContextClassSchema.parse('standard')).toBe('standard');
+      expect(ModelContextClassSchema.parse('large')).toBe('large');
+      expect(ModelContextClassSchema.parse('massive')).toBe('massive');
+
+      expect(ModelPrivacyClassSchema.parse('public_cloud')).toBe('public_cloud');
+      expect(ModelPrivacyClassSchema.parse('private_cloud')).toBe('private_cloud');
+      expect(ModelPrivacyClassSchema.parse('local_airgapped')).toBe('local_airgapped');
+    });
+  });
+
+  describe('ModelDescriptor Schema & Validation', () => {
+    const validModel: ModelDescriptor = {
+      id: 'mock-interactive-model',
+      providerId: 'mock-provider',
+      displayName: 'Mock Interactive Model',
+      status: 'available',
+      latencyClass: 'interactive',
+      qualityClass: 'fast',
+      costClass: 'free',
+      contextClass: 'standard',
+      contextWindowTokens: 8192,
+      capabilities: {
+        streaming: true,
+        fastChat: true,
+        reasoning: false,
+        coding: false,
+        toolUse: false,
+        multimodal: false,
+        vision: false,
+        webResearch: false,
+        longContext: false,
+        local: false,
+        structuredOutput: false,
+        cancellation: true,
+        supportsThai: true,
+        supportsEnglish: true
+      },
+      privacyClass: 'local_airgapped'
+    };
+
+    it('validates a well-formed ModelDescriptor', () => {
+      const parsed = ModelDescriptorSchema.parse(validModel);
+      expect(parsed.id).toBe('mock-interactive-model');
+      expect(parsed.providerId).toBe('mock-provider');
+      expect(parsed.privacyClass).toBe('local_airgapped');
+      expect(parsed.contextWindowTokens).toBe(8192);
+    });
+
+    it('rejects ModelDescriptor with invalid/empty providerId', () => {
+      expect(() =>
+        ModelDescriptorSchema.parse({
+          ...validModel,
+          providerId: '   '
+        })
+      ).toThrow();
+    });
+
+    it('rejects ModelDescriptor with invalid status', () => {
+      expect(() =>
+        ModelDescriptorSchema.parse({
+          ...validModel,
+          status: 'healthy' // invalid: 'healthy' is a provider health status, not model status
+        })
+      ).toThrow();
+    });
+
+    it('rejects ModelDescriptor with invalid capability values', () => {
+      expect(() =>
+        ModelDescriptorSchema.parse({
+          ...validModel,
+          capabilities: {
+            ...validModel.capabilities,
+            streaming: 'yes' // invalid type
+          }
+        })
+      ).toThrow();
+    });
+  });
+
+  describe('ProviderDescriptor Schema & Validation', () => {
+    it('validates a well-formed ProviderDescriptor', () => {
+      const descriptor: ProviderDescriptor = {
+        id: 'mock-provider',
+        kind: 'model_provider',
+        displayName: 'Mock Model Provider',
+        accessPath: 'official_api',
+        capabilities: {
+          streaming: true,
+          fastChat: true,
+          reasoning: false,
+          coding: false,
+          toolUse: false,
+          multimodal: false,
+          vision: false,
+          webResearch: false,
+          longContext: false,
+          local: true,
+          structuredOutput: false,
+          cancellation: true,
+          supportsThai: true,
+          supportsEnglish: true
+        },
+        health: {
+          status: 'healthy',
+          latencyMs: 15,
+          checkedAt: 1791850000000
+        },
+        supportedModelIds: ['mock-interactive-model']
+      };
+
+      const parsed = ProviderDescriptorSchema.parse(descriptor);
+      expect(parsed.id).toBe('mock-provider');
+      expect(parsed.kind).toBe('model_provider');
+      expect(parsed.health.status).toBe('healthy');
+      expect(parsed.supportedModelIds).toEqual(['mock-interactive-model']);
+    });
+
+    it('rejects malformed ProviderDescriptor', () => {
+      expect(() =>
+        ProviderDescriptorSchema.parse({
+          id: '',
+          kind: 'unsupported_kind'
+        })
+      ).toThrow();
+    });
+  });
+
+  describe('ModelCatalogSnapshot & Cross-Provider Validation', () => {
+    const model1: ModelDescriptor = {
+      id: 'mock-model-1',
+      providerId: 'provider-alpha',
+      displayName: 'Model Alpha 1',
+      status: 'available',
+      latencyClass: 'interactive',
+      qualityClass: 'fast',
+      costClass: 'low',
+      contextClass: 'standard',
+      capabilities: BrainCapabilitiesSchema.parse({ streaming: true, fastChat: true }),
+      privacyClass: 'public_cloud'
+    };
+
+    const model2: ModelDescriptor = {
+      id: 'mock-model-2',
+      providerId: 'provider-alpha',
+      displayName: 'Model Alpha 2',
+      status: 'available',
+      latencyClass: 'balanced',
+      qualityClass: 'reasoning',
+      costClass: 'medium',
+      contextClass: 'large',
+      capabilities: BrainCapabilitiesSchema.parse({ streaming: true, reasoning: true }),
+      privacyClass: 'public_cloud'
+    };
+
+    it('validates a consistent ModelCatalogSnapshot', () => {
+      const catalog: ModelCatalogSnapshot = {
+        providerId: 'provider-alpha',
+        models: [model1, model2],
+        refreshedAt: 1791850000000
+      };
+
+      const parsed = ModelCatalogSnapshotSchema.parse(catalog);
+      expect(parsed.providerId).toBe('provider-alpha');
+      expect(parsed.models.length).toBe(2);
+    });
+
+    it('rejects ModelCatalogSnapshot when a model providerId does not match catalog providerId', () => {
+      const mismatchedModel: ModelDescriptor = {
+        ...model2,
+        providerId: 'provider-beta' // mismatch with catalog's 'provider-alpha'
+      };
+
+      expect(() =>
+        ModelCatalogSnapshotSchema.parse({
+          providerId: 'provider-alpha',
+          models: [model1, mismatchedModel]
+        })
+      ).toThrow(/does not match catalog providerId/);
+    });
+  });
+
+  describe('Request Overrides & localOnly Constraint', () => {
+    it('parses valid BrainRouteOverrides with localOnly=true', () => {
+      const overrides = BrainRouteOverridesSchema.parse({
+        profileId: 'fast_conversation',
+        preferredProviderId: 'local-llm',
+        preferredModelId: 'qwen-local',
+        localOnly: true
+      });
+      expect(overrides.localOnly).toBe(true);
+      expect(overrides.preferredProviderId).toBe('local-llm');
+    });
+
+    it('defaults localOnly to false when not provided', () => {
+      const overrides = BrainRouteOverridesSchema.parse({});
+      expect(overrides.localOnly).toBe(false);
+    });
+
+    it('parses BrainRequest with explicit localOnly flag', () => {
+      const req = BrainRequestSchema.parse({
+        requestId: 'req-priv-1',
+        sessionId: 'sess-priv-1',
+        intent: 'conversation',
+        messages: [{ role: 'user', content: 'Private query' }],
+        localOnly: true
+      });
+      expect(req.localOnly).toBe(true);
+    });
+  });
+
+  describe('Telemetry & Metrics Contracts', () => {
+    it('leaves unknown token counts and costs as undefined rather than coercing to 0', () => {
+      const usage = GenerationUsageSchema.parse({});
+      expect(usage.promptTokens).toBeUndefined();
+      expect(usage.completionTokens).toBeUndefined();
+      expect(usage.totalTokens).toBeUndefined();
+      expect(usage.estimatedCostUsd).toBeUndefined();
+    });
+
+    it('validates timing and route telemetry contracts', () => {
+      const validReasons = [
+        'primary_default',
+        'primary_healthy',
+        'fallback_healthy',
+        'fallback_degraded',
+        'explicit_override',
+        'capability_match',
+        'privacy_constraint'
+      ];
+      for (const r of validReasons) {
+        expect(RouteReasonSchema.parse(r)).toBe(r);
+      }
+
+      const timing = GenerationTimingSchema.parse({
+        timeToFirstTokenMs: 850,
+        totalDurationMs: 2400
+      });
+      expect(timing.timeToFirstTokenMs).toBe(850);
+
+      const route = RouteTelemetrySchema.parse({
+        selectedProviderId: 'fast-provider',
+        selectedModelId: 'fast-model-v1',
+        profileId: 'fast_conversation',
+        routeReason: 'primary_healthy',
+        fallbackUsed: false,
+        attemptedProviderIds: ['fast-provider'],
+        attemptedModelIds: ['fast-model-v1'],
+        routeAttempts: 1
+      });
+      expect(route.routeAttempts).toBe(1);
+      expect(route.fallbackUsed).toBe(false);
+
+      const telemetry: BrainTelemetry = BrainTelemetrySchema.parse({
+        requestId: 'req-tel-1',
+        sessionId: 'sess-tel-1',
+        route,
+        timing,
+        usage: { promptTokens: 120, completionTokens: 45, totalTokens: 165 },
+        finishReason: 'stop'
+      });
+      expect(telemetry.requestId).toBe('req-tel-1');
+      expect(telemetry.route.selectedProviderId).toBe('fast-provider');
+    });
+  });
+
+  describe('Normalized Intelligence Error Codes', () => {
+    it('validates newly standardized Pre-M5 error codes in both lowercase and uppercase', () => {
+      const newCodes = [
+        'fast_brain_unavailable',
+        'profile_unavailable',
+        'model_unavailable',
+        'provider_unconfigured',
+        'quota_limited',
+        'rate_limited',
+        'auth_required',
+        'local_provider_unavailable',
+        'routing_timeout',
+        'generation_cancelled',
+        'FAST_BRAIN_UNAVAILABLE',
+        'LOCAL_PROVIDER_UNAVAILABLE'
+      ];
+      for (const code of newCodes) {
+        expect(BrainErrorCodeSchema.parse(code)).toBe(code);
+      }
+    });
+
+    it('validates BrainError with optional providerId and modelId metadata without secrets', () => {
+      const err = BrainErrorSchema.parse({
+        code: 'FAST_BRAIN_UNAVAILABLE',
+        message: 'No healthy fast brain provider available',
+        retryable: false,
+        providerId: 'gemini-provider',
+        modelId: 'flash-conversation'
+      });
+      expect(err.providerId).toBe('gemini-provider');
+      expect(err.modelId).toBe('flash-conversation');
+    });
+  });
+
+  describe('JSON Serialization Round-Trip', () => {
+    it('safely serializes and deserializes descriptors and catalogs across JSON boundaries', () => {
+      const catalog: ModelCatalogSnapshot = {
+        providerId: 'mock-provider',
+        models: [
+          {
+            id: 'mock-model-json',
+            providerId: 'mock-provider',
+            displayName: 'JSON Safe Model',
+            status: 'available',
+            latencyClass: 'interactive',
+            qualityClass: 'fast',
+            costClass: 'free',
+            contextClass: 'standard',
+            capabilities: BrainCapabilitiesSchema.parse({ streaming: true }),
+            privacyClass: 'local_airgapped'
+          }
+        ],
+        refreshedAt: 1791850000000
+      };
+
+      const jsonString = JSON.stringify(catalog);
+      const parsedFromRaw = JSON.parse(jsonString);
+      const validated = ModelCatalogSnapshotSchema.parse(parsedFromRaw);
+
+      expect(validated.providerId).toBe('mock-provider');
+      expect(validated.models[0]?.id).toBe('mock-model-json');
+      expect(validated.models[0]?.privacyClass).toBe('local_airgapped');
+    });
   });
 });

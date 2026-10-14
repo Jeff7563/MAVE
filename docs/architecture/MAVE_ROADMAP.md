@@ -32,7 +32,7 @@ Goal: ทำให้ MAVE มีตัวตนและพร้อมถู�
 - score diagnostics
 - stale buffer/reset fixes
 
-## Milestone 1.3 — Personalized MAVE V2 ← CURRENT
+## Milestone 1.3 — Personalized MAVE V2 (Parallel / Deferred Quality Track)
 
 Current V1 live result:
 - First-attempt: 14/20
