@@ -3,6 +3,9 @@ import {
   DEFAULT_BRAIN_PROFILES,
   type BrainCapabilities,
   type BrainProvider,
+  type ModelCatalogProvider,
+  type ModelCatalogSnapshot,
+  type ProviderDescriptor,
   type ProviderHealth
 } from '@mave/contracts';
 import {
@@ -13,7 +16,7 @@ import {
   BrainRoutingError
 } from '../brain/index.js';
 
-class TestMockProvider implements BrainProvider {
+class TestMockProvider implements BrainProvider, ModelCatalogProvider {
   readonly id: string;
   private readonly capabilities: BrainCapabilities;
   private readonly healthStatus: ProviderHealth['status'];
@@ -52,6 +55,43 @@ class TestMockProvider implements BrainProvider {
     };
   }
 
+  async getCatalog(): Promise<ModelCatalogSnapshot> {
+    return {
+      providerId: this.id,
+      models: [
+        {
+          id: `${this.id}-default`,
+          providerId: this.id,
+          displayName: `${this.id}-default`,
+          status: 'available',
+          latencyClass: 'interactive',
+          qualityClass: 'fast',
+          costClass: 'low',
+          contextClass: 'standard',
+          contextWindowTokens: 8192,
+          privacyClass: 'standard_cloud',
+          capabilities: this.capabilities
+        }
+      ],
+      refreshedAt: Date.now()
+    };
+  }
+
+  getDescriptor(): ProviderDescriptor {
+    return {
+      id: this.id,
+      kind: 'model_provider',
+      displayName: this.id,
+      accessPath: 'official_api',
+      capabilities: this.capabilities,
+      health: {
+        status: this.healthStatus,
+        message: `${this.id} is ${this.healthStatus}`,
+        checkedAt: Date.now()
+      }
+    };
+  }
+
   async *chat() {
     yield { type: 'started' as const, requestId: 'r1', providerId: this.id };
     yield { type: 'completed' as const, requestId: 'r1', text: 'ok' };
@@ -73,8 +113,8 @@ describe('BrainProfilePolicy & Profile Routing', () => {
     // antigravity candidate has streaming: true, fastChat: true, coding: false, toolUse: false, reasoning: false
     antigravityCandidate = new TestMockProvider('antigravity', { streaming: true, fastChat: true });
 
-    registry.register(mockProvider);
-    registry.register(antigravityCandidate);
+    registry.register(mockProvider, { kind: 'model_provider' });
+    registry.register(antigravityCandidate, { kind: 'model_provider' });
   });
 
   describe('1. Profile Definitions & Stability', () => {

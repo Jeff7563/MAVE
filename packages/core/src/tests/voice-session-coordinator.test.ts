@@ -7,7 +7,10 @@ import {
 import {
   VoiceRuntimeEventSchema,
   type AudioFrame,
-  type BrainProvider
+  type BrainProvider,
+  type ModelCatalogProvider,
+  type ModelCatalogSnapshot,
+  type ProviderDescriptor
 } from '@mave/contracts';
 import { SessionManager } from '../conversation/index.js';
 import { BrainProviderRegistry, BrainRouter } from '../brain/index.js';
@@ -15,7 +18,7 @@ import { ConversationRuntime } from '../conversation/index.js';
 import {
   MockAudioInputProvider,
   MockAudioOutput,
-  MockBrainProvider,
+  MockModelCatalogProvider,
   MockSTTProvider,
   MockTTSProvider,
   createPCMFixtureFrames,
@@ -43,7 +46,7 @@ function createTestHarness(overrides?: TestHarnessOptions) {
     partials: ['H', 'Hello', 'Hello MAVE'],
     ...overrides?.sttOptions
   });
-  const brainProvider = new MockBrainProvider({
+  const brainProvider = new MockModelCatalogProvider({
     chunks: ['Hello.', ' How can I help you today?'],
     ...overrides?.brainOptions
   });
@@ -148,7 +151,7 @@ describe('Progressive Speech Integration Test (Section 41 — CRITICAL)', () => 
     let brainFinished = false;
 
     // Custom Brain provider that emits Delta 1, waits at gate, then emits Delta 2
-    const gatedBrain: BrainProvider = {
+    const gatedBrain: BrainProvider & ModelCatalogProvider = {
       id: 'gated-brain',
       getCapabilities: () => ({
         streaming: true,
@@ -163,6 +166,59 @@ describe('Progressive Speech Integration Test (Section 41 — CRITICAL)', () => 
         longContext: false
       }),
       health: async () => ({ status: 'healthy', checkedAt: Date.now() }),
+      async getCatalog(): Promise<ModelCatalogSnapshot> {
+        return {
+          providerId: 'gated-brain',
+          models: [
+            {
+              id: 'gated-brain-default',
+              providerId: 'gated-brain',
+              displayName: 'gated-brain-default',
+              status: 'available',
+              latencyClass: 'interactive',
+              qualityClass: 'fast',
+              costClass: 'low',
+              contextClass: 'standard',
+              contextWindowTokens: 8192,
+              privacyClass: 'standard_cloud',
+              capabilities: {
+                streaming: true,
+                fastChat: true,
+                reasoning: false,
+                coding: false,
+                toolUse: false,
+                local: false,
+                multimodal: false,
+                vision: false,
+                webResearch: false,
+                longContext: false
+              }
+            }
+          ],
+          refreshedAt: Date.now()
+        };
+      },
+      getDescriptor(): ProviderDescriptor {
+        return {
+          id: 'gated-brain',
+          kind: 'model_provider',
+          displayName: 'Gated Brain',
+          accessPath: 'official_api',
+          capabilities: {
+            streaming: true,
+            fastChat: true,
+            reasoning: false,
+            coding: false,
+            toolUse: false,
+            local: false,
+            multimodal: false,
+            vision: false,
+            webResearch: false,
+            longContext: false
+          },
+          health: { status: 'healthy', checkedAt: Date.now() }
+        };
+      },
       async *chat() {
         yield { type: 'started', requestId: 'g-req', providerId: 'gated-brain', timestamp: 1000 };
         // Delta 1: Complete sentence suitable for immediate chunking

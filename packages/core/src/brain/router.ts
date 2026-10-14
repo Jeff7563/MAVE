@@ -5,6 +5,7 @@ import type {
   ModelCatalogSnapshot,
   ModelDescriptor,
   ProviderHealth,
+  ProviderKind,
   RouteReason
 } from '@mave/contracts';
 import {
@@ -21,6 +22,7 @@ import {
   type BrainProfileResolution,
   type BrainRouteDecision,
   type BrainRouteRequest,
+  type BrainRoutingDiagnostics,
   type BrainRoutingErrorCode,
   type RouteTelemetry
 } from './types.js';
@@ -54,6 +56,46 @@ interface EligibleCandidate {
   routeReason: RouteReason;
   fallbackUsed: boolean;
   initialLifecycleToken?: string;
+}
+
+async function raceWithDeadlineAndSignal<T>(
+  promise: Promise<T>,
+  remainingMs: number,
+  signal: AbortSignal | undefined,
+  onTimeout: () => BrainRoutingError,
+  onAbort: () => BrainRoutingError
+): Promise<T> {
+  if (signal?.aborted) {
+    throw onAbort();
+  }
+  if (remainingMs <= 0) {
+    throw onTimeout();
+  }
+
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let abortListener: (() => void) | undefined;
+
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(onTimeout()), remainingMs);
+      }),
+      new Promise<never>((_, reject) => {
+        if (signal) {
+          abortListener = () => reject(onAbort());
+          signal.addEventListener('abort', abortListener, { once: true });
+        }
+      })
+    ]);
+  } finally {
+    if (timer !== undefined) {
+      clearTimeout(timer);
+    }
+    if (signal && abortListener) {
+      signal.removeEventListener('abort', abortListener);
+    }
+  }
 }
 
 export class BrainRouter {
@@ -131,17 +173,17 @@ export class BrainRouter {
   }
 
   /**
-   * Detects whether a provider is an Agent Runtime provider rather than a direct Model Provider.
+   * Resolves the canonical ProviderKind for a given provider.
    */
-  private isAgentRuntime(providerId: string): boolean {
-    if (providerId === 'antigravity') return true;
+  private getProviderKind(providerId: string): ProviderKind {
     try {
       const meta = this.registry.getProviderMetadata(providerId);
-      if (meta?.kind === 'agent_runtime_provider') return true;
+      if (meta?.kind) return meta.kind;
     } catch {
       // not probed or metadata missing
     }
-    return false;
+    if (providerId === 'antigravity') return 'agent_runtime_provider';
+    return 'model_provider';
   }
 
   private buildDecision(
@@ -161,7 +203,10 @@ export class BrainRouter {
       fallbackUsed: candidate.fallbackUsed,
       attemptedProviderIds: [...attemptedProviderIds],
       attemptedModelIds: [...attemptedModelIds],
-      routeAttempts: 1,
+      routeAttempts: 0
+    };
+
+    const diagnostics: BrainRoutingDiagnostics = {
       routingTimeMs: Math.max(0, Date.now() - startTime),
       providersEvaluated,
       modelsEvaluated
@@ -178,8 +223,9 @@ export class BrainRouter {
       fallbackUsed: candidate.fallbackUsed,
       attemptedProviderIds: [...attemptedProviderIds],
       attemptedModelIds: [...attemptedModelIds],
-      routeAttempts: 1,
-      telemetry
+      routeAttempts: 0,
+      telemetry,
+      diagnostics
     };
   }
 
@@ -288,9 +334,10 @@ export class BrainRouter {
       rawCandidateIds.push(defaultId);
     }
 
-    if (allowFallback) {
-      const configuredFallbacks =
-        request.fallbackChain ?? resolution?.fallbackChain ?? this.fallbackChain;
+    const configuredFallbacks =
+      request.fallbackChain ?? resolution?.fallbackChain ?? this.fallbackChain;
+
+    if (allowFallback || rawCandidateIds.length === 0) {
       if (configuredFallbacks) {
         for (const fb of configuredFallbacks) {
           if (typeof fb === 'string' && fb.trim()) {
@@ -342,6 +389,8 @@ export class BrainRouter {
 
     let firstDegradedCandidate: EligibleCandidate | null = null;
 
+    const deadline = startTime + routingTimeoutMs;
+
     // 7. Iterate through candidate providers
     for (const id of candidateIds) {
       if (signal?.aborted) {
@@ -353,7 +402,7 @@ export class BrainRouter {
         );
       }
 
-      if (Date.now() - startTime >= routingTimeoutMs) {
+      if (Date.now() >= deadline) {
         throw new BrainRoutingError(
           'routing_timeout',
           `Routing budget exceeded (${routingTimeoutMs}ms)`,
@@ -386,17 +435,43 @@ export class BrainRouter {
 
       allRegisteredFailedCapabilities = false;
 
-      const isCatalog = isModelCatalogProvider(provider);
-      const isAgent = this.isAgentRuntime(id);
+      const providerKind = this.getProviderKind(id);
 
-      // Profile compatibility check
-      if ((profileId === 'fast_conversation' || profileId === 'deep_reasoning') && isAgent && !isExplicitPreferred) {
-        // Agent runtime without direct model catalog cannot be a silent fallback for fast_conversation or deep_reasoning
+      // Guard 1: Knowledge provider must never be final brain route
+      if (providerKind === 'knowledge_provider') {
         continue;
       }
 
-      if (profileId === 'agent_work' && isCatalog && !isExplicitPreferred && !capabilities.coding) {
-        // Direct model provider without coding capability cannot be a silent fallback for agent_work
+      // Guard 2: Provider-kind profile boundaries
+      if (
+        (profileId === 'fast_conversation' ||
+          profileId === 'deep_reasoning' ||
+          profileId === 'local_offline' ||
+          profileId === 'research') &&
+        providerKind !== 'model_provider'
+      ) {
+        continue;
+      }
+
+      if (profileId === 'agent_work' && providerKind !== 'agent_runtime_provider') {
+        // Direct model provider (even with coding: true) cannot satisfy agent_work
+        continue;
+      }
+
+      // If no profile requested, agent runtime can only be routed if explicitly preferred or default
+      if (
+        !profileId &&
+        providerKind === 'agent_runtime_provider' &&
+        !isExplicitPreferred &&
+        id !== defaultId
+      ) {
+        continue;
+      }
+
+      // Guard 3: Direct model provider must implement ModelCatalogProvider
+      const isCatalog = isModelCatalogProvider(provider);
+      if (providerKind === 'model_provider' && !isCatalog) {
+        // A model_provider without ModelCatalogProvider cannot be routed
         continue;
       }
 
@@ -406,13 +481,43 @@ export class BrainRouter {
         continue;
       }
 
-      // Health resolution
+      // Health resolution with deadline race
       let health = this.registry.getHealth(id);
       if (!health) {
         providersContacted++;
+        const remainingMs = Math.max(0, deadline - Date.now());
+        if (remainingMs <= 0) {
+          throw new BrainRoutingError(
+            'routing_timeout',
+            `Routing budget exceeded (${routingTimeoutMs}ms)`,
+            attemptedProviderIds,
+            attemptedModelIds
+          );
+        }
         try {
-          health = await this.registry.health(id);
-        } catch {
+          health = await raceWithDeadlineAndSignal(
+            this.registry.health(id),
+            remainingMs,
+            signal,
+            () =>
+              new BrainRoutingError(
+                'routing_timeout',
+                `Routing budget exceeded (${routingTimeoutMs}ms)`,
+                attemptedProviderIds,
+                attemptedModelIds
+              ),
+            () =>
+              new BrainRoutingError(
+                'cancelled',
+                'Routing was cancelled by user',
+                attemptedProviderIds,
+                attemptedModelIds
+              )
+          );
+        } catch (err) {
+          if (err instanceof BrainRoutingError) {
+            throw err;
+          }
           if (maxProviderBudget !== undefined && providersContacted >= maxProviderBudget) {
             break;
           }
@@ -444,11 +549,42 @@ export class BrainRouter {
       let selectedModelId: string | undefined;
 
       if (isCatalog) {
+        const remainingMs = Math.max(0, deadline - Date.now());
+        if (remainingMs <= 0) {
+          throw new BrainRoutingError(
+            'routing_timeout',
+            `Routing budget exceeded (${routingTimeoutMs}ms)`,
+            attemptedProviderIds,
+            attemptedModelIds
+          );
+        }
+
         let catalogSnapshot: ModelCatalogSnapshot;
         try {
-          catalogSnapshot = await this.catalogRuntime.getCatalog(id);
+          catalogSnapshot = await raceWithDeadlineAndSignal(
+            this.catalogRuntime.getCatalog(id),
+            remainingMs,
+            signal,
+            () =>
+              new BrainRoutingError(
+                'routing_timeout',
+                `Routing budget exceeded (${routingTimeoutMs}ms)`,
+                attemptedProviderIds,
+                attemptedModelIds
+              ),
+            () =>
+              new BrainRoutingError(
+                'cancelled',
+                'Routing was cancelled by user',
+                attemptedProviderIds,
+                attemptedModelIds
+              )
+          );
           totalModelsEvaluated += catalogSnapshot.models.length;
         } catch (err) {
+          if (err instanceof BrainRoutingError) {
+            throw err;
+          }
           if (
             err instanceof ModelCatalogError &&
             (err.code === 'provider_not_found' || err.message.includes('unregistered'))
@@ -488,7 +624,7 @@ export class BrainRouter {
           allowFallback
         });
 
-        if (!modelSelection.success) {
+        if (!modelSelection.success || !modelSelection.selectedModel || !modelSelection.modelId) {
           if (effectiveLocalOnly && modelSelection.reason?.includes('local_only')) {
             hasLocalOnlyMismatch = true;
           }
@@ -500,9 +636,17 @@ export class BrainRouter {
         if (selectedModelId) {
           attemptedModelIds.push(selectedModelId);
         }
-      } else if (preferredModel) {
-        // Preferred model was specified, but this candidate provider does not support model catalogs
-        continue;
+      } else {
+        // Not a catalog provider.
+        // Direct model provider must have been rejected earlier (if providerKind === 'model_provider' && !isCatalog).
+        // Only agent_runtime_provider reaches here.
+        if (providerKind !== 'agent_runtime_provider') {
+          continue;
+        }
+        if (preferredModel) {
+          // Preferred model was specified, but this candidate provider does not support model catalogs
+          continue;
+        }
       }
 
       const isPrimary = (id === primaryCandidateId);
@@ -549,7 +693,7 @@ export class BrainRouter {
         initialLifecycleToken
       };
 
-      if (Date.now() - startTime >= routingTimeoutMs) {
+      if (Date.now() >= deadline) {
         throw new BrainRoutingError(
           'routing_timeout',
           `Routing budget exceeded (${routingTimeoutMs}ms)`,
@@ -585,7 +729,7 @@ export class BrainRouter {
       }
     }
 
-    if (Date.now() - startTime >= routingTimeoutMs) {
+    if (Date.now() >= deadline) {
       throw new BrainRoutingError(
         'routing_timeout',
         `Routing budget exceeded (${routingTimeoutMs}ms)`,

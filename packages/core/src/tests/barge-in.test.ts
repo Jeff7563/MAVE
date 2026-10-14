@@ -14,7 +14,7 @@ import { ConversationRuntime } from '../conversation/index.js';
 import {
   MockAudioInputProvider,
   MockAudioOutput,
-  MockBrainProvider,
+  MockModelCatalogProvider,
   MockSTTProvider,
   MockTTSProvider,
   createPCMFixtureFrames,
@@ -42,7 +42,7 @@ function createBargeInHarness(overrides?: TestHarnessOptions) {
     partials: ['H', 'Hello', 'Hello MAVE'],
     ...overrides?.sttOptions
   });
-  const brainProvider = new MockBrainProvider({
+  const brainProvider = new MockModelCatalogProvider({
     chunks: ['First sentence here.', ' Second sentence following.'],
     delayMs: 0,
     ...overrides?.brainOptions

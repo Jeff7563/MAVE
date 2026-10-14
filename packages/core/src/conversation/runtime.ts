@@ -535,19 +535,17 @@ export class ConversationRuntime {
         }
       }
 
-      // 12. Construct canonical BrainRequest
+      // 12. Construct canonical BrainRequest preserving caller provenance
       const brainRequest: BrainRequest = {
         requestId,
         sessionId,
         intent: 'conversation',
         messages: contextBundle.messages,
-        context: contextBundle.context,
-        overrides: {
-          profileId: routeDecision.profileId,
-          preferredProviderId: routeDecision.providerId,
-          preferredModelId: routeDecision.modelId,
-          localOnly: request.localOnly === true || request.overrides?.localOnly === true
+        context: {
+          ...contextBundle.context,
+          selectedModelId: routeDecision.modelId
         },
+        overrides: request.overrides,
         localOnly: request.localOnly
       };
 

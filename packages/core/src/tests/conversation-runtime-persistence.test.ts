@@ -5,6 +5,9 @@ import type {
   BrainRequest,
   BrainRequestOptions,
   ConversationTurn,
+  ModelCatalogProvider,
+  ModelCatalogSnapshot,
+  ProviderDescriptor,
   Session
 } from '@mave/contracts';
 import { ConversationRuntime } from '../conversation/runtime.js';
@@ -15,7 +18,7 @@ import { BrainProviderRegistry } from '../brain/provider-registry.js';
 import { InMemoryConversationStore } from '../conversation/in-memory-store.js';
 import { ConversationRuntimeError } from '../conversation/runtime-types.js';
 
-class MockStreamProvider implements BrainProvider {
+class MockStreamProvider implements BrainProvider, ModelCatalogProvider {
   readonly id: string;
   private readonly chunks: string[];
   public lastRequest?: BrainRequest;
@@ -44,6 +47,39 @@ class MockStreamProvider implements BrainProvider {
     return { status: 'healthy' as const, checkedAt: Date.now() };
   }
 
+  async getCatalog(): Promise<ModelCatalogSnapshot> {
+    return {
+      providerId: this.id,
+      models: [
+        {
+          id: `${this.id}-default`,
+          providerId: this.id,
+          displayName: `${this.id}-default`,
+          status: 'available',
+          latencyClass: 'interactive',
+          qualityClass: 'fast',
+          costClass: 'low',
+          contextClass: 'standard',
+          contextWindowTokens: 8192,
+          privacyClass: 'standard_cloud',
+          capabilities: this.getCapabilities()
+        }
+      ],
+      refreshedAt: Date.now()
+    };
+  }
+
+  getDescriptor(): ProviderDescriptor {
+    return {
+      id: this.id,
+      kind: 'model_provider',
+      displayName: this.id,
+      accessPath: 'official_api',
+      capabilities: this.getCapabilities(),
+      health: { status: 'healthy', checkedAt: Date.now() }
+    };
+  }
+
   async *chat(
     request: BrainRequest,
     options?: BrainRequestOptions
@@ -67,7 +103,7 @@ class MockStreamProvider implements BrainProvider {
   }
 }
 
-class FailingStreamProvider implements BrainProvider {
+class FailingStreamProvider implements BrainProvider, ModelCatalogProvider {
   readonly id = 'failing-provider';
 
   getCapabilities() {
@@ -87,6 +123,39 @@ class FailingStreamProvider implements BrainProvider {
 
   async health() {
     return { status: 'healthy' as const, checkedAt: Date.now() };
+  }
+
+  async getCatalog(): Promise<ModelCatalogSnapshot> {
+    return {
+      providerId: this.id,
+      models: [
+        {
+          id: `${this.id}-default`,
+          providerId: this.id,
+          displayName: `${this.id}-default`,
+          status: 'available',
+          latencyClass: 'interactive',
+          qualityClass: 'fast',
+          costClass: 'low',
+          contextClass: 'standard',
+          contextWindowTokens: 8192,
+          privacyClass: 'standard_cloud',
+          capabilities: this.getCapabilities()
+        }
+      ],
+      refreshedAt: Date.now()
+    };
+  }
+
+  getDescriptor(): ProviderDescriptor {
+    return {
+      id: this.id,
+      kind: 'model_provider',
+      displayName: this.id,
+      accessPath: 'official_api',
+      capabilities: this.getCapabilities(),
+      health: { status: 'healthy', checkedAt: Date.now() }
+    };
   }
 
   async *chat(request: BrainRequest): AsyncIterable<BrainEvent> {
@@ -218,12 +287,43 @@ describe('ConversationRuntime + Persistence Integration', () => {
     const abortController = new AbortController();
 
     // Provider that yields one delta then waits or cancels
-    class CancellableProvider implements BrainProvider {
+    class CancellableProvider implements BrainProvider, ModelCatalogProvider {
       readonly id = 'cancellable';
       getCapabilities() {
         return { streaming: true, fastChat: true, reasoning: false, coding: false, toolUse: false, multimodal: false, vision: false, webResearch: false, longContext: false, local: false };
       }
       async health() { return { status: 'healthy' as const, checkedAt: 0 }; }
+      async getCatalog(): Promise<ModelCatalogSnapshot> {
+        return {
+          providerId: this.id,
+          models: [
+            {
+              id: `${this.id}-default`,
+              providerId: this.id,
+              displayName: `${this.id}-default`,
+              status: 'available',
+              latencyClass: 'interactive',
+              qualityClass: 'fast',
+              costClass: 'low',
+              contextClass: 'standard',
+              contextWindowTokens: 8192,
+              privacyClass: 'standard_cloud',
+              capabilities: this.getCapabilities()
+            }
+          ],
+          refreshedAt: Date.now()
+        };
+      }
+      getDescriptor(): ProviderDescriptor {
+        return {
+          id: this.id,
+          kind: 'model_provider',
+          displayName: this.id,
+          accessPath: 'official_api',
+          capabilities: this.getCapabilities(),
+          health: { status: 'healthy', checkedAt: Date.now() }
+        };
+      }
       async *chat(_req: BrainRequest): AsyncIterable<BrainEvent> {
         yield { type: 'started', requestId: _req.requestId, providerId: this.id };
         yield { type: 'delta', requestId: _req.requestId, text: 'Partial text before cancel' };

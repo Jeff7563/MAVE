@@ -10,6 +10,9 @@ import type {
   ProviderHealthStatus
 } from '@mave/contracts';
 import {
+  RouteTelemetrySchema
+} from '@mave/contracts';
+import {
   BrainProviderRegistry,
   BrainRouter,
   BrainRegistryError,
@@ -23,52 +26,8 @@ interface StubProviderOptions {
   healthMessage?: string;
   onChatCalled?: () => void;
   throwOnHealth?: boolean;
-}
-
-function createStubProvider(options: StubProviderOptions): BrainProvider & { getChatCallCount: () => number } {
-  let chatCallCount = 0;
-  const initialCapabilities: BrainCapabilities = {
-    streaming: true,
-    fastChat: false,
-    reasoning: false,
-    coding: false,
-    toolUse: false,
-    multimodal: false,
-    vision: false,
-    webResearch: false,
-    longContext: false,
-    local: false,
-    ...options.capabilities
-  };
-
-  return {
-    id: options.id,
-    getCapabilities(): BrainCapabilities {
-      return { ...initialCapabilities };
-    },
-    async health(): Promise<ProviderHealth> {
-      if (options.throwOnHealth) {
-        throw new Error(`Health check simulation error for ${options.id}`);
-      }
-      return {
-        status: options.healthStatus ?? 'healthy',
-        message: options.healthMessage,
-        checkedAt: Date.now()
-      };
-    },
-    async *chat() {
-      chatCallCount++;
-      options.onChatCalled?.();
-      yield {
-        type: 'started' as const,
-        requestId: 'stub-request',
-        providerId: options.id
-      };
-    },
-    getChatCallCount(): number {
-      return chatCallCount;
-    }
-  };
+  omitCatalog?: boolean;
+  models?: ModelDescriptor[];
 }
 
 function createCatalog(providerId: string, models: ModelDescriptor[]): ModelCatalogSnapshot {
@@ -112,6 +71,85 @@ function createModel(
     ...overrides,
     id: overrides.id,
     capabilities: caps
+  };
+}
+
+function createStubProvider(options: StubProviderOptions): BrainProvider & {
+  getChatCallCount: () => number;
+  getCatalog?: () => Promise<ModelCatalogSnapshot>;
+  getDescriptor?: () => ProviderDescriptor;
+} {
+  let chatCallCount = 0;
+  const initialCapabilities: BrainCapabilities = {
+    streaming: true,
+    fastChat: true,
+    reasoning: false,
+    coding: false,
+    toolUse: false,
+    multimodal: false,
+    vision: false,
+    webResearch: false,
+    longContext: false,
+    local: false,
+    ...options.capabilities
+  };
+
+  const base = {
+    id: options.id,
+    getCapabilities(): BrainCapabilities {
+      return { ...initialCapabilities };
+    },
+    async health(): Promise<ProviderHealth> {
+      if (options.throwOnHealth) {
+        throw new Error(`Health check simulation error for ${options.id}`);
+      }
+      return {
+        status: options.healthStatus ?? 'healthy',
+        message: options.healthMessage,
+        checkedAt: Date.now()
+      };
+    },
+    async *chat() {
+      chatCallCount++;
+      options.onChatCalled?.();
+      yield {
+        type: 'started' as const,
+        requestId: 'stub-request',
+        providerId: options.id
+      };
+    },
+    getChatCallCount(): number {
+      return chatCallCount;
+    }
+  };
+
+  if (options.omitCatalog) {
+    return base;
+  }
+
+  const models = options.models ?? [
+    createModel({
+      id: `${options.id}-default`,
+      providerId: options.id,
+      capabilities: { ...initialCapabilities }
+    })
+  ];
+
+  return {
+    ...base,
+    async getCatalog(): Promise<ModelCatalogSnapshot> {
+      return createCatalog(options.id, models);
+    },
+    getDescriptor(): ProviderDescriptor {
+      return {
+        id: options.id,
+        kind: 'model_provider',
+        displayName: options.id,
+        accessPath: 'official_api',
+        capabilities: { ...initialCapabilities },
+        health: { status: options.healthStatus ?? 'healthy', checkedAt: Date.now() }
+      };
+    }
   };
 }
 
@@ -174,6 +212,7 @@ function createStubAgentProvider(options?: {
 }): BrainProvider & { getChatCallCount: () => number } {
   return createStubProvider({
     id: options?.id ?? 'antigravity',
+    omitCatalog: true,
     capabilities: {
       streaming: true,
       coding: true,
@@ -501,25 +540,11 @@ describe('BrainRouter', () => {
   it('10. deduplicates candidate IDs and attempts each candidate only once', async () => {
     const registry = new BrainProviderRegistry();
     let healthCallCount = 0;
-    const provider: BrainProvider = {
-      id: 'mock-single',
-      getCapabilities: () => ({
-        streaming: true,
-        fastChat: true,
-        reasoning: false,
-        coding: false,
-        toolUse: false,
-        multimodal: false,
-        vision: false,
-        webResearch: false,
-        longContext: false,
-        local: false
-      }),
-      async health() {
-        healthCallCount++;
-        return { status: 'healthy', checkedAt: Date.now() };
-      },
-      async *chat() {}
+    const provider = createStubProvider({ id: 'mock-single' });
+    const originalHealth = provider.health.bind(provider);
+    provider.health = async () => {
+      healthCallCount++;
+      return originalHealth();
     };
     registry.register(provider);
 
@@ -756,9 +781,9 @@ describe('BrainRouter', () => {
       expect(decision.model?.id).toBe('fast-model');
       expect(decision.fallbackUsed).toBe(false);
       expect(decision.routeReason).toBe('primary_default');
-      expect(decision.telemetry?.routeAttempts).toBe(1);
-      expect(decision.telemetry?.providersEvaluated).toBe(1);
-      expect(decision.telemetry?.modelsEvaluated).toBe(1);
+      expect(decision.telemetry?.routeAttempts).toBe(0);
+      expect(decision.diagnostics?.providersEvaluated).toBe(1);
+      expect(decision.diagnostics?.modelsEvaluated).toBe(1);
     });
 
     it('2. healthy provider + no eligible model in catalog falls back to next provider', async () => {
@@ -978,24 +1003,24 @@ describe('BrainRouter', () => {
       expect(decision.fallbackUsed).toBe(true);
     });
 
-    it('9. direct provider without ModelCatalogProvider routes cleanly for backward compatibility', async () => {
+    it('9. direct model_provider without ModelCatalogProvider fails closed (no model-less route)', async () => {
       const registry = new BrainProviderRegistry();
       const legacyProvider = createStubProvider({
         id: 'legacy-p',
+        omitCatalog: true,
         healthStatus: 'healthy',
         capabilities: { streaming: true, fastChat: true }
       });
-      registry.register(legacyProvider);
+      registry.register(legacyProvider, { kind: 'model_provider' });
 
       const router = new BrainRouter({
         registry,
         defaultProvider: 'legacy-p'
       });
 
-      const decision = await router.route({ profileId: 'fast_conversation' });
-      expect(decision.providerId).toBe('legacy-p');
-      expect(decision.modelId).toBeUndefined();
-      expect(decision.model).toBeUndefined();
+      await expect(
+        router.route({ profileId: 'fast_conversation' })
+      ).rejects.toThrow(BrainRoutingError);
     });
 
     it('10. skips candidate when all models in catalog are unavailable or deprecated', async () => {
@@ -1418,7 +1443,7 @@ describe('BrainRouter', () => {
       }
     });
 
-    it('27. route telemetry is populated with timing and counts without leaking secrets', async () => {
+    it('27. route telemetry is populated with canonical fields and separate diagnostics', async () => {
       const registry = new BrainProviderRegistry();
       const p = createStubCatalogProvider({
         id: 'provider-telemetry',
@@ -1432,16 +1457,274 @@ describe('BrainRouter', () => {
       const router = new BrainRouter({ registry, defaultProvider: 'provider-telemetry' });
       const decision = await router.route({ profileId: 'fast_conversation' });
 
+      // Canonical telemetry checks
       expect(decision.telemetry).toBeDefined();
-      expect(decision.telemetry?.routingTimeMs).toBeGreaterThanOrEqual(0);
-      expect(decision.telemetry?.providersEvaluated).toBe(1);
-      expect(decision.telemetry?.modelsEvaluated).toBe(2);
-      expect(decision.telemetry?.routeAttempts).toBe(1);
-      expect(decision.telemetry?.errorType).toBeUndefined();
+      expect(decision.telemetry?.selectedProviderId).toBe('provider-telemetry');
+      expect(decision.telemetry?.selectedModelId).toBe('m1');
+      expect(decision.telemetry?.profileId).toBe('fast_conversation');
+      expect(decision.telemetry?.fallbackUsed).toBe(false);
+      expect(decision.telemetry?.attemptedProviderIds).toEqual(['provider-telemetry']);
+      expect(decision.telemetry?.attemptedModelIds).toEqual(['m1']);
+      // Pre-execution routing evaluation: 0 actual invocations
+      expect(decision.telemetry?.routeAttempts).toBe(0);
+      expect(decision.routeAttempts).toBe(0);
+
+      // Validate that canonical telemetry strictly conforms to RouteTelemetrySchema (no extra properties)
+      const parseResult = RouteTelemetrySchema.safeParse(decision.telemetry);
+      expect(parseResult.success).toBe(true);
+
+      // Separate internal diagnostics
+      expect(decision.diagnostics).toBeDefined();
+      expect(decision.diagnostics?.routingTimeMs).toBeGreaterThanOrEqual(0);
+      expect(decision.diagnostics?.providersEvaluated).toBe(1);
+      expect(decision.diagnostics?.modelsEvaluated).toBe(2);
 
       const jsonStr = JSON.stringify(decision);
       expect(jsonStr).not.toContain('api_key');
       expect(jsonStr).not.toContain('secret');
+    });
+
+    it('28. direct model provider without ModelCatalogProvider fails closed (no model-less direct route)', async () => {
+      const registry = new BrainProviderRegistry();
+      // Registered with kind: model_provider, but omitCatalog: true
+      const rawP = createStubProvider({
+        id: 'model-raw',
+        omitCatalog: true,
+        healthStatus: 'healthy'
+      });
+      registry.register(rawP, { kind: 'model_provider' });
+
+      const router = new BrainRouter({ registry, defaultProvider: 'model-raw' });
+
+      // Cannot be routed because model_provider MUST implement ModelCatalogProvider
+      await expect(router.route()).rejects.toThrow(BrainRoutingError);
+    });
+
+    it('29. direct model route ALWAYS contains model and modelId', async () => {
+      const registry = new BrainProviderRegistry();
+      const p = createStubCatalogProvider({
+        id: 'direct-p',
+        models: [createModel({ id: 'model-exact' })]
+      });
+      registry.register(p);
+
+      const router = new BrainRouter({ registry, defaultProvider: 'direct-p' });
+      const decision = await router.route({ profileId: 'fast_conversation' });
+
+      expect(decision.providerId).toBe('direct-p');
+      expect(decision.model).toBeDefined();
+      expect(decision.model?.id).toBe('model-exact');
+      expect(decision.modelId).toBe('model-exact');
+    });
+
+    it('30. agent runtime provider is model-less (modelId = undefined, no fake descriptor)', async () => {
+      const registry = new BrainProviderRegistry();
+      const agent = createStubAgentProvider({ id: 'antigravity' });
+      registry.register(agent, { kind: 'agent_runtime_provider' });
+
+      const router = new BrainRouter({ registry, defaultProvider: 'antigravity' });
+      const decision = await router.route({ profileId: 'agent_work' });
+
+      expect(decision.providerId).toBe('antigravity');
+      expect(decision.model).toBeUndefined();
+      expect(decision.modelId).toBeUndefined();
+    });
+
+    it('31. knowledge provider is NEVER returned as final Brain provider', async () => {
+      const registry = new BrainProviderRegistry();
+      const kp = createStubProvider({
+        id: 'knowledge-source',
+        capabilities: { streaming: true, fastChat: true, webResearch: true }
+      });
+      // Register with kind: knowledge_provider
+      registry.register(kp, { kind: 'knowledge_provider' });
+
+      const router = new BrainRouter({ registry, defaultProvider: 'knowledge-source' });
+
+      await expect(router.route()).rejects.toThrow(BrainRoutingError);
+      try {
+        await router.route();
+      } catch (err) {
+        expect(err).toBeInstanceOf(BrainRoutingError);
+      }
+    });
+
+    it('32. agent_work selects agent_runtime_provider over model_provider with coding: true', async () => {
+      const registry = new BrainProviderRegistry();
+      // Model provider with coding: true
+      const modelCoding = createStubCatalogProvider({
+        id: 'model-coder',
+        capabilities: { coding: true, streaming: true, fastChat: true },
+        models: [createModel({ id: 'code-model', capabilities: { coding: true } })]
+      });
+      // Agent runtime provider with coding: true
+      const agentProv = createStubAgentProvider({
+        id: 'agent-coder',
+        capabilities: { coding: true }
+      });
+
+      registry.register(modelCoding, { kind: 'model_provider' });
+      registry.register(agentProv, { kind: 'agent_runtime_provider' });
+
+      const router = new BrainRouter({
+        registry,
+        fallbackChain: ['model-coder', 'agent-coder']
+      });
+
+      const decision = await router.route({ profileId: 'agent_work' });
+      // MUST select agent-coder, NOT model-coder
+      expect(decision.providerId).toBe('agent-coder');
+      expect(decision.modelId).toBeUndefined();
+    });
+
+    it('33. fast_conversation and deep_reasoning do NOT select agent_runtime_provider', async () => {
+      const registry = new BrainProviderRegistry();
+      const agent = createStubAgentProvider({ id: 'antigravity' });
+      registry.register(agent, { kind: 'agent_runtime_provider' });
+
+      const router = new BrainRouter({ registry, defaultProvider: 'antigravity' });
+
+      await expect(router.route({ profileId: 'fast_conversation' })).rejects.toThrow(BrainRoutingError);
+      await expect(router.route({ profileId: 'deep_reasoning' })).rejects.toThrow(BrainRoutingError);
+    });
+
+    it('34. global routing deadline races slow health probe without waiting for inner timeout', async () => {
+      const registry = new BrainProviderRegistry();
+      const slowHealthProvider = createStubCatalogProvider({
+        id: 'slow-health',
+        healthDelayMs: 200,
+        models: [createModel({ id: 'm-slow' })]
+      });
+      registry.register(slowHealthProvider);
+
+      const router = new BrainRouter({
+        registry,
+        defaultProvider: 'slow-health',
+        timeoutMs: 30
+      });
+
+      const start = Date.now();
+      try {
+        await router.route();
+        expect.unreachable('Should have timed out');
+      } catch (err) {
+        const elapsed = Date.now() - start;
+        expect(err).toBeInstanceOf(BrainRoutingError);
+        expect((err as BrainRoutingError).code).toBe('routing_timeout');
+        // Must reject near the 30ms budget, well before the 200ms healthDelayMs
+        expect(elapsed).toBeLessThan(150);
+      }
+    });
+
+    it('35. global routing deadline races slow catalog fetch without waiting for inner timeout', async () => {
+      const registry = new BrainProviderRegistry();
+      const slowCatalogProvider = createStubCatalogProvider({
+        id: 'slow-cat',
+        catalogDelayMs: 200,
+        models: [createModel({ id: 'm-slow-cat' })]
+      });
+      registry.register(slowCatalogProvider);
+
+      const router = new BrainRouter({
+        registry,
+        defaultProvider: 'slow-cat',
+        timeoutMs: 30
+      });
+
+      const start = Date.now();
+      try {
+        await router.route();
+        expect.unreachable('Should have timed out');
+      } catch (err) {
+        const elapsed = Date.now() - start;
+        expect(err).toBeInstanceOf(BrainRoutingError);
+        expect((err as BrainRoutingError).code).toBe('routing_timeout');
+        expect(elapsed).toBeLessThan(150);
+      }
+    });
+
+    it('36. abort signal cancels pending health probe promptly and prevents fallback', async () => {
+      const registry = new BrainProviderRegistry();
+      let fallbackEvaluated = false;
+
+      const slowHealthP = createStubCatalogProvider({
+        id: 'p-hangs',
+        healthDelayMs: 150,
+        models: [createModel({ id: 'm-hangs' })]
+      });
+      const fallbackP = createStubCatalogProvider({
+        id: 'p-fallback',
+        models: [createModel({ id: 'm-fb' })]
+      });
+      const originalHealth = fallbackP.health.bind(fallbackP);
+      fallbackP.health = async () => {
+        fallbackEvaluated = true;
+        return originalHealth();
+      };
+
+      registry.register(slowHealthP);
+      registry.register(fallbackP);
+
+      const router = new BrainRouter({
+        registry,
+        defaultProvider: 'p-hangs',
+        fallbackChain: ['p-fallback'],
+        timeoutMs: 2000
+      });
+
+      const controller = new AbortController();
+      setTimeout(() => controller.abort('User cancellation'), 20);
+
+      try {
+        await router.route({ signal: controller.signal });
+        expect.unreachable('Should have been cancelled');
+      } catch (err) {
+        expect(err).toBeInstanceOf(BrainRoutingError);
+        expect((err as BrainRoutingError).code).toBe('cancelled');
+        expect(fallbackEvaluated).toBe(false);
+      }
+    });
+
+    it('37. abort signal cancels pending catalog fetch promptly and prevents fallback', async () => {
+      const registry = new BrainProviderRegistry();
+      let fallbackEvaluated = false;
+
+      const slowCatP = createStubCatalogProvider({
+        id: 'p-slow-cat',
+        catalogDelayMs: 150,
+        models: [createModel({ id: 'm-slow-cat' })]
+      });
+      const fallbackP = createStubCatalogProvider({
+        id: 'p-fallback-cat',
+        models: [createModel({ id: 'm-fb' })]
+      });
+      const originalHealth = fallbackP.health.bind(fallbackP);
+      fallbackP.health = async () => {
+        fallbackEvaluated = true;
+        return originalHealth();
+      };
+
+      registry.register(slowCatP);
+      registry.register(fallbackP);
+
+      const router = new BrainRouter({
+        registry,
+        defaultProvider: 'p-slow-cat',
+        fallbackChain: ['p-fallback-cat'],
+        timeoutMs: 2000
+      });
+
+      const controller = new AbortController();
+      setTimeout(() => controller.abort('User cancellation'), 20);
+
+      try {
+        await router.route({ signal: controller.signal });
+        expect.unreachable('Should have been cancelled');
+      } catch (err) {
+        expect(err).toBeInstanceOf(BrainRoutingError);
+        expect((err as BrainRoutingError).code).toBe('cancelled');
+        expect(fallbackEvaluated).toBe(false);
+      }
     });
   });
 });

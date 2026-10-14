@@ -6,7 +6,10 @@ import type {
   BrainProvider,
   BrainRequest,
   BrainRequestOptions,
-  ProviderHealth
+  ModelCatalogSnapshot,
+  ProviderDescriptor,
+  ProviderHealth,
+  ProviderHealthStatus
 } from '@mave/contracts';
 import { BrainProviderRegistry, BrainRouter } from '../brain/index.js';
 import {
@@ -25,6 +28,7 @@ interface TestProviderStubOptions {
   errorCode?: BrainErrorCode;
   errorMessage?: string;
   delayMs?: number;
+  healthStatus?: ProviderHealthStatus;
   onChatCalled?: (req: BrainRequest) => void;
   onCancelCalled?: (requestId: string) => void;
 }
@@ -33,6 +37,9 @@ function createStubProvider(options: TestProviderStubOptions): BrainProvider & {
   getChatCallCount: () => number;
   getLastRequest: () => BrainRequest | undefined;
   getCancelCallCount: () => number;
+  getCatalog?: () => Promise<ModelCatalogSnapshot>;
+  getDescriptor?: () => ProviderDescriptor;
+  cancel?: (requestId: string) => Promise<void>;
 } {
   let chatCount = 0;
   let cancelCount = 0;
@@ -58,7 +65,7 @@ function createStubProvider(options: TestProviderStubOptions): BrainProvider & {
       return { ...caps };
     },
     async health(): Promise<ProviderHealth> {
-      return { status: 'healthy', checkedAt: Date.now() };
+      return { status: options.healthStatus ?? 'healthy', checkedAt: Date.now() };
     },
     async *chat(request: BrainRequest, chatOptions?: BrainRequestOptions): AsyncIterable<BrainEvent> {
       chatCount++;
@@ -145,6 +152,37 @@ function createStubProvider(options: TestProviderStubOptions): BrainProvider & {
     async cancel(requestId: string): Promise<void> {
       cancelCount++;
       options.onCancelCalled?.(requestId);
+    },
+    async getCatalog(): Promise<ModelCatalogSnapshot> {
+      return {
+        providerId: options.id,
+        models: [
+          {
+            id: `${options.id}-default`,
+            providerId: options.id,
+            displayName: `${options.id}-default`,
+            status: 'available',
+            latencyClass: 'interactive',
+            qualityClass: 'fast',
+            costClass: 'low',
+            contextClass: 'standard',
+            contextWindowTokens: 8192,
+            privacyClass: 'standard_cloud',
+            capabilities: { ...caps }
+          }
+        ],
+        refreshedAt: Date.now()
+      };
+    },
+    getDescriptor(): ProviderDescriptor {
+      return {
+        id: options.id,
+        kind: 'model_provider',
+        displayName: options.id,
+        accessPath: 'official_api',
+        capabilities: { ...caps },
+        health: { status: 'healthy', checkedAt: Date.now() }
+      };
     },
     getChatCallCount: () => chatCount,
     getLastRequest: () => lastRequest,
@@ -786,5 +824,54 @@ describe('ConversationRuntime — Concurrency', () => {
     await expect(async () => {
       for await (const _ of runtime.send({ requestId: '   ', message: 'Hello' })) {}
     }).rejects.toThrow(ConversationRuntimeError);
+  });
+
+  it('6. preserves caller overrides provenance and does not overwrite request.overrides with router decisions', async () => {
+    const { runtime, stubProvider } = setupTestEnvironment();
+
+    // Scenario A: Caller passes no overrides
+    const reqA = { message: 'Hello without overrides' };
+    for await (const _ of runtime.send(reqA)) {}
+
+    const lastReqA = stubProvider.getLastRequest();
+    expect(lastReqA).toBeDefined();
+    // Overrides passed to provider must reflect caller's original input, NOT synthesized router decisions
+    expect(lastReqA!.overrides).toBeUndefined();
+    // Execution context carries selected model ID
+    expect(lastReqA!.context?.selectedModelId).toBe('mock-primary-default');
+
+    // Scenario B: Caller specified explicit preferred provider X, but fallback was used
+    const sessionManager = new SessionManager();
+    const contextManager = new ContextManager();
+    const registry = new BrainProviderRegistry();
+
+    const healthyFallback = createStubProvider({
+      id: 'healthy-fallback',
+      healthStatus: 'healthy'
+    });
+    registry.register(healthyFallback);
+
+    const router = new BrainRouter({
+      registry,
+      defaultProvider: 'healthy-fallback',
+      fallbackChain: ['healthy-fallback']
+    });
+    const multiRuntime = new ConversationRuntime({ sessionManager, contextManager, router });
+
+    // User explicitly preferred 'unregistered-prov', but allowed fallback
+    const reqB = {
+      message: 'Hello with override',
+      overrides: {
+        localOnly: false,
+        preferredProviderId: 'unregistered-prov'
+      }
+    };
+    // BrainRouter with allowFallback will fallback to healthy-fallback
+    for await (const _ of multiRuntime.send(reqB)) {}
+
+    const lastReqB = healthyFallback.getLastRequest();
+    expect(lastReqB).toBeDefined();
+    // Caller provenance must be preserved as 'unregistered-prov'
+    expect(lastReqB!.overrides?.preferredProviderId).toBe('unregistered-prov');
   });
 });

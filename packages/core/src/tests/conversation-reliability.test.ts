@@ -5,6 +5,8 @@ import type {
   BrainProvider,
   BrainRequest,
   BrainRequestOptions,
+  ModelCatalogSnapshot,
+  ProviderDescriptor,
   ProviderHealth
 } from '@mave/contracts';
 import { BrainProviderRegistry, BrainRouter } from '../brain/index.js';
@@ -31,6 +33,8 @@ interface TestReliabilityStubOptions {
 function createReliabilityStubProvider(options: TestReliabilityStubOptions): BrainProvider & {
   getCancelCallCount: () => number;
   getChatCallCount: () => number;
+  getCatalog?: () => Promise<ModelCatalogSnapshot>;
+  getDescriptor?: () => ProviderDescriptor;
 } {
   let cancelCount = 0;
   let chatCount = 0;
@@ -150,6 +154,37 @@ function createReliabilityStubProvider(options: TestReliabilityStubOptions): Bra
     async cancel(requestId: string): Promise<void> {
       cancelCount++;
       options.onCancelCalled?.(requestId);
+    },
+    async getCatalog(): Promise<ModelCatalogSnapshot> {
+      return {
+        providerId: options.id,
+        models: [
+          {
+            id: `${options.id}-default`,
+            providerId: options.id,
+            displayName: `${options.id}-default`,
+            status: 'available',
+            latencyClass: 'interactive',
+            qualityClass: 'fast',
+            costClass: 'low',
+            contextClass: 'standard',
+            contextWindowTokens: 8192,
+            privacyClass: 'standard_cloud',
+            capabilities: { ...caps }
+          }
+        ],
+        refreshedAt: Date.now()
+      };
+    },
+    getDescriptor(): ProviderDescriptor {
+      return {
+        id: options.id,
+        kind: 'model_provider',
+        displayName: options.id,
+        accessPath: 'official_api',
+        capabilities: { ...caps },
+        health: { status: 'healthy', checkedAt: Date.now() }
+      };
     },
     getCancelCallCount: () => cancelCount,
     getChatCallCount: () => chatCount
@@ -477,7 +512,10 @@ describe('ConversationRuntime Reliability — Terminal Event Arbitration', () =>
     const sessionManager = new SessionManager();
     const contextManager = new ContextManager();
     const registry = new BrainProviderRegistry();
-    const throwingOnAbortProvider: BrainProvider = {
+    const throwingOnAbortProvider: BrainProvider & {
+      getCatalog: () => Promise<ModelCatalogSnapshot>;
+      getDescriptor: () => ProviderDescriptor;
+    } = {
       id: 'throw-on-abort',
       getCapabilities: () => ({
         streaming: true,
@@ -492,6 +530,59 @@ describe('ConversationRuntime Reliability — Terminal Event Arbitration', () =>
         local: false
       }),
       health: async () => ({ status: 'healthy', checkedAt: Date.now() }),
+      async getCatalog(): Promise<ModelCatalogSnapshot> {
+        return {
+          providerId: 'throw-on-abort',
+          models: [
+            {
+              id: 'm1',
+              providerId: 'throw-on-abort',
+              displayName: 'm1',
+              status: 'available',
+              latencyClass: 'interactive',
+              qualityClass: 'fast',
+              costClass: 'low',
+              contextClass: 'standard',
+              contextWindowTokens: 8192,
+              privacyClass: 'standard_cloud',
+              capabilities: {
+                streaming: true,
+                fastChat: true,
+                reasoning: false,
+                coding: false,
+                toolUse: false,
+                multimodal: false,
+                vision: false,
+                webResearch: false,
+                longContext: false,
+                local: false
+              }
+            }
+          ],
+          refreshedAt: Date.now()
+        };
+      },
+      getDescriptor(): ProviderDescriptor {
+        return {
+          id: 'throw-on-abort',
+          kind: 'model_provider',
+          displayName: 'throw-on-abort',
+          accessPath: 'official_api',
+          capabilities: {
+            streaming: true,
+            fastChat: true,
+            reasoning: false,
+            coding: false,
+            toolUse: false,
+            multimodal: false,
+            vision: false,
+            webResearch: false,
+            longContext: false,
+            local: false
+          },
+          health: { status: 'healthy', checkedAt: Date.now() }
+        };
+      },
       async *chat(_req, opts) {
         yield { type: 'started', requestId: _req.requestId, providerId: 'throw-on-abort', timestamp: Date.now() };
         await new Promise((r) => setTimeout(r, 60));

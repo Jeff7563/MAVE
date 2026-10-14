@@ -24,7 +24,7 @@ import {
 } from '@mave/core';
 import type { MaveDatabase } from '@mave/database';
 import { SQLiteConversationStore } from '@mave/database';
-import { MockBrainProvider, AntigravityBrainProvider } from '@mave/providers';
+import { MockBrainProvider, MockModelCatalogProvider, AntigravityBrainProvider } from '@mave/providers';
 import { createLogger } from '@mave/shared';
 
 const logger = createLogger({ name: 'mave:conversation-manager' });
@@ -117,7 +117,7 @@ export class ConversationManager {
 
     // 2. Provider Registry & Brain Providers
     this.providerRegistry = options.providerRegistry ?? new BrainProviderRegistry();
-    this.mockProvider = options.mockProvider ?? new MockBrainProvider();
+    this.mockProvider = options.mockProvider ?? new MockModelCatalogProvider();
     if (!this.providerRegistry.has(this.mockProvider.id)) {
       this.providerRegistry.register(this.mockProvider);
     }

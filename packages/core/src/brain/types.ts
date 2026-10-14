@@ -10,13 +10,15 @@ import type {
   ModelDescriptor,
   ModelLatencyClass,
   RouteReason,
-  RouteTelemetry as ContractsRouteTelemetry
+  RouteTelemetry
 } from '@mave/contracts';
 
-export interface RouteTelemetry extends ContractsRouteTelemetry {
-  routingTimeMs?: number;
-  providersEvaluated?: number;
-  modelsEvaluated?: number;
+export type { RouteTelemetry };
+
+export interface BrainRoutingDiagnostics {
+  routingTimeMs: number;
+  providersEvaluated: number;
+  modelsEvaluated: number;
   errorType?: string;
   sanitizedError?: string;
 }
@@ -78,6 +80,7 @@ export interface BrainRouteDecision {
   attemptedModelIds?: string[];
   routeAttempts?: number;
   telemetry?: RouteTelemetry;
+  diagnostics?: BrainRoutingDiagnostics;
 }
 
 export type BrainRoutingErrorCode =

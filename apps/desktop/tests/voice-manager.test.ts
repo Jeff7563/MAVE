@@ -12,7 +12,7 @@ import {
   MockWakeWordProvider,
   MockAudioInputProvider,
   MockAudioOutput,
-  MockBrainProvider,
+  MockModelCatalogProvider,
   MockSTTProvider,
   MockTTSProvider
 } from '@mave/providers';
@@ -61,7 +61,7 @@ async function createHarness(options?: HarnessOptions) {
 
   const sessionManager = new SessionManager();
   const registry = new BrainProviderRegistry();
-  const brainProvider = new MockBrainProvider({
+  const brainProvider = new MockModelCatalogProvider({
     responseText: 'Hello, I am MAVE voice assistant.'
   });
   registry.register(brainProvider);
