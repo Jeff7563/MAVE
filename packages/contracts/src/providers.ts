@@ -6,6 +6,7 @@ export type {
   ModelDescriptor,
   ModelCatalogSnapshot
 } from './brain.js';
+export { isModelCatalogProvider } from './brain.js';
 
 export interface VoiceProvider {
   connect(): Promise<void>;

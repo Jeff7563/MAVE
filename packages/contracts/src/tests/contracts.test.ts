@@ -11,6 +11,9 @@ import {
   BrainRouteOverridesSchema,
   BrainTelemetrySchema,
   BrainUsageSchema,
+  CanonicalBrainErrorCodeSchema,
+  CanonicalModelPrivacyClassSchema,
+  CanonicalProviderHealthStatusSchema,
   ConversationRoleSchema,
   ConversationTurnSchema,
   ConversationTurnStatusSchema,
@@ -39,10 +42,16 @@ import {
   SessionSchema,
   SessionStatusSchema,
   StreamingChunkSchema,
+  isModelCatalogProvider,
+  normalizeBrainErrorCode,
+  normalizeModelPrivacyClass,
+  normalizeProviderHealthStatus,
+  resolveEffectiveLocalOnly,
   type BrainCapabilities,
   type BrainEvent,
   type BrainProvider,
   type BrainTelemetry,
+  type ModelCatalogProvider,
   type ModelCatalogSnapshot,
   type ModelDescriptor,
   type ProviderDescriptor
@@ -472,8 +481,8 @@ describe('Pre-M5 F1.1 Provider & Model Contracts', () => {
   });
 
   describe('Health & Availability Schemas', () => {
-    it('validates extended ProviderHealthStatus values including quota and auth states', () => {
-      const validStatuses = [
+    it('validates canonical ProviderHealthStatus values and rejects unnormalized aliases in canonical schema', () => {
+      const canonicalStatuses = [
         'healthy',
         'degraded',
         'unhealthy',
@@ -483,10 +492,22 @@ describe('Pre-M5 F1.1 Provider & Model Contracts', () => {
         'auth_error',
         'unavailable'
       ];
-      for (const s of validStatuses) {
+      for (const s of canonicalStatuses) {
+        expect(CanonicalProviderHealthStatusSchema.parse(s)).toBe(s);
         expect(ProviderHealthStatusSchema.parse(s)).toBe(s);
       }
+      expect(() => CanonicalProviderHealthStatusSchema.parse('ready')).toThrow();
+      expect(() => CanonicalProviderHealthStatusSchema.parse('error')).toThrow();
       expect(() => ProviderHealthStatusSchema.parse('dead')).toThrow();
+    });
+
+    it('normalizes legacy health statuses (ready -> healthy, error -> unhealthy)', () => {
+      expect(ProviderHealthStatusSchema.parse('ready')).toBe('healthy');
+      expect(ProviderHealthStatusSchema.parse('error')).toBe('unhealthy');
+      expect(normalizeProviderHealthStatus('ready')).toBe('healthy');
+      expect(normalizeProviderHealthStatus('error')).toBe('unhealthy');
+      expect(normalizeProviderHealthStatus('healthy')).toBe('healthy');
+      expect(normalizeProviderHealthStatus('degraded')).toBe('degraded');
     });
 
     it('validates ModelAvailabilityStatus values', () => {
@@ -538,9 +559,12 @@ describe('Pre-M5 F1.1 Provider & Model Contracts', () => {
       expect(ModelLatencyClassSchema.parse('heavy')).toBe('heavy');
       expect(() => ModelLatencyClassSchema.parse('instant')).toThrow();
 
+      // QualityClass semantic roles (fast, balanced, reasoning)
       expect(ModelQualityClassSchema.parse('fast')).toBe('fast');
       expect(ModelQualityClassSchema.parse('balanced')).toBe('balanced');
       expect(ModelQualityClassSchema.parse('reasoning')).toBe('reasoning');
+      expect(() => ModelQualityClassSchema.parse('frontier')).toThrow(); // Marketing terms rejected
+      expect(() => ModelQualityClassSchema.parse('economy')).toThrow();
 
       expect(ModelCostClassSchema.parse('free')).toBe('free');
       expect(ModelCostClassSchema.parse('low')).toBe('low');
@@ -551,9 +575,19 @@ describe('Pre-M5 F1.1 Provider & Model Contracts', () => {
       expect(ModelContextClassSchema.parse('large')).toBe('large');
       expect(ModelContextClassSchema.parse('massive')).toBe('massive');
 
-      expect(ModelPrivacyClassSchema.parse('public_cloud')).toBe('public_cloud');
+      // Canonical PrivacyClass values
+      expect(CanonicalModelPrivacyClassSchema.parse('local_only')).toBe('local_only');
+      expect(CanonicalModelPrivacyClassSchema.parse('private_cloud')).toBe('private_cloud');
+      expect(CanonicalModelPrivacyClassSchema.parse('standard_cloud')).toBe('standard_cloud');
+
+      // Normalized privacy values (with backward compatibility)
+      expect(ModelPrivacyClassSchema.parse('local_only')).toBe('local_only');
       expect(ModelPrivacyClassSchema.parse('private_cloud')).toBe('private_cloud');
-      expect(ModelPrivacyClassSchema.parse('local_airgapped')).toBe('local_airgapped');
+      expect(ModelPrivacyClassSchema.parse('standard_cloud')).toBe('standard_cloud');
+      expect(ModelPrivacyClassSchema.parse('local_airgapped')).toBe('local_only');
+      expect(ModelPrivacyClassSchema.parse('public_cloud')).toBe('standard_cloud');
+      expect(normalizeModelPrivacyClass('local_airgapped')).toBe('local_only');
+      expect(normalizeModelPrivacyClass('public_cloud')).toBe('standard_cloud');
     });
   });
 
@@ -584,14 +618,14 @@ describe('Pre-M5 F1.1 Provider & Model Contracts', () => {
         supportsThai: true,
         supportsEnglish: true
       },
-      privacyClass: 'local_airgapped'
+      privacyClass: 'local_only'
     };
 
     it('validates a well-formed ModelDescriptor', () => {
       const parsed = ModelDescriptorSchema.parse(validModel);
       expect(parsed.id).toBe('mock-interactive-model');
       expect(parsed.providerId).toBe('mock-provider');
-      expect(parsed.privacyClass).toBe('local_airgapped');
+      expect(parsed.privacyClass).toBe('local_only');
       expect(parsed.contextWindowTokens).toBe(8192);
     });
 
@@ -627,7 +661,7 @@ describe('Pre-M5 F1.1 Provider & Model Contracts', () => {
   });
 
   describe('ProviderDescriptor Schema & Validation', () => {
-    it('validates a well-formed ProviderDescriptor', () => {
+    it('validates a well-formed ProviderDescriptor with provider-level metadata only', () => {
       const descriptor: ProviderDescriptor = {
         id: 'mock-provider',
         kind: 'model_provider',
@@ -654,14 +688,18 @@ describe('Pre-M5 F1.1 Provider & Model Contracts', () => {
           latencyMs: 15,
           checkedAt: 1791850000000
         },
-        supportedModelIds: ['mock-interactive-model']
+        defaultModelId: 'mock-interactive-model',
+        documentationUrl: 'https://example.com/docs'
       };
 
       const parsed = ProviderDescriptorSchema.parse(descriptor);
       expect(parsed.id).toBe('mock-provider');
       expect(parsed.kind).toBe('model_provider');
       expect(parsed.health.status).toBe('healthy');
-      expect(parsed.supportedModelIds).toEqual(['mock-interactive-model']);
+      expect(parsed.defaultModelId).toBe('mock-interactive-model');
+      expect(parsed.documentationUrl).toBe('https://example.com/docs');
+      // Single Source of Truth: Model list is NOT maintained in ProviderDescriptor
+      expect(parsed).not.toHaveProperty('supportedModelIds');
     });
 
     it('rejects malformed ProviderDescriptor', () => {
@@ -685,7 +723,7 @@ describe('Pre-M5 F1.1 Provider & Model Contracts', () => {
       costClass: 'low',
       contextClass: 'standard',
       capabilities: BrainCapabilitiesSchema.parse({ streaming: true, fastChat: true }),
-      privacyClass: 'public_cloud'
+      privacyClass: 'standard_cloud'
     };
 
     const model2: ModelDescriptor = {
@@ -698,7 +736,7 @@ describe('Pre-M5 F1.1 Provider & Model Contracts', () => {
       costClass: 'medium',
       contextClass: 'large',
       capabilities: BrainCapabilitiesSchema.parse({ streaming: true, reasoning: true }),
-      privacyClass: 'public_cloud'
+      privacyClass: 'standard_cloud'
     };
 
     it('validates a consistent ModelCatalogSnapshot', () => {
@@ -754,6 +792,29 @@ describe('Pre-M5 F1.1 Provider & Model Contracts', () => {
         localOnly: true
       });
       expect(req.localOnly).toBe(true);
+    });
+
+    it('resolves effectiveLocalOnly with fail-closed security invariant (overrides can never cancel request.localOnly=true)', () => {
+      // 1. request: true, overrides: false -> must remain TRUE (security override cannot weaken)
+      expect(resolveEffectiveLocalOnly({ localOnly: true, overrides: { localOnly: false } })).toBe(true);
+
+      // 2. request: false, overrides: true -> becomes TRUE (override strengthens privacy)
+      expect(resolveEffectiveLocalOnly({ localOnly: false, overrides: { localOnly: true } })).toBe(true);
+
+      // 3. request: true, overrides: undefined -> TRUE
+      expect(resolveEffectiveLocalOnly({ localOnly: true })).toBe(true);
+
+      // 4. request: undefined, overrides: true -> TRUE
+      expect(resolveEffectiveLocalOnly({ overrides: { localOnly: true } })).toBe(true);
+
+      // 5. request: false, overrides: false -> FALSE
+      expect(resolveEffectiveLocalOnly({ localOnly: false, overrides: { localOnly: false } })).toBe(false);
+
+      // 6. request: undefined, overrides: false -> FALSE
+      expect(resolveEffectiveLocalOnly({ overrides: { localOnly: false } })).toBe(false);
+
+      // 7. request: undefined, overrides: undefined -> FALSE
+      expect(resolveEffectiveLocalOnly({})).toBe(false);
     });
   });
 
@@ -813,8 +874,8 @@ describe('Pre-M5 F1.1 Provider & Model Contracts', () => {
   });
 
   describe('Normalized Intelligence Error Codes', () => {
-    it('validates newly standardized Pre-M5 error codes in both lowercase and uppercase', () => {
-      const newCodes = [
+    it('validates canonical lowercase error codes and normalizes uppercase inputs', () => {
+      const canonicalCodes = [
         'fast_brain_unavailable',
         'profile_unavailable',
         'model_unavailable',
@@ -824,16 +885,25 @@ describe('Pre-M5 F1.1 Provider & Model Contracts', () => {
         'auth_required',
         'local_provider_unavailable',
         'routing_timeout',
-        'generation_cancelled',
-        'FAST_BRAIN_UNAVAILABLE',
-        'LOCAL_PROVIDER_UNAVAILABLE'
+        'generation_cancelled'
       ];
-      for (const code of newCodes) {
+      for (const code of canonicalCodes) {
+        expect(CanonicalBrainErrorCodeSchema.parse(code)).toBe(code);
         expect(BrainErrorCodeSchema.parse(code)).toBe(code);
       }
+
+      // Canonical schema strictly requires lowercase
+      expect(() => CanonicalBrainErrorCodeSchema.parse('FAST_BRAIN_UNAVAILABLE')).toThrow();
+
+      // BrainErrorCodeSchema and normalizeBrainErrorCode normalize uppercase to canonical lowercase
+      expect(BrainErrorCodeSchema.parse('FAST_BRAIN_UNAVAILABLE')).toBe('fast_brain_unavailable');
+      expect(BrainErrorCodeSchema.parse('MODEL_UNAVAILABLE')).toBe('model_unavailable');
+      expect(BrainErrorCodeSchema.parse('QUOTA_LIMITED')).toBe('quota_limited');
+      expect(normalizeBrainErrorCode('FAST_BRAIN_UNAVAILABLE')).toBe('fast_brain_unavailable');
+      expect(normalizeBrainErrorCode('LOCAL_PROVIDER_UNAVAILABLE')).toBe('local_provider_unavailable');
     });
 
-    it('validates BrainError with optional providerId and modelId metadata without secrets', () => {
+    it('validates BrainError emission always emits canonical lowercase error codes', () => {
       const err = BrainErrorSchema.parse({
         code: 'FAST_BRAIN_UNAVAILABLE',
         message: 'No healthy fast brain provider available',
@@ -841,8 +911,65 @@ describe('Pre-M5 F1.1 Provider & Model Contracts', () => {
         providerId: 'gemini-provider',
         modelId: 'flash-conversation'
       });
+      // Emitted code is normalized canonical lowercase
+      expect(err.code).toBe('fast_brain_unavailable');
       expect(err.providerId).toBe('gemini-provider');
       expect(err.modelId).toBe('flash-conversation');
+    });
+  });
+
+  describe('ModelCatalogProvider Capability Boundary', () => {
+    it('correctly identifies ModelCatalogProvider via isModelCatalogProvider type-guard', async () => {
+      const basicProvider: BrainProvider = {
+        id: 'basic-mock',
+        getCapabilities: () => BrainCapabilitiesSchema.parse({ fastChat: true }),
+        health: async () => ({ status: 'healthy', checkedAt: Date.now() }),
+        chat: async function* () {}
+      };
+
+      expect(isModelCatalogProvider(basicProvider)).toBe(false);
+
+      const catalogProvider: ModelCatalogProvider = {
+        ...basicProvider,
+        id: 'catalog-mock',
+        getCatalog: async () => ({
+          providerId: 'catalog-mock',
+          models: [],
+          refreshedAt: Date.now()
+        }),
+        getDescriptor: () => ({
+          id: 'catalog-mock',
+          kind: 'model_provider',
+          displayName: 'Catalog Mock Provider',
+          accessPath: 'official_api',
+          capabilities: BrainCapabilitiesSchema.parse({ fastChat: true }),
+          health: { status: 'healthy', checkedAt: Date.now() }
+        })
+      };
+
+      expect(isModelCatalogProvider(catalogProvider)).toBe(true);
+    });
+  });
+
+  describe('Normalized ModelId Semantics', () => {
+    it('accepts MAVE-normalized stable model catalog identifiers decoupled from vendor specifics', () => {
+      // MAVE normalized catalog identifiers
+      const maveModelIds = [
+        'openai-fast-primary',
+        'anthropic-reasoning-primary',
+        'local-llama-offline',
+        'mock-fast-v1'
+      ];
+
+      for (const id of maveModelIds) {
+        expect(ModelIdSchema.parse(id)).toBe(id);
+      }
+
+      // Concrete vendor marketing names (e.g. gpt-4o-2024-08-06) belong in provider adapter private config,
+      // not hardcoded as core types. ModelIdSchema validates trimmed non-empty identifiers.
+      expect(ModelIdSchema.parse('  openai-fast-primary  ')).toBe('openai-fast-primary');
+      expect(() => ModelIdSchema.parse('')).toThrow();
+      expect(() => ModelIdSchema.parse('   ')).toThrow();
     });
   });
 
@@ -861,7 +988,7 @@ describe('Pre-M5 F1.1 Provider & Model Contracts', () => {
             costClass: 'free',
             contextClass: 'standard',
             capabilities: BrainCapabilitiesSchema.parse({ streaming: true }),
-            privacyClass: 'local_airgapped'
+            privacyClass: 'local_only'
           }
         ],
         refreshedAt: 1791850000000
@@ -873,7 +1000,7 @@ describe('Pre-M5 F1.1 Provider & Model Contracts', () => {
 
       expect(validated.providerId).toBe('mock-provider');
       expect(validated.models[0]?.id).toBe('mock-model-json');
-      expect(validated.models[0]?.privacyClass).toBe('local_airgapped');
+      expect(validated.models[0]?.privacyClass).toBe('local_only');
     });
   });
 });

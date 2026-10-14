@@ -327,9 +327,10 @@ MAVE avoids creating a monolithic "god class" named `IntelligenceOrchestrator`. 
 Provider health and model availability are decoupled to reflect real-world AI API conditions.
 
 ```text
-Provider Health Status:
-  ├── 'healthy'        : Operational and responding to health pings
+Provider Health Status (Canonical):
+  ├── 'healthy'        : Operational and responding to health pings (accepts legacy 'ready')
   ├── 'degraded'       : Elevated latency, secondary fallback active
+  ├── 'unhealthy'      : Failing health checks or error state (accepts legacy 'error')
   ├── 'unconfigured'   : Missing credentials, binaries, or prerequisites
   ├── 'quota_limited'  : Account-level quota exhausted
   ├── 'rate_limited'   : Temporary HTTP 429 / concurrency throttle
@@ -756,17 +757,42 @@ The Pre-M5 intelligence foundation is divided into ten disciplined phases:
 2. **Provider Taxonomy:**
    - Strongly typed `ProviderKind` (`model_provider`, `agent_runtime_provider`, `knowledge_provider`). No vendor brands in taxonomy enum.
 3. **Decoupled Health & Readiness (Single Source of Truth):**
-   - Eliminated redundant `configured: boolean` in favor of canonical `ProviderHealth.status: 'unconfigured' | 'healthy' | 'degraded' | 'quota_limited' | 'rate_limited' | 'auth_error' | 'unavailable' | 'unhealthy'`.
+   - Canonical `ProviderHealth.status: 'healthy' | 'degraded' | 'unhealthy' | 'unconfigured' | 'quota_limited' | 'rate_limited' | 'auth_error' | 'unavailable'`.
+   - Legacy aliases (`ready` -> `healthy`, `error` -> `unhealthy`) are normalized automatically via `ProviderHealthStatusSchema` and `normalizeProviderHealthStatus`.
    - Decoupled `ModelAvailabilityStatus` (`available`, `quota_limited`, `rate_limited`, `deprecated`, `unavailable`).
-4. **Model Catalog Integrity:**
-   - `ModelCatalogSnapshot` validates via Zod `superRefine` that every nested `ModelDescriptor.providerId` matches the parent `snapshot.providerId`.
-5. **Additive Backward Compatibility:**
-   - Extended `BrainCapabilities` with optional `structuredOutput`, `cancellation`, `supportsThai`, `supportsEnglish` to guarantee 100% backward compatibility for all existing M2/M3/M4 providers and test fixtures.
-   - `BrainProvider.getCatalog?()` and `getDescriptor?()` are optional, with `ModelCatalogProvider` extending `BrainProvider` for catalog-capable providers.
-6. **Telemetry Separation:**
-   - Decoupled into `GenerationUsage` (tokens, cost), `GenerationTiming` (TTFT, total latency), and `RouteTelemetry` (selected provider/model, route reason, attempts, fallback flags).
-7. **Local Privacy Enforcement:**
-   - Machine-readable `localOnly: boolean` on `BrainRequest` and `BrainRouteOverrides`. Cloud models are rejected deterministically when `localOnly=true`.
+4. **ModelId Semantics (Core Decoupled from Vendor Marketing):**
+   - `ModelId` represents a **MAVE-normalized stable model identifier** (e.g. `openai-fast-primary`, `anthropic-reasoning-primary`, `local-llama-offline`, `mock-fast-v1`).
+   - Concrete vendor marketing names (e.g. `gpt-4o-2024-08-06`, `claude-3-7-sonnet-20250219`) are adapter-private configuration details, strictly forbidden from being hardcoded into `@mave/core`.
+5. **Catalog Exposure Strategy (Clean Capability Boundary):**
+   - Base `BrainProvider` remains 100% backward-compatible with M2 (`id`, `getCapabilities()`, `health()`, `chat()`, `cancel?()`).
+   - Catalog-capable providers implement the `ModelCatalogProvider` capability interface (`getCatalog()`, `getDescriptor()`).
+   - Consumers narrow capability cleanly using `isModelCatalogProvider(provider)` type-guard.
+6. **ProviderDescriptor vs ModelCatalogSnapshot (Single Source of Truth):**
+   - `ProviderDescriptor`: Exclusively provider-level metadata (`id`, `kind`, `displayName`, `accessPath`, `capabilities`, `health`, `defaultModelId?`, `documentationUrl?`). Does NOT maintain duplicate model lists.
+   - `ModelCatalogSnapshot`: Canonical single source of truth for the model inventory (`models: ModelDescriptor[]`).
+7. **Local Privacy Enforcement & Fail-Closed Invariant:**
+   - Canonical privacy constraint lives on `BrainRequest.localOnly: boolean`.
+   - `resolveEffectiveLocalOnly(request)` enforces the security invariant: routing overrides can NEVER weaken `request.localOnly === true`. If either request or override specifies `localOnly=true`, execution strictly fails closed if no qualified local model exists.
+8. **Model QualityClass Semantic Roles:**
+   - `ModelQualityClass`: `'fast' | 'balanced' | 'reasoning'`. Differentiated from `BrainProfileId`.
+   - `fast`: Ultra-low latency conversational flow.
+   - `balanced`: General-purpose interactive analysis.
+   - `reasoning`: Deep multi-factor chain-of-thought analysis.
+   - Marketing terms like `frontier` or `pro` are rejected.
+9. **Model ContextClass vs Numeric Limits:**
+   - `ModelContextClass` (`standard`, `large`, `massive`): Qualitative tier for fast router rule matching.
+   - `contextWindowTokens` & `maxOutputTokens`: Exact integer token limits for context packing, sliding window truncation, and generation budgeting.
+10. **PrivacyClass Non-Contractual Tiers:**
+    - Canonical `ModelPrivacyClass`: `'local_only' | 'private_cloud' | 'standard_cloud'`.
+    - `local_only`: On-device execution, zero external network traffic.
+    - `private_cloud`: Cloud-hosted with verified enterprise/private zero-data-retention configuration.
+    - `standard_cloud`: Standard cloud provider API with default data processing policy.
+    - Legacy aliases (`local_airgapped` -> `local_only`, `public_cloud` -> `standard_cloud`) are normalized automatically.
+11. **Intelligence Error Normalization:**
+    - Canonical emitted error codes are strictly lowercase snake_case (`fast_brain_unavailable`, `model_unavailable`, `quota_limited`, etc.).
+    - Legacy uppercase strings normalize deterministically via `BrainErrorCodeSchema` and `normalizeBrainErrorCode`.
+12. **Telemetry Separation:**
+    - Decoupled into `GenerationUsage` (tokens, cost), `GenerationTiming` (TTFT, total latency), and `RouteTelemetry` (selected provider/model, route reason, attempts, fallback flags).
 
 ---
 

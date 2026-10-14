@@ -130,7 +130,7 @@ export type ProviderAccessPath = z.infer<typeof ProviderAccessPathSchema>;
 // 4. Provider & Model Health / Availability
 // ============================================================================
 
-export const ProviderHealthStatusSchema = z.enum([
+export const CANONICAL_PROVIDER_HEALTH_STATUSES = [
   'healthy',
   'degraded',
   'unhealthy',
@@ -139,8 +139,30 @@ export const ProviderHealthStatusSchema = z.enum([
   'rate_limited',
   'auth_error',
   'unavailable'
-]);
-export type ProviderHealthStatus = z.infer<typeof ProviderHealthStatusSchema>;
+] as const;
+
+export const CanonicalProviderHealthStatusSchema = z.enum(CANONICAL_PROVIDER_HEALTH_STATUSES);
+export type CanonicalProviderHealthStatus = z.infer<typeof CanonicalProviderHealthStatusSchema>;
+
+export const LEGACY_PROVIDER_HEALTH_STATUS_ALIASES = {
+  ready: 'healthy',
+  error: 'unhealthy'
+} as const;
+
+export function normalizeProviderHealthStatus(status: string): CanonicalProviderHealthStatus {
+  if (status in LEGACY_PROVIDER_HEALTH_STATUS_ALIASES) {
+    return LEGACY_PROVIDER_HEALTH_STATUS_ALIASES[status as keyof typeof LEGACY_PROVIDER_HEALTH_STATUS_ALIASES];
+  }
+  return CanonicalProviderHealthStatusSchema.parse(status);
+}
+
+export const ProviderHealthStatusSchema = z.preprocess(
+  (val) => (typeof val === 'string' && val in LEGACY_PROVIDER_HEALTH_STATUS_ALIASES
+    ? LEGACY_PROVIDER_HEALTH_STATUS_ALIASES[val as keyof typeof LEGACY_PROVIDER_HEALTH_STATUS_ALIASES]
+    : val),
+  CanonicalProviderHealthStatusSchema
+);
+export type ProviderHealthStatus = CanonicalProviderHealthStatus;
 
 export const ProviderHealthSchema = z.object({
   status: ProviderHealthStatusSchema,
@@ -192,12 +214,34 @@ export const ModelContextClassSchema = z.enum([
 ]);
 export type ModelContextClass = z.infer<typeof ModelContextClassSchema>;
 
-export const ModelPrivacyClassSchema = z.enum([
-  'public_cloud',
+export const CANONICAL_MODEL_PRIVACY_CLASSES = [
+  'local_only',
   'private_cloud',
-  'local_airgapped'
-]);
-export type ModelPrivacyClass = z.infer<typeof ModelPrivacyClassSchema>;
+  'standard_cloud'
+] as const;
+
+export const CanonicalModelPrivacyClassSchema = z.enum(CANONICAL_MODEL_PRIVACY_CLASSES);
+export type CanonicalModelPrivacyClass = z.infer<typeof CanonicalModelPrivacyClassSchema>;
+
+export const LEGACY_MODEL_PRIVACY_CLASS_ALIASES = {
+  local_airgapped: 'local_only',
+  public_cloud: 'standard_cloud'
+} as const;
+
+export function normalizeModelPrivacyClass(privacy: string): CanonicalModelPrivacyClass {
+  if (privacy in LEGACY_MODEL_PRIVACY_CLASS_ALIASES) {
+    return LEGACY_MODEL_PRIVACY_CLASS_ALIASES[privacy as keyof typeof LEGACY_MODEL_PRIVACY_CLASS_ALIASES];
+  }
+  return CanonicalModelPrivacyClassSchema.parse(privacy);
+}
+
+export const ModelPrivacyClassSchema = z.preprocess(
+  (val) => (typeof val === 'string' && val in LEGACY_MODEL_PRIVACY_CLASS_ALIASES
+    ? LEGACY_MODEL_PRIVACY_CLASS_ALIASES[val as keyof typeof LEGACY_MODEL_PRIVACY_CLASS_ALIASES]
+    : val),
+  CanonicalModelPrivacyClassSchema
+);
+export type ModelPrivacyClass = CanonicalModelPrivacyClass;
 
 // ============================================================================
 // 6. Model & Provider Descriptors
@@ -225,7 +269,8 @@ export const ProviderDescriptorSchema = z.object({
   accessPath: ProviderAccessPathSchema,
   capabilities: BrainCapabilitiesSchema,
   health: ProviderHealthSchema,
-  supportedModelIds: z.array(ModelIdSchema).default([])
+  defaultModelId: ModelIdSchema.optional(),
+  documentationUrl: z.string().url().optional()
 });
 export type ProviderDescriptor = z.infer<typeof ProviderDescriptorSchema>;
 
@@ -310,8 +355,8 @@ export type BrainUsage = z.infer<typeof BrainUsageSchema>;
 // 8. Intelligence Error Taxonomy
 // ============================================================================
 
-export const BrainErrorCodeSchema = z.enum([
-  // M2 codes
+export const CANONICAL_BRAIN_ERROR_CODES = [
+  // M2 foundational codes
   'provider_unavailable',
   'provider_timeout',
   'provider_auth',
@@ -319,7 +364,7 @@ export const BrainErrorCodeSchema = z.enum([
   'provider_invalid_response',
   'cancelled',
   'runtime_error',
-  // Pre-M5 normalized codes (lowercase)
+  // Pre-M5 normalized codes
   'fast_brain_unavailable',
   'profile_unavailable',
   'model_unavailable',
@@ -329,20 +374,21 @@ export const BrainErrorCodeSchema = z.enum([
   'auth_required',
   'local_provider_unavailable',
   'routing_timeout',
-  'generation_cancelled',
-  // Pre-M5 normalized codes (uppercase)
-  'FAST_BRAIN_UNAVAILABLE',
-  'PROFILE_UNAVAILABLE',
-  'MODEL_UNAVAILABLE',
-  'PROVIDER_UNCONFIGURED',
-  'QUOTA_LIMITED',
-  'RATE_LIMITED',
-  'AUTH_REQUIRED',
-  'LOCAL_PROVIDER_UNAVAILABLE',
-  'ROUTING_TIMEOUT',
-  'GENERATION_CANCELLED'
-]);
-export type BrainErrorCode = z.infer<typeof BrainErrorCodeSchema>;
+  'generation_cancelled'
+] as const;
+
+export const CanonicalBrainErrorCodeSchema = z.enum(CANONICAL_BRAIN_ERROR_CODES);
+export type CanonicalBrainErrorCode = z.infer<typeof CanonicalBrainErrorCodeSchema>;
+
+export function normalizeBrainErrorCode(code: string): CanonicalBrainErrorCode {
+  return CanonicalBrainErrorCodeSchema.parse(typeof code === 'string' ? code.toLowerCase() : code);
+}
+
+export const BrainErrorCodeSchema = z.preprocess(
+  (val) => (typeof val === 'string' ? val.toLowerCase() : val),
+  CanonicalBrainErrorCodeSchema
+);
+export type BrainErrorCode = CanonicalBrainErrorCode;
 
 export const BrainErrorSchema = z.object({
   code: BrainErrorCodeSchema,
@@ -386,6 +432,16 @@ export const BrainRequestSchema = z.object({
   localOnly: z.boolean().optional()
 });
 export type BrainRequest = z.infer<typeof BrainRequestSchema>;
+
+/**
+ * Resolves the effective localOnly constraint across request and overrides.
+ * Invariant: Privacy constraint is fail-closed; overrides can NEVER weaken request.localOnly === true.
+ */
+export function resolveEffectiveLocalOnly(
+  request: { localOnly?: boolean; overrides?: { localOnly?: boolean } }
+): boolean {
+  return request.localOnly === true || request.overrides?.localOnly === true;
+}
 
 // ============================================================================
 // 10. Streaming Events & Response Contracts
@@ -465,11 +521,16 @@ export interface BrainProvider {
   health(): Promise<ProviderHealth>;
   chat(request: BrainRequest, options?: BrainRequestOptions): AsyncIterable<BrainEvent>;
   cancel?(requestId: string): Promise<void>;
-  getCatalog?(): Promise<ModelCatalogSnapshot | ModelDescriptor[]>;
-  getDescriptor?(): ProviderDescriptor;
 }
 
 export interface ModelCatalogProvider extends BrainProvider {
   getCatalog(): Promise<ModelCatalogSnapshot>;
   getDescriptor(): ProviderDescriptor;
+}
+
+export function isModelCatalogProvider(provider: BrainProvider): provider is ModelCatalogProvider {
+  return (
+    typeof (provider as ModelCatalogProvider).getCatalog === 'function' &&
+    typeof (provider as ModelCatalogProvider).getDescriptor === 'function'
+  );
 }
