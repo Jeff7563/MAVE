@@ -19,6 +19,11 @@ import {
   type AntigravityStepUpdateEvent,
   type AntigravityResultEvent
 } from './antigravity/parser.js';
+import {
+  ANTIGRAVITY_PROVIDER_ID,
+  discoverAntigravityRuntimeModels
+} from './antigravity/models.js';
+import type { RuntimeModelDescriptor } from './models/types.js';
 
 const logger = createLogger({ name: 'mave:provider:antigravity' });
 
@@ -43,7 +48,7 @@ export interface AntigravityBrainProviderOptions {
 }
 
 export class AntigravityBrainProvider implements BrainProvider {
-  readonly id = 'antigravity';
+  readonly id = ANTIGRAVITY_PROVIDER_ID;
 
   private readonly executable: string;
   private readonly cwd: string;
@@ -59,6 +64,16 @@ export class AntigravityBrainProvider implements BrainProvider {
     this.model = options.model;
     this.effort = options.effort;
     this.spawnFactory = options.spawnFactory || spawn;
+  }
+
+  /**
+   * Returns discovered or default runtime model descriptors for Antigravity.
+   */
+  async getRuntimeModels(): Promise<RuntimeModelDescriptor[]> {
+    return discoverAntigravityRuntimeModels({
+      executable: this.executable,
+      spawnFactory: this.spawnFactory
+    });
   }
 
   getCapabilities(): BrainCapabilities {
@@ -207,8 +222,12 @@ export class AntigravityBrainProvider implements BrainProvider {
       '--sandbox',
       '--disable-slash-commands'
     ];
-    if (this.model) {
-      args.push('--model', this.model);
+    const effectiveModel =
+      options?.modelId ||
+      request.overrides?.preferredModelId ||
+      this.model;
+    if (effectiveModel) {
+      args.push('--model', effectiveModel);
     }
     if (this.effort) {
       args.push('--effort', this.effort);

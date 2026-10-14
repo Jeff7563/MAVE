@@ -37,8 +37,34 @@ export {
   type ClaudeSupportedRole,
   CLAUDE_ROLE_MAPPING,
   resolveClaudeModelForRole,
-  getClaudeDefaultRuntimeModels
+  getClaudeDefaultRuntimeModels,
+  createClaudeObservedRuntimeModel
 } from './claude/models.js';
+export {
+  ANTIGRAVITY_PROVIDER_ID,
+  parseAntigravityModelsOutput,
+  getAntigravityDefaultRuntimeModels,
+  discoverAntigravityRuntimeModels,
+  getAntigravityModelRoles
+} from './antigravity/models.js';
+export {
+  CODEX_PROVIDER_ID,
+  parseCodexModelsCache,
+  getCodexDefaultRuntimeModels,
+  discoverCodexRuntimeModels,
+  getCodexModelRoles,
+  type CodexModelsCacheJson,
+  type CodexCacheModelEntry
+} from './codex/models.js';
+export {
+  MODEL_ROLES,
+  type ModelRole,
+  RUNTIME_MODEL_DISCOVERY_SOURCES,
+  type RuntimeModelDiscoverySource,
+  RUNTIME_MODEL_AVAILABILITIES,
+  type RuntimeModelAvailability,
+  type RuntimeModelDescriptor
+} from './models/types.js';
 export {
   buildClaudeCodePrompt,
   MAVE_CLAUDE_CONVERSATIONAL_INSTRUCTION
@@ -48,4 +74,3 @@ export {
   mapClaudeCodeUsage,
   type ClaudeCliEvent
 } from './claude/parser.js';
-

@@ -133,8 +133,9 @@ describe('ClaudeCodeBrainProvider', () => {
       expect(CLAUDE_ROLE_MAPPING.BALANCED).toContain('sonnet');
     });
 
-    it('does NOT map FAST role (returns undefined as runtime is ineligible)', () => {
-      expect(resolveClaudeModelForRole('FAST')).toBeUndefined();
+    it('maps FAST role to haiku (ModelRole.FAST != BrainProfile.fast_conversation)', () => {
+      expect(resolveClaudeModelForRole('FAST')).toBe('haiku');
+      expect(CLAUDE_ROLE_MAPPING.FAST).toContain('haiku');
     });
   });
 

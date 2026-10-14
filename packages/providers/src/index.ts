@@ -30,7 +30,27 @@ export {
   type ClaudeSupportedRole,
   CLAUDE_ROLE_MAPPING,
   resolveClaudeModelForRole,
-  getClaudeDefaultRuntimeModels
+  getClaudeDefaultRuntimeModels,
+  createClaudeObservedRuntimeModel,
+  ANTIGRAVITY_PROVIDER_ID,
+  parseAntigravityModelsOutput,
+  getAntigravityDefaultRuntimeModels,
+  discoverAntigravityRuntimeModels,
+  getAntigravityModelRoles,
+  CODEX_PROVIDER_ID,
+  parseCodexModelsCache,
+  getCodexDefaultRuntimeModels,
+  discoverCodexRuntimeModels,
+  getCodexModelRoles,
+  type CodexModelsCacheJson,
+  type CodexCacheModelEntry,
+  MODEL_ROLES,
+  type ModelRole,
+  RUNTIME_MODEL_DISCOVERY_SOURCES,
+  type RuntimeModelDiscoverySource,
+  RUNTIME_MODEL_AVAILABILITIES,
+  type RuntimeModelAvailability,
+  type RuntimeModelDescriptor
 } from './brain/index.js';
 export * from './audio/index.js';
 export * from './stt/index.js';

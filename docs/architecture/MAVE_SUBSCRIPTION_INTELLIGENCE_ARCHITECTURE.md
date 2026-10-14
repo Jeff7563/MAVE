@@ -112,28 +112,48 @@ MAVE introduces canonical **Model Roles** that represent semantic capacity rathe
 - Task routing targets a **Model Role** within the selected runtime. The runtime resolves the role to whatever eligible model the user's account currently supports.
 - When vendors rotate or release new models, MAVE's **Model Watch** updates role mappings without requiring code rewrites in Core or Router.
 
+### 4.2 Critical Distinction: `ModelRole.FAST` vs `BrainProfile.fast_conversation`
+- **`ModelRole.FAST`** denotes low relative latency and lightweight resource usage *within a runtime* (e.g., Claude Code Haiku, Codex Luna, Antigravity Flash-Low).
+- **`BrainProfile.fast_conversation`** denotes the end-to-end voice loop profile requiring $\text{TTFT} \le 1.0\text{--}3.0\text{s}$ under MAVE's frozen contract, which strictly mandates a `model_provider`.
+- Although Claude Code Haiku achieves ~2.34s warm TTFT, Claude Code is an `agent_runtime_provider` with CLI bootstrap (~1.1–1.7s) and sandbox overhead. Therefore, Haiku can satisfy `ModelRole.FAST` for agent workflows, but **cannot** satisfy `BrainProfile.fast_conversation`. Canonical subscription routing for `fast_conversation` remains: **NO CANONICAL SUBSCRIPTION FAST_CONVERSATION ROUTE YET**.
+
 ---
 
 ## 5. Runtime Model Mapping Matrix
 
-Each subscription runtime maps MAVE model roles to its supported model inventory:
+Each subscription runtime maps MAVE model roles to its verified model inventory:
 
 ```text
-[Codex Runtime]
-  FAST       ──► gpt-5.6-mini / fast candidate
-  CODING     ──► gpt-5.6-sol / codex default
-  REASONING  ──► o3 / reasoning candidate
+[Codex Runtime] (Provider ID: 'codex', Discovery: runtime_cache / configured)
+  FAST       ──► gpt-6-luna / gpt-5.6-luna
+  BALANCED   ──► gpt-5.6-sol (codex default) / gpt-6-sol / gpt-5.6-terra / gpt-5.5
+  REASONING  ──► gpt-6.1-sol / gpt-6-astra / gpt-6-sol / gpt-5.6-sol
+  CODING     ──► gpt-5.6-sol (codex default) / gpt-6.1-sol / gpt-6-sol / gpt-6-astra
+  AGENT      ──► gpt-5.6-sol / gpt-6.1-sol / gpt-6-sol
 
-[Claude Code Runtime]
-  FAST       ──► haiku
-  BALANCED   ──► sonnet (default)
-  REASONING  ──► opus / sonnet-thinking
+[Claude Code Runtime] (Provider ID: 'claude-code', Discovery: runtime_alias / runtime_observed)
+  FAST       ──► haiku (claude-haiku-4-5-20251001)
+  BALANCED   ──► sonnet (default: claude-sonnet-5) / haiku
+  REASONING  ──► opus (default: claude-opus-5) / sonnet
+  CODING     ──► sonnet (default) / opus
+  AGENT      ──► sonnet (default)
 
-[Antigravity Runtime]
+[Antigravity Runtime] (Provider ID: 'antigravity', Discovery: runtime_enumerated / configured)
   FAST       ──► gemini-3.8-flash-low
-  REASONING  ──► gemini-3.8-flash-high / claude-sonnet-4-6
-  AGENT      ──► gemini-3.8-flash-medium (default)
+  BALANCED   ──► gemini-3.8-flash-medium (default) / gemini-3.8-flash-low / gpt-oss-120b-medium
+  REASONING  ──► claude-opus-4-6-thinking (default) / gemini-3.8-flash-high / claude-sonnet-4-6
+  CODING     ──► gemini-3.8-flash-high (default) / claude-sonnet-4-6 / gemini-3.8-flash-medium
+  AGENT      ──► gemini-3.8-flash-medium (default) / claude-sonnet-4-6
 ```
+
+### 5.1 Non-Generation Discovery & Provenance Hierarchy
+MAVE strictly enforces non-generation model discovery. Inspecting model inventories **NEVER** burns generation tokens or AI subscription quota:
+- **`runtime_enumerated`:** Models discovered via non-quota CLI introspection (e.g. `agy models`). Highest confidence.
+- **`runtime_observed`:** Models discovered dynamically during streaming sessions (e.g. Claude session `init` event emitting canonical `model: 'claude-sonnet-5'`).
+- **`runtime_alias`:** Official built-in CLI aliases provided by the vendor runtime (e.g. Claude `--model sonnet`, `--model opus`, `--model haiku`).
+- **`runtime_cache`:** Local machine-readable caches maintained by vendor CLIs (e.g. `~/.codex/models_cache.json`). Validated against `fetched_at` staleness.
+- **`configured`:** Static fallback descriptors when runtime CLI or cache file is unavailable.
+- **`unknown`:** Unclassified source.
 
 > [!IMPORTANT]
 > If a subscription runtime lacks an eligible model for a requested role, that runtime is **ineligible** for that task, and the router falls back to the next compatible subscription or local runtime.
@@ -224,13 +244,32 @@ MAVE defines three deterministic user selection modes:
 ┌─────────────────┬─────────────────────────────────────────────────────────────┐
 │ Mode            │ Semantic Behavior                                           │
 ├─────────────────┼─────────────────────────────────────────────────────────────┤
-│ **AUTO**        │ MAVE autonomously selects optimal runtime and model role.   │
-│ **PREFERRED**   │ Tries user's preferred runtime/model first; falls back if   │
-│                 │ unavailable according to compatible policy.                 │
-│ **LOCKED**      │ Strictly requires specified runtime/model. Fails closed and │
-│                 │ informs user if unavailable. Silent switching forbidden.    │
+│ **AUTO**        │ Evaluates role compatibility, filters available models,     │
+│                 │ and resolves ties via deterministic priority scoring.       │
+│ **PREFERRED**   │ Validates preferred model; if unavailable or incompatible,  │
+│                 │ falls back to AUTO (annotating fallbackOccurred: true).     │
+│                 │ If allowFallback: false, fails closed with clear error.     │
+│ **LOCKED**      │ Strictly requires exact model match, role compatibility,    │
+│                 │ and available status. Fails closed with error if missing,   │
+│                 │ incompatible, or quota-limited. Silent switching FORBIDDEN. │
 └─────────────────┴─────────────────────────────────────────────────────────────┘
 ```
+
+### 8.1 Deterministic Tie-Breaking Order (AUTO Selection)
+When multiple candidate models in a subscription runtime satisfy a requested Model Role:
+1. **Role-Specific Priority:** Explicit `metadata.rolePriority[role]` or `metadata.defaultFor` (lower score = higher preference).
+2. **Generic Model Priority:** `metadata.priority` rating from CLI or cache.
+3. **Discovery Source Hierarchy:** `runtime_enumerated` > `runtime_observed` > `runtime_alias` > `runtime_cache` > `configured` > `unknown`.
+4. **Deterministic Collation:** Alphabetical sort on `modelId` ensuring 100% reproducible selection across restarts.
+
+### 8.2 Execution Handoff & Contract Gap Evaluation
+An audit of the execution path was conducted to verify how the resolved `selectedModelId` passes to child processes:
+- **Contract Boundary:** Under `@mave/contracts`, `BrainRequestOptions` already defines `modelId?: ModelId` (Line 419 of `brain.ts`).
+- **Handoff Mechanics:**
+  - `ClaudeCodeBrainProvider`: `options?.modelId || request.overrides?.preferredModelId || this.defaultModel` $\to$ `--model <model>`.
+  - `AntigravityBrainProvider`: `options?.modelId || request.overrides?.preferredModelId || this.model` $\to$ `--model <model>`.
+  - `CodexBrainProvider`: `options?.modelId || request.overrides?.preferredModelId || this.defaultModel` $\to$ `-m <model>`.
+- **Finding:** **ZERO CONTRACT EXPANSION REQUIRED.** `BrainRequestOptions.modelId` connects the caller directly to subscription provider child processes. No public contract changes or workarounds are needed.
 
 ---
 
