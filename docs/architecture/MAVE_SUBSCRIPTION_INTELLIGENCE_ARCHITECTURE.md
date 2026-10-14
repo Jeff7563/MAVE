@@ -618,6 +618,68 @@ When all candidate runtimes are blocked before execution:
 - **F1.5-S4 (COMPLETE):** Quota-aware subscription runtime routing & next-turn fallback engine (`RuntimeQuotaStore`, pre-execution routing skip, fail-closed boundaries).
 - **F1.5-S4.1 (COMPLETE):** Quota scope & blocked-state hardening (`scope: 'runtime' | 'model' | 'unknown'`, `RuntimeModelCatalog` model quota integration, resetAt expiration to unknown, scope-aware overwrite protection).
 - **F1.5-S5 (COMPLETE):** Subscription Intelligence final closeout audit (Authoritative state ownership, cross-model collision safety, model rotation readiness, documentation alignment, and tri-runtime closeout).
+- **F1.5-C0 (COMPLETE):** Subscription Conversational Brain feasibility audit (evaluated subscription CLIs vs local model provider for fast_conversation and deep_reasoning; recommended Local Fast Brain).
+
+---
+
+## 13. Conversational Brain Feasibility Audit (F1.5-C0)
+
+### 13.1 Executive Summary & Core Finding
+The objective of F1.5-C0 was to determine whether MAVE can establish an official, subscription-backed execution path that behaves semantically as a true `model_provider` for `fast_conversation` and `deep_reasoning`, avoiding paid API tokens while preserving provider-kind boundaries.
+
+**Conclusion:**  
+**NO official subscription-backed `model_provider` path exists.**  
+All three commercial subscription developer CLIs (Claude Code, OpenAI Codex, and Google Antigravity) are fundamentally engineered as **agent runtimes** (`agent_runtime_provider`). Even when run in one-shot or print modes (`-p`, `exec`, `--print`) with tools artificially suppressed:
+1. They maintain intrinsic agent personas, project-scanning behaviors, workspace boundaries, and multi-step orchestration harnesses.
+2. They introduce severe process initialization and scanning overhead ($2.5\text{--}12.0\text{s}$), failing the interactive voice TTFT threshold ($\approx 1\text{--}3\text{s}$).
+3. Attempting to classify them as `model_provider` would violate MAVE's provider-kind semantics and distort session state ownership.
+4. Accessing raw conversational model endpoints without per-token paid APIs would require reverse-engineering undocumented web APIs or intercepting browser session cookies, which is strictly forbidden.
+
+**Recommended Path:**  
+**`LOCAL FAST BRAIN RECOMMENDED`**  
+A dedicated local inference engine (e.g., local Ollama/llama.cpp serving an efficient bilingual Thai/English model like Qwen 2.5 3B/7B on the host RTX 3060 Ti 8GB GPU) delivers pure `model_provider` semantics, ultra-low TTFT ($\approx 150\text{--}600\text{ms}$), complete privacy, and zero token costs, establishing an optimal hybrid architecture alongside MAVE's subscription agent runtimes.
+
+---
+
+### 13.2 Decision Matrix
+
+| Evaluation Dimension | Claude Subscription (`claude`) | OpenAI Codex (`codex`) | Google Antigravity (`agy`) | Local ModelProvider (Ollama / llama.cpp) |
+|---|---|---|---|---|
+| **Official Supported Access?** | Yes (`claude` CLI) | Yes (`codex` CLI) | Yes (`agy` CLI) | Yes (Local HTTP / process API) |
+| **Subscription-Backed?** | Yes (Claude Pro/Max) | Yes (ChatGPT Plus/Pro) | Yes (Google Subscription) | N/A (100% Free / Local Hardware) |
+| **True `model_provider` Semantics?** | **NO** (Agent harness) | **NO** (Agent harness) | **NO** (Agent harness) | **YES** (Direct prompt $\to$ stream) |
+| **Autonomous Agent Loop?** | Yes | Yes | Yes | **None** |
+| **Tools Suppressible?** | Partial (`--tools ""`) | **NO** (Sandbox only) | **NO** (Sandbox only) | **YES** (Zero native tools) |
+| **MAVE Owns Session State?** | No (CLI internal session) | No (Codex threads) | No (CLI conversation) | **YES** (Stateless requests) |
+| **Streaming Output?** | Yes (`stream-json`) | Yes (`--json` JSONL) | Yes (`stream-json`) | Yes (SSE / NDJSON token chunks) |
+| **Cancellation?** | Yes (SIGINT / process kill) | Yes (SIGINT / process kill) | Yes (SIGINT / process kill) | Yes (`AbortSignal` / disconnect) |
+| **Model Selection?** | Dynamic (`--model`) | Dynamic (`-m`) | Dynamic (`--model`) | Dynamic (`model: string`) |
+| **Process Reuse / Pooling?** | High risk (state leakage) | Experimental (`app-server`) | High risk | **YES** (Native persistent server) |
+| **Measured/Expected TTFT?** | $3.5\text{--}8.0\text{s}$ (FAIL) | $2.5\text{--}6.0\text{s}$ (FAIL) | $4.0\text{--}12.0\text{s}$ (FAIL) | **$150\text{--}600\text{ms}$ (PASS: $\le 1\text{--}3\text{s}$)** |
+| **`fast_conversation` Eligible?** | **INELIGIBLE** | **INELIGIBLE** | **INELIGIBLE** | **ELIGIBLE** (Ideal candidate) |
+| **`deep_reasoning` Eligible?** | Ineligible for direct | Ineligible for direct | Ineligible for direct | **ELIGIBLE** (e.g., DeepSeek-R1 7B) |
+| **Implementation Complexity?** | High (wrapper/hack) | High (hack/sandboxing) | High (hack/sandboxing) | Low (Standard OpenAI-compatible client) |
+| **Architectural Risk?** | **Critical** (Provider-kind faking) | **Critical** (Provider-kind faking) | **Critical** (Provider-kind faking) | **Low** (Clean decoupled provider) |
+
+---
+
+### 13.3 Recommended Hybrid Target Architecture
+MAVE adopts a clean, decoupled 4-tier intelligence architecture:
+1. **Fast Conversation / Voice / Language:**  
+   $\to$ **Local Direct `model_provider`** (Ollama / llama-server with Qwen 2.5 3B–7B on RTX 3060 Ti).  
+   - Latency: $\approx 150\text{--}600\text{ms}$ TTFT.  
+   - Cost: \$0.00 / zero per-token billing.  
+   - Privacy: 100% offline, local memory.  
+   - Capabilities: Native bilingual Thai and English conversational fluency.
+2. **Deep Reasoning:**  
+   $\to$ **Local Capable Reasoning Provider** (e.g., DeepSeek-R1-Distill 7B) or future dedicated direct reasoning provider without agent tool overhead.
+3. **Agent Work / Heavyweight Coding:**  
+   $\to$ **Claude Code / OpenAI Codex / Google Antigravity** via MAVE's verified F1.5-S subscription agent runtime engine (`agent_runtime_provider`).  
+   - Cost: Covered by existing user subscriptions.  
+   - Capabilities: Multi-step software engineering, repository mutation, terminal execution.
+4. **Tool Execution Authority:**  
+   $\to$ **Milestone 5 MCP & MAVE Tool Router**, preserving strict least-privilege security boundaries.
+
 
 
 
