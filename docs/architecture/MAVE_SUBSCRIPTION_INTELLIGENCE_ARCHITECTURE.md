@@ -285,3 +285,4 @@ Fail Closed / Inform User (Paid APIs remain BLOCKED unless enabled)
 - **F1.5-S2:** Runtime Model Catalog & Model Role mapping engine.
 - **F1.5-S3:** Task $\to$ Runtime $\to$ Model deterministic routing integration.
 - **F1.5-S4:** Quota-aware subscription fallback and window recovery monitoring.
+
