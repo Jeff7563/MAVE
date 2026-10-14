@@ -15,17 +15,19 @@ test('Electron desktop: Ambient surface voice-reactive states and visualizer E2E
   });
 
   try {
-    // 1. Await both windows: Dev Window and Surface Window
-    const devWindow = await electronApp.firstWindow();
-    await devWindow.waitForLoadState('domcontentloaded');
+    // 1. Await Dev Window and Surface Window
+    const firstWin = await electronApp.firstWindow();
+    await firstWin.waitForLoadState('domcontentloaded');
 
-    // Wait for the surface window to appear
-    let surfaceWindow = (await electronApp.windows()).find(w => w !== devWindow);
-    if (!surfaceWindow) {
-      // Wait for second window
-      surfaceWindow = await electronApp.waitForEvent('window');
+    let secondWin = (await electronApp.windows()).find((w) => w !== firstWin);
+    if (!secondWin) {
+      secondWin = await electronApp.waitForEvent('window');
     }
-    await surfaceWindow.waitForLoadState('domcontentloaded');
+    await secondWin.waitForLoadState('domcontentloaded');
+
+    const isFirstDev = await firstWin.evaluate(() => typeof (window as any).mave?.sendCommand === 'function');
+    const devWindow = isFirstDev ? firstWin : secondWin;
+    const surfaceWindow = isFirstDev ? secondWin : firstWin;
 
     // 2. Initial Ambient Verification
     const capsule = surfaceWindow.locator('[data-testid="mave-capsule"]');

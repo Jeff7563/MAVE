@@ -383,14 +383,13 @@ The Surface runtime enforces defense-in-depth across all desktop boundaries:
 
 ## 18. Performance Observations
 
-Observations recorded on Work-PC (Intel UHD Graphics 730, Windows 11):
-- **Ambient Idle**: Near-zero CPU utilization ($< 0.1\%$). GPU compositor idle.
-- **Voice Reactivity**: Smooth 60 FPS SVG transform modulation during real-time speech telemetry without dropped frames.
+Observations recorded during host validation (Work-PC: Intel UHD Graphics 730, Windows):
+- **Ambient Idle**: Near-idle CPU utilization observed during host smoke validation; GPU compositor remains idle.
+- **Voice Reactivity**: Smooth SVG transform modulation observed during real-time speech telemetry without noticeable frame hitching.
 - **Envelope Morphing**: Fluid CSS transitions without 60 FPS native window resize loops.
 - **Memory Consumption**:
-  - Ambient idle renderer footprint: $\sim 35\text{ MB}$ private working set.
-  - Expanded panel with long markdown/code: $\sim 48\text{ MB}$.
-  - Settle back to ambient: memory stabilizes without monotonic growth across repeated turns.
+  - Renderer process memory footprint remains lightweight.
+  - Memory stabilizes cleanly when settling back to ambient with no obvious sustained memory growth observed across repeated conversational turns.
 
 ---
 
@@ -459,11 +458,12 @@ Desktop Vitest:                207 / 207 PASS (100%) [16 test suites]
 Python Wake (openWakeWord):     54 /  54 PASS (100%)
 Python STT (faster-whisper):     5 /   5 PASS (100%)
 Python TTS (EdgeTTS):            6 /   6 PASS (100%)
-TypeScript Typecheck:           13 /  13 tasks PASS (100%)
-Turbo Production Build:          7 /   7 tasks PASS (100%)
-Playwright Desktop E2E:          9 /   9 suites PASS (100%)
 --------------------------------------------------------------------------------
-TOTAL AUTOMATED TESTS:         787 / 787 PASS (100% SUCCESS RATE)
+AUTOMATED UNIT/INTEGRATION:    777 / 777 PASS (100% SUCCESS RATE)
+--------------------------------------------------------------------------------
+TypeScript Typecheck:           13 /  13 tasks PASS (Turbo monorepo)
+Turbo Production Build:          7 /   7 tasks PASS (Turbo monorepo)
+Playwright Desktop E2E:          9 /   9 suites PASS (49.5s)
 ================================================================================
 ```
 
@@ -507,16 +507,19 @@ TOTAL AUTOMATED TESTS:         787 / 787 PASS (100% SUCCESS RATE)
 ## 25. M5 Readiness & Security Boundary
 
 ### Future Integration Surface:
-The M4 Surface is fully equipped to host Milestone 5 (Agent Runtime & Tools) presentations:
+The M4 Surface is equipped to host Milestone 5 (Agent Runtime & Tools) presentations:
 - `confirmation` mode with semantic confirmation blocks (target tool name, parameters, risk tier).
 - `progress` mode with multi-step task execution progress.
 - `error` mode with recoverable permission denial descriptors.
 
 ### Strict M5 Security Boundary:
-$$\text{User Clicks Approval Button} \longrightarrow \text{SurfaceAction ('confirm_action')} \longrightarrow \text{M5 Permission Runtime}$$
-$$\text{NEVER: Surface Button} \longrightarrow \text{Direct Tool Execution}$$
-The Surface remains strictly a **presentation and user-intent capture layer**.
-The upcoming Milestone 5 Agent Runtime owns authorization, policy enforcement, credentials, and OS tool execution.
+The M5 architecture preserves the complete policy pipeline:
+$$\text{Tool Request} \longrightarrow \text{Risk/Permission Policy} \longrightarrow \text{Authorization} \longrightarrow \text{Tool Execution} \longrightarrow \text{Audit/Result}$$
+
+- The Surface is strictly a **presentation and user-intent capture layer**.
+- User clicks on approval or denial affordances dispatch purely semantic intents (`confirm_action` / `reject_action`) over IPC.
+- The Surface NEVER authorizes, grants permissions, or directly executes tools.
+- Note: Current M4 Surface contracts provide default `Approve` and `Deny` actions. There is no "Always Allow" action in M4 Surface; persistent or policy-based trust tiers belong strictly to the upcoming Milestone 5 Permission Runtime design.
 
 ---
 

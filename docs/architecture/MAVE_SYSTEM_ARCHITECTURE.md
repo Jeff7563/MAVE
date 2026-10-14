@@ -94,22 +94,22 @@ The Ambient Adaptive Surface is MAVE's primary visual desktop presence, providin
 ```text
 Voice / Assistant State Telemetry (Core)
                ↓
-SurfacePresentationModel (Core state machine & envelope logic)
+SurfaceStateController (Core state machine, presentation intents & response classification)
                ↓ IPC (SurfaceEvent / Snapshot)
 SurfaceWindowManager (Electron Main native window & bounds coordinator)
-               ↓ Native Win32 SetWindowPos / SetIgnoreMouseEvents
+               ↓ Electron BrowserWindow APIs (win.setBounds, win.setIgnoreMouseEvents, win.setAlwaysOnTop)
 Surface BrowserWindow (Transparent, always-on-top, frameless)
                ↓ Preload (Least-privilege window.mave.surface bridge)
-Surface Renderer (React, framer-motion, lucide-react)
+Surface Renderer (React, pure CSS compositor)
 ```
 
 Key Architectural Invariants:
 - **No Passive Focus Stealing**: Passive state transitions (wake, listening, thinking, speaking, compact/expanded presentation) never steal OS focus (`focusable: false`, `showInactive()`). Focus is acquired strictly upon intentional user interaction (`focus-acquire` IPC) and released cleanly back to the previous desktop application (`focus-release` / blur).
-- **Zero Raw Audio in Renderer**: Surface renderer only consumes normalized amplitude/band telemetry (0.0–1.0) and presentation state snapshots. Audio capture and playback remain in Electron Main / Python services.
-- **Single Ambient Window**: One native BrowserWindow instance hosts all visual envelope sizes (ambient capsule, compact response, expanded context panel, and transient toast notifications) via smooth layout animations and native coordinate adjustments.
+- **Zero Raw Audio in Renderer**: Surface renderer only consumes normalized scalar audio telemetry (`inputLevel` / `outputLevel`: 0.0–1.0) and presentation state snapshots. Audio capture and playback remain in Electron Main / Python services.
+- **Single Ambient Window**: One native BrowserWindow instance hosts all visual envelope sizes (`ambient` 280x80, `compact` 280x80, `card` 360x180, and `expanded` 440x580 DIP) via fluid CSS layout transitions within discrete native window envelopes.
 - **Click-Through Outside Content**: Transparent hit-testing regions pass desktop mouse clicks directly through to underlying applications (`setIgnoreMouseEvents(true, { forward: true })`) when the cursor is outside visible surface cards.
-- **Safe Content Rendering**: Markdown and rich cards rely on AST-based token parsing and strict React text escaping with URL scheme whitelisting; raw HTML injection is strictly inert.
-- **Display Topology & Multi-Monitor Resilience**: Bounds coordinator handles DPI scaling, taskbar repositioning, display reconnects, and off-screen recovery with atomic bounds clamping and persistent user preferences.
+- **Safe Content Rendering**: Markdown and rich cards rely on AST-based token parsing (`marked.lexer()`) and strict React text escaping with URL scheme whitelisting (`http:`, `https:`); raw HTML injection is strictly inert.
+- **Display Topology & Multi-Monitor Resilience**: Bounds coordinator handles DPI scaling, taskbar repositioning, display reconnects, and off-screen recovery with display clamping and persistent user preferences in SQLite (`surface.preferences`).
 
 Complete specification & closeout records: [`MAVE_AMBIENT_ADAPTIVE_SURFACE.md`](MAVE_AMBIENT_ADAPTIVE_SURFACE.md), [`MAVE_AMBIENT_SURFACE_RUNTIME.md`](MAVE_AMBIENT_SURFACE_RUNTIME.md), [`MAVE_MILESTONE_4_SPEC.md`](MAVE_MILESTONE_4_SPEC.md), and [`MAVE_MILESTONE_4_CLOSEOUT.md`](MAVE_MILESTONE_4_CLOSEOUT.md).
 
