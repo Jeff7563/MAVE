@@ -298,7 +298,7 @@ describe('MAVE UI V2 — U6 Language Experience & Conversational Learning System
 
       expect(html).toContain('Roleplay Paused (MAVE Direct)');
       expect(html).toContain('MAVE speaking directly as coach');
-      expect(html).toContain('Resume Roleplay');
+      expect(html).not.toContain('Step out of role');
     });
   });
 
@@ -645,7 +645,7 @@ describe('MAVE UI V2 — U6 Language Experience & Conversational Learning System
 
       expect(html).toContain('Roleplay Paused (MAVE Direct)');
       expect(html).toContain('MAVE speaking directly as coach');
-      expect(html).toContain('btn-resume-roleplay');
+      expect(html).not.toContain('btn-step-out-of-role');
     });
 
     it('Invariant 6: Language to general task continuity without trapping the user', () => {
@@ -726,10 +726,11 @@ describe('MAVE UI V2 — U6 Language Experience & Conversational Learning System
       // Must NOT display redundant step out action
       expect(html).not.toContain('btn-step-out-of-role');
       expect(html).not.toContain('Step out of role');
-      // Must clearly display paused state and offer resume
+      // Must clearly display paused state
       expect(html).toContain('Roleplay Paused');
-      expect(html).toContain('btn-resume-roleplay');
-      expect(html).toContain('Resume Roleplay');
+      // Scenario strip remains quiet contextual information only
+      expect(html).not.toContain('btn-resume-roleplay');
+      expect(html).not.toContain('Resume Roleplay');
       // Must NOT use warning/amber color tokens
       expect(html).not.toContain('var(--mave-warn)');
     });
@@ -742,11 +743,11 @@ describe('MAVE UI V2 — U6 Language Experience & Conversational Learning System
         <LanguageWorkspaceView state={pauseScenario!.snapshot.workspace} />
       );
 
-      // Direct MAVE Coach card dominates
+      // Direct MAVE Coach card dominates with single primary resume action
       expect(html).toContain('data-testid="roleplay-stepout-coach-card"');
       expect(html).toContain('MAVE (Direct Coach)');
       expect(html).toContain('substitution');
-      expect(html).toContain('data-testid="btn-resume-roleplay-coach"');
+      expect(html).toContain('data-testid="btn-resume-roleplay"');
       expect(html).toContain('Resume Roleplay');
       // In-role prompt and step out action are NOT active
       expect(html).not.toContain('data-testid="btn-step-out-of-role"');
@@ -802,6 +803,70 @@ describe('MAVE UI V2 — U6 Language Experience & Conversational Learning System
       // Pronunciation content dominates
       expect(html).toContain('Phenomenal phrasing');
       expect(html).toContain('/fəˈnɒm.ɪ.nəl/');
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // 12. VSM5.2 Language State Sync & Final Visual Micro-Hardening
+  // -------------------------------------------------------------------------
+  describe('12. VSM5.2 Language State Sync & Final Visual Micro-Hardening', () => {
+    it('resume clears paused presentation metadata across workspace and roleplay surfaces', () => {
+      const activeRoleplayScenario = U6_LANGUAGE_SCENARIOS.find((s) => s.id === 'u6_05_roleplay_coffee_shop');
+      expect(activeRoleplayScenario).toBeDefined();
+
+      const html = renderToStaticMarkup(
+        <WorkspaceShell state={activeRoleplayScenario!.snapshot.workspace} />
+      );
+
+      // Workspace header badge updates to active-context status
+      expect(html).toContain('Roleplay: Coffee Shop');
+      expect(html).not.toContain('ROLEPLAY PAUSED');
+      expect(html).not.toContain('EXPLANATION');
+
+      // Inner roleplay body is consistently active
+      expect(html).toContain('Roleplay Active');
+      expect(html).toContain('Step out of role');
+      expect(html).not.toContain('Resume Roleplay');
+    });
+
+    it('paused state exposes exactly one primary resume action', () => {
+      const pauseScenario = U6_LANGUAGE_SCENARIOS.find((s) => s.id === 'u6_06_roleplay_explanation_break');
+      expect(pauseScenario).toBeDefined();
+
+      const html = renderToStaticMarkup(
+        <LanguageWorkspaceView state={pauseScenario!.snapshot.workspace} />
+      );
+
+      // Scenario strip does NOT render a button
+      expect(html).toContain('Roleplay Paused (MAVE Direct)');
+      expect(html).not.toContain('btn-step-out-of-role');
+
+      // Direct MAVE Coach card exposes the single primary resume action
+      expect(html).toContain('data-testid="roleplay-stepout-coach-card"');
+      expect(html).toContain('data-testid="btn-resume-roleplay"');
+
+      // Total count of 'Resume Roleplay' in the entire markup is exactly 1
+      const matches = html.match(/Resume Roleplay/g);
+      expect(matches).not.toBeNull();
+      expect(matches!.length).toBe(1);
+    });
+
+    it('narrow viewport does not leak presentation or debug terminology into canonical surface', () => {
+      const narrowScenario = U6_LANGUAGE_SCENARIOS.find((s) => s.id === 'u6_18_narrow_workspace_adaptation');
+      expect(narrowScenario).toBeDefined();
+
+      const html = renderToStaticMarkup(
+        <WorkspaceShell state={narrowScenario!.snapshot.workspace} />
+      );
+
+      // Zero implementation / viewport debug terminology in canonical MAVE UI
+      expect(html).not.toContain('NARROW VIEWPORT');
+      expect(html).not.toContain('ADAPTATION');
+      expect(html).not.toContain('Adaptive Language Workspace');
+
+      // Canonical title and status badge
+      expect(html).toContain('Free Conversation');
+      expect(html).toContain('Conversing in English');
     });
   });
 });

@@ -1871,11 +1871,43 @@ export const MaveUiLab: React.FC = () => {
                       ...prev,
                       workspace: {
                         ...prev.workspace,
+                        userFacingState: 'Roleplay Paused • Explanation',
+                        status: 'paused',
                         languageSession: {
                           ...session,
+                          status: 'paused',
                           roleplayScenario: {
                             ...roleplay,
                             isOutOfRole: true
+                          }
+                        }
+                      }
+                    };
+                  });
+                }}
+                onResumeRoleplay={() => {
+                  setSnapshot((prev) => {
+                    const session = prev.workspace.languageSession;
+                    const roleplay = session?.roleplayScenario || session?.roleplay;
+                    if (!session || !roleplay) return prev;
+                    const loc = roleplay.location || roleplay.setting || 'Coffee Shop';
+                    const activeContext = /coffee|cafe/i.test(loc) || roleplay.role?.toLowerCase() === 'barista'
+                      ? 'Roleplay: Coffee Shop'
+                      : `Roleplay: ${loc}`;
+                    return {
+                      ...prev,
+                      workspace: {
+                        ...prev.workspace,
+                        status: 'running',
+                        userFacingState: activeContext,
+                        languageSession: {
+                          ...session,
+                          status: 'practicing',
+                          observableStateText: 'Waiting for your answer…',
+                          currentPrompt: 'Hi there! Welcome to Shibuya Roasters. What can I get started for you today?',
+                          roleplayScenario: {
+                            ...roleplay,
+                            isOutOfRole: false
                           }
                         }
                       }

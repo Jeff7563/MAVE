@@ -476,7 +476,7 @@ export const LanguageWorkspaceView: React.FC<LanguageWorkspaceViewProps> = ({
                   gap: '6px',
                   boxShadow: '0 0 16px rgba(95, 210, 255, 0.2)'
                 }}
-                data-testid="btn-resume-roleplay-coach"
+                data-testid="btn-resume-roleplay"
               >
                 <span>Resume Roleplay</span>
               </button>

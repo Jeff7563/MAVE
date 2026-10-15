@@ -31,7 +31,7 @@ export interface RoleplayBannerProps {
 export const RoleplayBanner: React.FC<RoleplayBannerProps> = ({
   scenario,
   onStepOutOfRole,
-  onResumeRoleplay,
+  onResumeRoleplay: _onResumeRoleplay,
   className = ''
 }) => {
   const isOutOfRole = Boolean(scenario.isOutOfRole);
@@ -85,28 +85,7 @@ export const RoleplayBanner: React.FC<RoleplayBannerProps> = ({
         </div>
 
         <div>
-          {isOutOfRole ? (
-            <button
-              onClick={onResumeRoleplay}
-              style={{
-                background: 'rgba(95, 210, 255, 0.12)',
-                border: '1px solid var(--mave-cyan)',
-                borderRadius: '6px',
-                color: 'var(--mave-cyan)',
-                fontSize: '11px',
-                padding: '4px 10px',
-                cursor: 'pointer',
-                fontWeight: 600,
-                fontFamily: 'var(--mave-font-mono)',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '4px'
-              }}
-              data-testid="btn-resume-roleplay"
-            >
-              Resume Roleplay
-            </button>
-          ) : (
+          {!isOutOfRole && (
             <button
               onClick={onStepOutOfRole}
               style={{

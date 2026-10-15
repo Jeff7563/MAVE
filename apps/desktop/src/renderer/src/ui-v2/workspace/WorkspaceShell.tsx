@@ -209,8 +209,64 @@ export const WorkspaceShell: React.FC<WorkspaceShellProps> = ({
   const isCompleted = state.status === 'completed';
   const isFailed = state.status === 'error';
 
+  const isRoleplaySession = Boolean(
+    state.languageSession?.roleplayScenario ||
+    (state.type === 'language' && (state.title?.toLowerCase().includes('roleplay') || state.languageSession?.practiceType === 'roleplay'))
+  );
+
+  const initialRoleplayOutOfRole = Boolean(
+    state.languageSession?.roleplayScenario?.isOutOfRole ||
+    (state.languageSession as any)?.isOutOfRole ||
+    state.languageSession?.status === 'paused' ||
+    state.status === 'paused' ||
+    state.userFacingState?.toLowerCase().includes('paused')
+  );
+
+  const [roleplayPaused, setRoleplayPaused] = useState<boolean>(initialRoleplayOutOfRole);
+
+  useEffect(() => {
+    setRoleplayPaused(initialRoleplayOutOfRole);
+  }, [initialRoleplayOutOfRole]);
+
+  const handleStepOutOfRole = () => {
+    setRoleplayPaused(true);
+    onStepOutOfRole?.();
+  };
+
+  const handleResumeRoleplay = () => {
+    setRoleplayPaused(false);
+    onResumeRoleplay?.();
+  };
+
+  // User-facing semantic status text (Zero provider leakage and zero dev/viewport jargon)
+  let rawStatusText = state.userFacingState;
+
+  if (isRoleplaySession) {
+    if (roleplayPaused) {
+      rawStatusText = 'Roleplay Paused • Explanation';
+    } else {
+      // Canonical resumed state: ROLEPLAY: COFFEE SHOP or another active-context label
+      const loc = state.languageSession?.roleplayScenario?.location || state.languageSession?.roleplayScenario?.setting || 'Coffee Shop';
+      rawStatusText = /coffee|cafe/i.test(loc) || state.languageSession?.roleplayScenario?.role?.toLowerCase() === 'barista'
+        ? 'Roleplay: Coffee Shop'
+        : `Roleplay: ${loc}`;
+    }
+  } else if (rawStatusText && /viewport|narrow|adapt/i.test(rawStatusText)) {
+    rawStatusText = (state.type === 'language' || state.languageSession)
+      ? 'Conversing in English'
+      : undefined;
+  }
+
+  // Sanitize title to remove dev/scenario labels
+  let cleanTitle = state.title;
+  if (cleanTitle && /adaptive language workspace|viewport/i.test(cleanTitle)) {
+    cleanTitle = 'Free Conversation';
+  }
+
   // Semantic Status Color
-  const statusColor = isCompleted
+  const statusColor = (isRoleplaySession && roleplayPaused)
+    ? 'var(--mave-v2-text-muted)'
+    : isCompleted
     ? 'var(--mave-v2-accent-success)'
     : isWaitingApproval
     ? 'var(--mave-v2-accent-warning)'
@@ -220,9 +276,8 @@ export const WorkspaceShell: React.FC<WorkspaceShellProps> = ({
     ? 'var(--mave-v2-accent-thinking)'
     : 'var(--mave-v2-text-muted)';
 
-  // User-facing semantic status text (Zero provider leakage)
   const semanticStatusText =
-    state.userFacingState ||
+    rawStatusText ||
     (isCompleted
       ? 'Completed'
       : isWaitingApproval
@@ -294,9 +349,9 @@ export const WorkspaceShell: React.FC<WorkspaceShellProps> = ({
                 whiteSpace: 'nowrap'
               }}
               data-testid="workspace-title"
-              title={state.title}
+              title={cleanTitle}
             >
-              {state.title}
+              {cleanTitle}
             </span>
             {semanticStatusText && (
               <span
@@ -680,7 +735,20 @@ export const WorkspaceShell: React.FC<WorkspaceShellProps> = ({
             if (state.type === 'language' || state.languageSession) {
               return (
                 <LanguageWorkspaceView
-                  state={state}
+                  state={{
+                    ...state,
+                    title: cleanTitle,
+                    userFacingState: rawStatusText,
+                    status: (isRoleplaySession && roleplayPaused) ? 'paused' : (state.status === 'paused' && !roleplayPaused ? 'running' : state.status),
+                    languageSession: state.languageSession ? {
+                      ...state.languageSession,
+                      status: (isRoleplaySession && roleplayPaused) ? 'paused' : (state.languageSession.status === 'paused' && !roleplayPaused ? 'practicing' : state.languageSession.status),
+                      roleplayScenario: state.languageSession.roleplayScenario ? {
+                        ...state.languageSession.roleplayScenario,
+                        isOutOfRole: roleplayPaused
+                      } : undefined
+                    } : undefined
+                  }}
                   officeMode={officeMode}
                   onListenExample={onListenExample}
                   onStartSpeakingPractice={onStartSpeakingPractice}
@@ -688,8 +756,8 @@ export const WorkspaceShell: React.FC<WorkspaceShellProps> = ({
                   onSaveVocabularyMock={onSaveVocabularyMock}
                   onChangeCorrectionIntensity={onChangeCorrectionIntensity}
                   onToggleShowTranslation={onToggleShowTranslation}
-                  onStepOutOfRole={onStepOutOfRole}
-                  onResumeRoleplay={onResumeRoleplay}
+                  onStepOutOfRole={handleStepOutOfRole}
+                  onResumeRoleplay={handleResumeRoleplay}
                   onPracticeAgain={onPracticeAgain}
                 />
               );
