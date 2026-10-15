@@ -261,6 +261,19 @@
   }
 }
 
+/* Authentic Card Arrival Materialization (UI Kit spec: soft fade + slight y movement) */
+@keyframes mave-card-enter {
+  0% {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+
 /* Rhythmic Breathing Dots in Capsule (Maintained for backward compatibility) */
 @keyframes mave-v3-dots-pulse {
   0%, 100% {

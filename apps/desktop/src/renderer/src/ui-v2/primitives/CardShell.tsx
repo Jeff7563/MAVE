@@ -35,7 +35,7 @@ export interface CardShellProps {
 export const CardShell: React.FC<CardShellProps> = ({
   id,
   badge,
-  badgeColor = 'var(--mave-v2-text-muted)',
+  badgeColor = 'var(--mave-faint)',
   title,
   timestamp,
   highlighted = false,
@@ -57,46 +57,49 @@ export const CardShell: React.FC<CardShellProps> = ({
     ? 'elevated'
     : intent;
 
-  // Resolve styles by intent
-  let borderColor = 'rgba(255, 255, 255, 0.07)';
-  let bg = 'rgba(18, 22, 38, 0.75)';
-  let boxShadow = '0 8px 24px rgba(0, 0, 0, 0.35)';
+  // Resolve authentic glass styling by intent
+  let borderColor = 'var(--mave-edge)';
+  let bg = 'var(--mave-glass-gradient)';
+  let boxShadow = 'var(--mave-shadow-glass)';
 
   if (effectiveIntent === 'elevated') {
-    borderColor = 'rgba(56, 189, 248, 0.35)';
-    bg = 'rgba(20, 26, 44, 0.85)';
-    boxShadow = '0 8px 30px rgba(0, 0, 0, 0.45), 0 0 16px -2px rgba(56, 189, 248, 0.25)';
+    borderColor = 'rgba(95, 210, 255, 0.35)';
+    bg = 'linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.025)), rgba(15, 18, 38, 0.75)';
+    boxShadow = 'inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 0 24px -4px rgba(91, 132, 255, 0.25), 0 20px 50px -20px rgba(0, 0, 0, 0.7)';
   } else if (effectiveIntent === 'attention') {
-    borderColor = 'rgba(245, 158, 11, 0.4)';
-    bg = 'rgba(245, 158, 11, 0.06)';
-    boxShadow = '0 8px 24px rgba(245, 158, 11, 0.15)';
+    borderColor = 'rgba(255, 196, 107, 0.35)';
+    bg = 'linear-gradient(180deg, rgba(255, 196, 107, 0.08), rgba(255, 196, 107, 0.02)), rgba(18, 16, 26, 0.7)';
+    boxShadow = 'inset 0 1px 0 rgba(255, 196, 107, 0.12), 0 0 20px -4px rgba(255, 196, 107, 0.25), 0 20px 50px -20px rgba(0, 0, 0, 0.7)';
   } else if (effectiveIntent === 'warning') {
-    borderColor = 'rgba(245, 158, 11, 0.35)';
-    bg = 'rgba(245, 158, 11, 0.05)';
-    boxShadow = '0 4px 16px rgba(0, 0, 0, 0.25)';
+    borderColor = 'rgba(255, 196, 107, 0.35)';
+    bg = 'linear-gradient(180deg, rgba(255, 196, 107, 0.06), rgba(255, 196, 107, 0.015)), rgba(18, 16, 26, 0.65)';
+    boxShadow = 'inset 0 1px 0 rgba(255, 196, 107, 0.1), 0 16px 40px -16px rgba(0, 0, 0, 0.6)';
   } else if (effectiveIntent === 'destructive') {
-    borderColor = 'rgba(239, 68, 68, 0.35)';
-    bg = 'rgba(239, 68, 68, 0.05)';
-    boxShadow = '0 4px 16px rgba(0, 0, 0, 0.25)';
+    borderColor = 'rgba(255, 122, 133, 0.35)';
+    bg = 'linear-gradient(180deg, rgba(255, 122, 133, 0.08), rgba(255, 122, 133, 0.02)), rgba(22, 12, 18, 0.7)';
+    boxShadow = 'inset 0 1px 0 rgba(255, 122, 133, 0.1), 0 16px 40px -16px rgba(0, 0, 0, 0.6)';
   } else if (effectiveIntent === 'quiet') {
-    borderColor = 'rgba(255, 255, 255, 0.04)';
-    bg = 'rgba(255, 255, 255, 0.02)';
+    borderColor = 'var(--mave-line)';
+    bg = 'var(--mave-raised)';
     boxShadow = 'none';
   }
 
   // Resolve density padding and gap
-  let padding = '12px 14px';
-  let gap = '8px';
-  let bodyFontSize = '13px';
+  let padding = '18px 20px';
+  let gap = '12px';
+  let bodyFontSize = '14px';
+  let borderRadius = '20px';
 
   if (density === 'compact') {
-    padding = '8px 10px';
-    gap = '6px';
-    bodyFontSize = '12px';
+    padding = '12px 14px';
+    gap = '8px';
+    bodyFontSize = '13px';
+    borderRadius = '16px';
   } else if (density === 'expanded') {
-    padding = '16px 18px';
-    gap = '12px';
-    bodyFontSize = '14px';
+    padding = '24px 26px';
+    gap = '16px';
+    bodyFontSize = '15px';
+    borderRadius = '24px';
   }
 
   return (
@@ -105,19 +108,21 @@ export const CardShell: React.FC<CardShellProps> = ({
       className={`mave-v2-card-shell mave-v2-card-${effectiveIntent} mave-v2-card-density-${density} ${highlighted ? 'mave-v2-card-highlighted' : ''} ${attention ? 'mave-v2-card-attention' : ''} ${className}`.trim()}
       style={{
         background: bg,
-        backdropFilter: 'blur(20px)',
-        WebkitBackdropFilter: 'blur(20px)',
+        backdropFilter: 'var(--mave-backdrop-glass)',
+        WebkitBackdropFilter: 'var(--mave-backdrop-glass)',
         border: `1px solid ${borderColor}`,
-        borderRadius: '14px',
+        borderRadius,
         padding,
         boxShadow,
         display: 'flex',
         flexDirection: 'column',
         gap,
-        transition: 'all 200ms cubic-bezier(0.16, 1, 0.3, 1)',
+        transition: 'border-color 200ms ease, box-shadow 200ms ease, background-color 200ms ease, opacity 200ms ease',
+        animation: 'mave-card-enter 350ms cubic-bezier(0.25, 1, 0.5, 1)',
         boxSizing: 'border-box',
         width: '100%',
-        color: '#f8fafc'
+        color: 'var(--mave-ink)',
+        fontFamily: 'var(--mave-font-sans)'
       }}
       data-testid="card-shell"
       data-intent={effectiveIntent}
@@ -130,21 +135,24 @@ export const CardShell: React.FC<CardShellProps> = ({
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            fontSize: density === 'compact' ? '10px' : '11px',
+            fontSize: density === 'compact' ? '11px' : '12px',
             lineHeight: 1.2
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
             {badge && (
               <span
                 style={{
                   color: badgeColor,
-                  background: 'rgba(255, 255, 255, 0.05)',
-                  padding: density === 'compact' ? '1px 5px' : '2px 6px',
-                  borderRadius: '4px',
+                  background: 'rgba(255, 255, 255, 0.04)',
+                  border: '1px solid var(--mave-line)',
+                  padding: density === 'compact' ? '2px 6px' : '3px 8px',
+                  borderRadius: '6px',
+                  fontFamily: 'var(--mave-font-mono)',
+                  fontSize: density === 'compact' ? '10px' : '11px',
                   fontWeight: 600,
                   textTransform: 'uppercase',
-                  letterSpacing: '0.4px'
+                  letterSpacing: '0.08em'
                 }}
               >
                 {badge}
@@ -153,7 +161,7 @@ export const CardShell: React.FC<CardShellProps> = ({
             {title && (
               <span
                 style={{
-                  color: 'var(--mave-v2-text-secondary)',
+                  color: 'var(--mave-dim)',
                   fontWeight: 500
                 }}
               >
@@ -162,9 +170,9 @@ export const CardShell: React.FC<CardShellProps> = ({
             )}
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             {timestamp && (
-              <span style={{ color: 'var(--mave-v2-text-dim)', fontSize: '10px' }}>
+              <span style={{ color: 'var(--mave-faint)', fontSize: '11px', fontFamily: 'var(--mave-font-mono)' }}>
                 {timestamp}
               </span>
             )}
@@ -174,12 +182,14 @@ export const CardShell: React.FC<CardShellProps> = ({
                 aria-label={expanded ? 'Collapse detail' : 'Expand detail'}
                 style={{
                   background: 'transparent',
-                  border: 'none',
-                  color: 'var(--mave-v2-text-muted)',
+                  border: '1px solid var(--mave-line)',
+                  color: 'var(--mave-dim)',
                   cursor: 'pointer',
-                  padding: '2px 4px',
+                  padding: '3px 8px',
                   fontSize: '11px',
-                  borderRadius: '3px'
+                  borderRadius: '6px',
+                  fontFamily: 'var(--mave-font-mono)',
+                  transition: 'color 150ms ease, border-color 150ms ease'
                 }}
                 data-testid="card-expand-toggle"
               >
@@ -191,7 +201,7 @@ export const CardShell: React.FC<CardShellProps> = ({
       )}
 
       {/* Primary Content Body */}
-      <div style={{ color: 'var(--mave-v2-text-primary)', fontSize: bodyFontSize, lineHeight: 1.5 }}>
+      <div style={{ color: 'var(--mave-ink)', fontSize: bodyFontSize, lineHeight: 1.5 }}>
         {children}
       </div>
 
@@ -199,10 +209,10 @@ export const CardShell: React.FC<CardShellProps> = ({
       {expandable && expanded && detailsSlot && (
         <div
           style={{
-            paddingTop: '6px',
-            borderTop: '1px solid rgba(255, 255, 255, 0.05)',
-            fontSize: density === 'compact' ? '11px' : '12px',
-            color: 'var(--mave-v2-text-secondary)'
+            paddingTop: '10px',
+            borderTop: '1px solid var(--mave-line)',
+            fontSize: density === 'compact' ? '12px' : '13px',
+            color: 'var(--mave-dim)'
           }}
           data-testid="card-details-slot"
         >
@@ -218,8 +228,8 @@ export const CardShell: React.FC<CardShellProps> = ({
             alignItems: 'center',
             gap: '8px',
             marginTop: '2px',
-            paddingTop: '6px',
-            borderTop: '1px solid var(--mave-v2-border-subtle)',
+            paddingTop: '10px',
+            borderTop: '1px solid var(--mave-line)',
             justifyContent: 'flex-end',
             flexWrap: 'wrap'
           }}

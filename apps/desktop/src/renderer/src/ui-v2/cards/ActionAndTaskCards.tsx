@@ -140,7 +140,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({ data, onCancel, onRetry }) =
               width: '100%',
               height: '4px',
               background: 'rgba(255, 255, 255, 0.08)',
-              borderRadius: '2px',
+              borderRadius: '4px',
               overflow: 'hidden'
             }}
             role="progressbar"
@@ -153,7 +153,8 @@ export const TaskCard: React.FC<TaskCardProps> = ({ data, onCancel, onRetry }) =
               style={{
                 width: `${data.progressPercent}%`,
                 height: '100%',
-                background: statusColor,
+                background: 'linear-gradient(90deg, #5fd2ff, #5b84ff, #9a72ff)',
+                borderRadius: '4px',
                 transition: 'width 250ms ease-out'
               }}
             />
@@ -164,7 +165,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({ data, onCancel, onRetry }) =
               width: '100%',
               height: '4px',
               background: 'rgba(255, 255, 255, 0.08)',
-              borderRadius: '2px',
+              borderRadius: '4px',
               overflow: 'hidden',
               position: 'relative'
             }}
@@ -172,10 +173,10 @@ export const TaskCard: React.FC<TaskCardProps> = ({ data, onCancel, onRetry }) =
           >
             <div
               style={{
-                width: '40%',
+                width: '45%',
                 height: '100%',
-                background: 'var(--mave-v2-accent-thinking)',
-                borderRadius: '2px',
+                background: 'linear-gradient(90deg, rgba(95, 210, 255, 0.2) 0%, rgba(91, 132, 255, 0.9) 50%, rgba(154, 114, 255, 0.2) 100%)',
+                borderRadius: '4px',
                 animation: 'mave-v2-pulse-ring 1.5s infinite ease-in-out'
               }}
             />
@@ -185,11 +186,13 @@ export const TaskCard: React.FC<TaskCardProps> = ({ data, onCancel, onRetry }) =
         {data.currentStep && (
           <div
             style={{
-              fontSize: '11px',
-              color: 'var(--mave-v2-text-secondary)',
+              fontSize: '12px',
+              color: 'var(--mave-dim)',
               display: 'flex',
               alignItems: 'center',
-              gap: '6px'
+              gap: '8px',
+              borderTop: '1px solid var(--mave-line)',
+              paddingTop: '6px'
             }}
             data-testid="task-current-step"
           >
@@ -200,7 +203,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({ data, onCancel, onRetry }) =
                   width: '6px',
                   height: '6px',
                   borderRadius: '50%',
-                  background: 'var(--mave-v2-accent-thinking)',
+                  background: 'var(--mave-cyan)',
                   animation: 'mave-v2-pulse-ring 1.5s infinite'
                 }}
               />
@@ -306,14 +309,14 @@ export const ProgressCard: React.FC<ProgressCardProps> = ({ data, onCancel }) =>
           )}
         </div>
 
-        {/* Progress Bar Representation */}
+        {/* Progress Bar Representation (UI Kit Spec: h4 full-round cyan->blue->violet) */}
         {isDeterminate && percent !== undefined ? (
           <div
             style={{
               width: '100%',
-              height: '6px',
+              height: '4px',
               background: 'rgba(255, 255, 255, 0.08)',
-              borderRadius: '3px',
+              borderRadius: '4px',
               overflow: 'hidden'
             }}
             role="progressbar"
@@ -326,8 +329,8 @@ export const ProgressCard: React.FC<ProgressCardProps> = ({ data, onCancel }) =>
               style={{
                 width: `${percent}%`,
                 height: '100%',
-                background: 'linear-gradient(90deg, #0284c7 0%, #38bdf8 100%)',
-                borderRadius: '3px',
+                background: 'linear-gradient(90deg, #5fd2ff, #5b84ff, #9a72ff)',
+                borderRadius: '4px',
                 transition: 'width 250ms ease-out'
               }}
             />
@@ -336,9 +339,9 @@ export const ProgressCard: React.FC<ProgressCardProps> = ({ data, onCancel }) =>
           <div
             style={{
               width: '100%',
-              height: '6px',
+              height: '4px',
               background: 'rgba(255, 255, 255, 0.08)',
-              borderRadius: '3px',
+              borderRadius: '4px',
               overflow: 'hidden',
               position: 'relative'
             }}
@@ -348,8 +351,8 @@ export const ProgressCard: React.FC<ProgressCardProps> = ({ data, onCancel }) =>
               style={{
                 width: '50%',
                 height: '100%',
-                background: 'linear-gradient(90deg, rgba(56, 189, 248, 0.2) 0%, rgba(56, 189, 248, 0.8) 50%, rgba(56, 189, 248, 0.2) 100%)',
-                borderRadius: '3px',
+                background: 'linear-gradient(90deg, rgba(95, 210, 255, 0.2) 0%, rgba(91, 132, 255, 0.9) 50%, rgba(154, 114, 255, 0.2) 100%)',
+                borderRadius: '4px',
                 animation: 'mave-v2-pulse-ring 1.8s infinite ease-in-out'
               }}
             />
@@ -428,170 +431,206 @@ export const ApprovalCard: React.FC<ApprovalCardProps> = ({
   };
 
   return (
-    <CardShell
-      id={data.id}
-      badge="Action Approval Required"
-      badgeColor={isDestructive ? 'var(--mave-v2-accent-error)' : 'var(--mave-v2-accent-warning)'}
-      title="Prototype Permission Gate"
-      intent={data.intent || (isDestructive ? 'destructive' : 'attention')}
-      density={data.density || 'standard'}
-      actions={
-        !isResolved ? (
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <button
-              onClick={handleDeny}
+    <div style={{ maxWidth: '440px', width: '100%' }}>
+      <CardShell
+        id={data.id}
+        badge="Action Approval Required"
+        badgeColor={isDestructive ? 'var(--mave-err)' : 'var(--mave-warn)'}
+        title="Prototype Permission Gate"
+        intent={data.intent || (isDestructive ? 'destructive' : 'attention')}
+        density={data.density || 'standard'}
+        actions={
+          !isResolved ? (
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', width: '100%' }}>
+              <button
+                onClick={handleDeny}
+                style={{
+                  height: '38px',
+                  padding: '0 18px',
+                  borderRadius: '20px',
+                  background: 'rgba(255, 255, 255, 0.04)',
+                  border: '1px solid rgba(255, 255, 255, 0.14)',
+                  boxSizing: 'border-box',
+                  color: 'var(--mave-dim)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  fontSize: '14px',
+                  fontWeight: 500,
+                  cursor: 'pointer',
+                  fontFamily: 'var(--mave-font-sans)',
+                  transition: 'background 150ms ease, color 150ms ease'
+                }}
+                data-testid="btn-deny-action"
+                aria-label="Deny requested action (mock)"
+              >
+                Deny
+              </button>
+              <button
+                onClick={handleAllow}
+                style={{
+                  height: '38px',
+                  padding: '0 20px',
+                  borderRadius: '20px',
+                  background: isDestructive ? '#dc2626' : 'var(--mave-blue)',
+                  border: 'none',
+                  boxSizing: 'border-box',
+                  color: '#ffffff',
+                  display: 'flex',
+                  alignItems: 'center',
+                  fontSize: '14px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  fontFamily: 'var(--mave-font-sans)',
+                  boxShadow: isDestructive ? '0 0 16px rgba(220, 38, 38, 0.4)' : '0 0 16px rgba(91, 132, 255, 0.4)',
+                  transition: 'opacity 150ms ease'
+                }}
+                data-testid="btn-allow-action"
+                aria-label={isDestructive ? 'Confirm destructive action (mock)' : 'Allow action (mock)'}
+              >
+                {isDestructive ? 'Confirm Destructive Action' : 'Allow Action'}
+              </button>
+            </div>
+          ) : (
+            <div
               style={{
-                background: 'rgba(255, 255, 255, 0.06)',
-                border: '1px solid var(--mave-v2-border-subtle)',
-                borderRadius: '6px',
-                color: 'var(--mave-v2-text-secondary)',
-                padding: '5px 12px',
-                fontSize: '12px',
-                fontWeight: 500,
-                cursor: 'pointer'
-              }}
-              data-testid="btn-deny-action"
-              aria-label="Deny requested action (mock)"
-            >
-              Deny
-            </button>
-            <button
-              onClick={handleAllow}
-              style={{
-                background: isDestructive
-                  ? 'linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)'
-                  : 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
-                border: 'none',
-                borderRadius: '6px',
-                color: '#ffffff',
-                padding: '5px 14px',
                 fontSize: '12px',
                 fontWeight: 600,
-                cursor: 'pointer',
-                boxShadow: isDestructive
-                  ? '0 0 10px rgba(220, 38, 38, 0.4)'
-                  : '0 0 10px rgba(2, 132, 199, 0.4)'
+                color: data.status === 'allowed' ? 'var(--mave-ok)' : 'var(--mave-err)',
+                padding: '4px 10px',
+                background: data.status === 'allowed' ? 'rgba(95, 224, 168, 0.1)' : 'rgba(255, 122, 133, 0.1)',
+                border: `1px solid ${data.status === 'allowed' ? 'rgba(95, 224, 168, 0.3)' : 'rgba(255, 122, 133, 0.3)'}`,
+                borderRadius: '8px',
+                fontFamily: 'var(--mave-font-mono)'
               }}
-              data-testid="btn-allow-action"
-              aria-label={isDestructive ? 'Confirm destructive action (mock)' : 'Allow action (mock)'}
+              data-testid="approval-status-resolved"
             >
-              {isDestructive ? 'Confirm Destructive Action' : 'Allow Action'}
-            </button>
-          </div>
-        ) : (
-          <div
-            style={{
-              fontSize: '11px',
-              fontWeight: 600,
-              color: data.status === 'allowed' ? 'var(--mave-v2-accent-success)' : 'var(--mave-v2-accent-error)',
-              padding: '2px 8px',
-              background: data.status === 'allowed' ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)',
-              borderRadius: '4px'
-            }}
-            data-testid="approval-status-resolved"
-          >
-            {data.status === 'allowed' ? '✓ Allowed (Mock Intent Emitted)' : '✕ Denied (Mock Intent Emitted)'}
-          </div>
-        )
-      }
-    >
-      <div
-        style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}
-        data-testid="approval-card"
-        data-prototype-gate="true"
+              {data.status === 'allowed' ? '✓ Allowed (Mock Intent Emitted)' : '✕ Denied (Mock Intent Emitted)'}
+            </div>
+          )
+        }
       >
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span style={{ fontWeight: 600, fontSize: '13px', color: 'var(--mave-v2-text-primary)' }}>
-            MAVE wants to execute:
-          </span>
-          <span
-            style={{
-              fontSize: '10px',
-              fontWeight: 600,
-              color: isDestructive ? 'var(--mave-v2-accent-error)' : 'var(--mave-v2-accent-warning)',
-              background: isDestructive ? 'rgba(239, 68, 68, 0.12)' : 'rgba(249, 115, 22, 0.12)',
-              padding: '2px 6px',
-              borderRadius: '4px'
-            }}
-            data-testid="approval-risk-badge"
-          >
-            {data.riskLevel}
-          </span>
-        </div>
-
         <div
-          style={{ fontSize: '13px', color: 'var(--mave-v2-text-secondary)', lineHeight: 1.45 }}
-          data-testid="approval-action-requested"
+          style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}
+          data-testid="approval-card"
+          data-prototype-gate="true"
         >
-          {data.actionRequested}
-        </div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontWeight: 600, fontSize: '15px', color: 'var(--mave-ink)' }}>
+              MAVE wants to execute:
+            </span>
+            <span
+              style={{
+                fontSize: '11px',
+                fontWeight: 600,
+                color: isDestructive ? 'var(--mave-err)' : 'var(--mave-warn)',
+                background: isDestructive ? 'rgba(255, 122, 133, 0.12)' : 'rgba(255, 196, 107, 0.12)',
+                border: `1px solid ${isDestructive ? 'rgba(255, 122, 133, 0.3)' : 'rgba(255, 196, 107, 0.3)'}`,
+                padding: '2px 8px',
+                borderRadius: '6px',
+                fontFamily: 'var(--mave-font-mono)'
+              }}
+              data-testid="approval-risk-badge"
+            >
+              {data.riskLevel}
+            </span>
+          </div>
 
-        {/* Risk Explanation */}
-        {data.riskExplanation && (
+          <div
+            style={{ fontSize: '14px', color: 'var(--mave-dim)', lineHeight: 1.45 }}
+            data-testid="approval-action-requested"
+          >
+            {data.actionRequested}
+          </div>
+
+          {/* Risk Explanation */}
+          {data.riskExplanation && (
+            <div
+              style={{
+                fontSize: '12px',
+                color: isDestructive ? '#fca5a5' : '#fed7aa',
+                background: isDestructive ? 'rgba(255, 122, 133, 0.08)' : 'rgba(255, 196, 107, 0.08)',
+                padding: '8px 12px',
+                borderRadius: '8px',
+                borderLeft: isDestructive ? '3px solid #ff7a85' : '3px solid #ffc46b'
+              }}
+              data-testid="approval-risk-explanation"
+            >
+              {data.riskExplanation}
+            </div>
+          )}
+
+          {/* Command string preview (UI Kit: mono in rgba(0,0,0,0.35) with border) */}
+          {data.command && (
+            <div
+              style={{
+                background: 'rgba(0, 0, 0, 0.35)',
+                padding: '12px 14px',
+                borderRadius: '12px',
+                fontFamily: 'var(--mave-font-mono)',
+                fontSize: '14px',
+                color: 'var(--mave-ink)',
+                border: '1px solid var(--mave-line)',
+                overflowX: 'auto',
+                whiteSpace: 'pre'
+              }}
+              data-testid="approval-command-preview"
+            >
+              $ {data.command}
+            </div>
+          )}
+
+          {/* Metadata Grid (UI Kit: 90px 1fr) */}
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '90px 1fr',
+              gap: '6px 12px',
+              fontSize: '13px',
+              borderTop: '1px solid var(--mave-line)',
+              paddingTop: '8px'
+            }}
+          >
+            {data.directory && (
+              <>
+                <div style={{ color: 'var(--mave-faint)' }}>Directory</div>
+                <div
+                  style={{
+                    fontFamily: 'var(--mave-font-mono)',
+                    fontSize: '12px',
+                    color: 'var(--mave-dim)',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap'
+                  }}
+                  data-testid="approval-directory"
+                >
+                  Directory: <span style={{ color: 'var(--mave-dim)' }}>{data.directory}</span>
+                </div>
+              </>
+            )}
+            <div style={{ color: 'var(--mave-faint)' }}>Risk</div>
+            <div style={{ color: isDestructive ? 'var(--mave-err)' : 'var(--mave-ok)', fontWeight: 500 }}>
+              {isDestructive ? 'Destructive action' : 'Safe local action'}
+            </div>
+          </div>
+
+          {/* Prototype boundary notice */}
           <div
             style={{
               fontSize: '11px',
-              color: isDestructive ? '#fca5a5' : '#fed7aa',
-              background: isDestructive ? 'rgba(239, 68, 68, 0.08)' : 'rgba(245, 158, 11, 0.08)',
-              padding: '6px 8px',
-              borderRadius: '4px',
-              borderLeft: isDestructive ? '3px solid #ef4444' : '3px solid #f59e0b'
+              color: 'var(--mave-faint)',
+              borderTop: '1px solid var(--mave-line)',
+              paddingTop: '6px',
+              fontStyle: 'italic',
+              fontFamily: 'var(--mave-font-mono)'
             }}
-            data-testid="approval-risk-explanation"
+            data-testid="approval-prototype-disclaimer"
           >
-            {data.riskExplanation}
+            [Prototype Notice]: Buttons trigger synthetic UI callbacks only. No system commands are executed.
           </div>
-        )}
-
-        {/* Command string preview */}
-        {data.command && (
-          <div
-            style={{
-              background: 'rgba(0, 0, 0, 0.45)',
-              padding: '8px 10px',
-              borderRadius: '6px',
-              fontFamily: 'Consolas, Monaco, monospace',
-              fontSize: '12px',
-              color: '#38bdf8',
-              border: '1px solid var(--mave-v2-border-subtle)',
-              overflowX: 'auto',
-              whiteSpace: 'pre'
-            }}
-            data-testid="approval-command-preview"
-          >
-            $ {data.command}
-          </div>
-        )}
-
-        {/* Working directory breadcrumb */}
-        {data.directory && (
-          <div
-            style={{
-              fontSize: '11px',
-              color: 'var(--mave-v2-text-dim)',
-              fontFamily: 'Consolas, monospace'
-            }}
-            data-testid="approval-directory"
-          >
-            Directory: <span style={{ color: 'var(--mave-v2-text-secondary)' }}>{data.directory}</span>
-          </div>
-        )}
-
-        {/* Prototype boundary notice */}
-        <div
-          style={{
-            fontSize: '10px',
-            color: 'var(--mave-v2-text-dim)',
-            borderTop: '1px solid rgba(255, 255, 255, 0.04)',
-            paddingTop: '4px',
-            fontStyle: 'italic'
-          }}
-          data-testid="approval-prototype-disclaimer"
-        >
-          [Prototype Notice]: Buttons trigger synthetic UI callbacks only. No system commands are executed.
         </div>
-      </div>
-    </CardShell>
+      </CardShell>
+    </div>
   );
 };
 
@@ -617,7 +656,7 @@ export const ErrorCard: React.FC<ErrorCardProps> = ({ data, onRetry }) => {
     <CardShell
       id={data.id}
       badge="ALERT"
-      badgeColor="var(--mave-v2-accent-error)"
+      badgeColor="var(--mave-err)"
       title={data.title ?? 'Error Encountered'}
       intent={data.intent || 'warning'}
       density={data.density || 'standard'}
@@ -628,12 +667,13 @@ export const ErrorCard: React.FC<ErrorCardProps> = ({ data, onRetry }) => {
               onClick={() => setShowTechnicalDetails(!showTechnicalDetails)}
               style={{
                 background: 'transparent',
-                border: '1px solid var(--mave-v2-border-subtle)',
-                borderRadius: '4px',
-                color: 'var(--mave-v2-text-muted)',
-                padding: '4px 8px',
+                border: '1px solid var(--mave-line)',
+                borderRadius: '8px',
+                color: 'var(--mave-dim)',
+                padding: '4px 10px',
                 fontSize: '11px',
-                cursor: 'pointer'
+                cursor: 'pointer',
+                fontFamily: 'var(--mave-font-mono)'
               }}
               data-testid="btn-toggle-error-details"
               aria-expanded={showTechnicalDetails}
@@ -646,14 +686,15 @@ export const ErrorCard: React.FC<ErrorCardProps> = ({ data, onRetry }) => {
             <button
               onClick={onRetry}
               style={{
-                background: 'rgba(239, 68, 68, 0.15)',
-                border: '1px solid rgba(239, 68, 68, 0.35)',
-                borderRadius: '4px',
-                color: '#fca5a5',
-                padding: '4px 10px',
+                background: 'rgba(255, 122, 133, 0.12)',
+                border: '1px solid rgba(255, 122, 133, 0.35)',
+                borderRadius: '8px',
+                color: '#ff7a85',
+                padding: '4px 12px',
                 fontSize: '11px',
                 fontWeight: 600,
-                cursor: 'pointer'
+                cursor: 'pointer',
+                fontFamily: 'var(--mave-font-mono)'
               }}
               data-testid="btn-retry-error"
             >
@@ -666,8 +707,8 @@ export const ErrorCard: React.FC<ErrorCardProps> = ({ data, onRetry }) => {
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }} data-testid="error-card">
         <div
           style={{
-            color: 'var(--mave-v2-accent-error)',
-            fontSize: '13px',
+            color: 'var(--mave-err)',
+            fontSize: '14px',
             lineHeight: 1.45,
             fontWeight: 500
           }}
@@ -681,15 +722,15 @@ export const ErrorCard: React.FC<ErrorCardProps> = ({ data, onRetry }) => {
           <pre
             style={{
               margin: 0,
-              padding: '8px 10px',
-              background: 'rgba(0, 0, 0, 0.45)',
-              borderRadius: '6px',
-              fontSize: '11px',
-              fontFamily: 'Consolas, Monaco, monospace',
-              color: '#94a3b8',
+              padding: '10px 12px',
+              background: '#0a0c18',
+              borderRadius: '10px',
+              fontSize: '12px',
+              fontFamily: 'var(--mave-font-mono)',
+              color: 'var(--mave-dim)',
               overflowX: 'auto',
-              border: '1px solid rgba(239, 68, 68, 0.25)',
-              lineHeight: 1.4
+              border: '1px solid rgba(255, 122, 133, 0.3)',
+              lineHeight: 1.5
             }}
             data-testid="error-technical-details"
           >

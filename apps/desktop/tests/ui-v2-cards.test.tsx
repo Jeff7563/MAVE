@@ -326,6 +326,42 @@ describe('MAVE UI V2 — U3 Rich Cards & Structured Information Presentation Tes
       // Toggle affordance
       expect(html).toContain('data-testid="btn-toggle-source-group"');
     });
+
+    it('eliminates nested CardShell containers when expanded', () => {
+      const groupData: SourceGroupCardData = {
+        id: 'sg-composite-expanded',
+        type: 'source_group',
+        defaultExpanded: true,
+        sources: [
+          {
+            id: 's1',
+            type: 'source',
+            citationIndex: 1,
+            title: 'Authoritative Documentation',
+            domain: 'docs.example.com',
+            url: 'https://docs.example.com',
+            snippet: 'Example snippet'
+          },
+          {
+            id: 's2',
+            type: 'source',
+            citationIndex: 2,
+            title: 'Secondary Source',
+            domain: 'secondary.example.com',
+            url: 'https://secondary.example.com',
+            snippet: 'Secondary snippet'
+          }
+        ]
+      };
+
+      const html = renderToStaticMarkup(<SourceGroupCard data={groupData} />);
+      expect(html).toContain('data-testid="source-group-expanded-list"');
+      expect(html).toContain('Authoritative Documentation');
+      expect(html).toContain('Secondary Source');
+      // Invariant: CardShell must not be nested inside CardShell
+      const cardShellOccurrences = (html.match(/mave-v2-card-shell/g) || []).length;
+      expect(cardShellOccurrences).toBe(1);
+    });
   });
 
   // -------------------------------------------------------------------------

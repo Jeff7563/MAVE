@@ -21,12 +21,13 @@ export interface FileCardProps {
  */
 export const FileCard: React.FC<FileCardProps> = ({ data, onInspect }) => {
   const filename = data.path.split(/[\\/]/).pop() || data.path;
+  const extension = data.fileType || filename.split('.').pop() || 'FILE';
 
   return (
     <CardShell
       id={data.id}
-      badge={data.fileType.toUpperCase()}
-      badgeColor="var(--mave-v2-accent-listening)"
+      badge={extension.toUpperCase()}
+      badgeColor="var(--mave-cyan)"
       title={filename}
       timestamp={data.linesModified ? `${data.linesModified} lines modified` : undefined}
       intent={data.intent || 'default'}
@@ -37,12 +38,14 @@ export const FileCard: React.FC<FileCardProps> = ({ data, onInspect }) => {
             onClick={() => onInspect(data.path)}
             style={{
               background: 'transparent',
-              border: '1px solid var(--mave-v2-border-subtle)',
-              borderRadius: '4px',
-              color: 'var(--mave-v2-accent-listening)',
-              padding: '3px 8px',
+              border: '1px solid var(--mave-line)',
+              borderRadius: '8px',
+              color: 'var(--mave-cyan)',
+              padding: '4px 10px',
               fontSize: '11px',
-              cursor: 'pointer'
+              cursor: 'pointer',
+              fontFamily: 'var(--mave-font-mono)',
+              fontWeight: 500
             }}
             aria-label={`Inspect file ${filename}`}
             data-testid="btn-inspect-file"
@@ -52,37 +55,85 @@ export const FileCard: React.FC<FileCardProps> = ({ data, onInspect }) => {
         ) : undefined
       }
     >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }} data-testid="file-card">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px' }}>
-          <span aria-hidden="true">📄</span>
-          <span style={{ fontWeight: 600, color: 'var(--mave-v2-text-primary)' }}>
-            {filename}
-          </span>
-          <span
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }} data-testid="file-card">
+        {/* UI Kit File Row */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            padding: '10px 12px',
+            borderRadius: '12px',
+            background: 'var(--mave-raised)',
+            border: '1px solid var(--mave-line)'
+          }}
+        >
+          {/* Mini Format Badge */}
+          <div
             style={{
-              color: 'var(--mave-v2-text-dim)',
-              fontSize: '11px',
-              fontFamily: 'Consolas, monospace'
+              width: '32px',
+              height: '40px',
+              borderRadius: '6px',
+              border: '1px solid rgba(255, 255, 255, 0.15)',
+              display: 'flex',
+              alignItems: 'flex-end',
+              justifyContent: 'center',
+              paddingBottom: '4px',
+              boxSizing: 'border-box',
+              fontFamily: 'var(--mave-font-mono)',
+              fontSize: '8px',
+              color: 'var(--mave-dim)',
+              textTransform: 'uppercase'
             }}
-            data-testid="file-path-breadcrumb"
           >
-            {data.path}
-          </span>
+            {extension.slice(0, 4)}
+          </div>
+
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0 }}>
+            <span style={{ fontWeight: 600, fontSize: '14px', color: 'var(--mave-ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {filename}
+            </span>
+            <span
+              style={{
+                color: 'var(--mave-faint)',
+                fontSize: '11px',
+                fontFamily: 'var(--mave-font-mono)',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap'
+              }}
+              data-testid="file-path-breadcrumb"
+            >
+              {data.path}
+            </span>
+          </div>
+
+          <div
+            style={{
+              fontFamily: 'var(--mave-font-mono)',
+              fontSize: '11px',
+              letterSpacing: '0.12em',
+              color: 'var(--mave-cyan)',
+              flexShrink: 0
+            }}
+          >
+            {data.linesModified ? `${data.linesModified} lines modified` : 'LATEST'}
+          </div>
         </div>
 
         {data.previewSnippet && (
           <pre
             style={{
               margin: 0,
-              padding: '8px 10px',
-              background: 'rgba(0, 0, 0, 0.4)',
-              borderRadius: '6px',
-              fontSize: '11px',
-              color: 'var(--mave-v2-text-secondary)',
+              padding: '10px 12px',
+              background: '#0a0c18',
+              borderRadius: '10px',
+              fontSize: '12px',
+              color: 'var(--mave-dim)',
               overflowX: 'auto',
-              fontFamily: 'Consolas, Monaco, monospace',
-              lineHeight: 1.45,
-              border: '1px solid var(--mave-v2-border-subtle)'
+              fontFamily: 'var(--mave-font-mono)',
+              lineHeight: 1.5,
+              border: '1px solid var(--mave-line)'
             }}
             data-testid="file-preview-snippet"
           >
@@ -129,7 +180,7 @@ export const CodeCard: React.FC<CodeCardProps> = ({ data, onCopy }) => {
     <CardShell
       id={data.id}
       badge={data.language}
-      badgeColor="var(--mave-v2-accent-thinking)"
+      badgeColor="var(--mave-cyan)"
       title={data.filename}
       intent={data.intent || 'default'}
       density={data.density || 'standard'}
@@ -138,13 +189,14 @@ export const CodeCard: React.FC<CodeCardProps> = ({ data, onCopy }) => {
           onClick={handleCopy}
           style={{
             background: 'transparent',
-            border: '1px solid var(--mave-v2-border-subtle)',
-            borderRadius: '4px',
-            color: copied ? 'var(--mave-v2-accent-success)' : 'var(--mave-v2-text-secondary)',
-            padding: '3px 8px',
+            border: '1px solid var(--mave-line)',
+            borderRadius: '8px',
+            color: copied ? 'var(--mave-ok)' : 'var(--mave-dim)',
+            padding: '4px 10px',
             fontSize: '11px',
             cursor: 'pointer',
-            transition: 'color var(--mave-v2-motion-fast)'
+            fontFamily: 'var(--mave-font-mono)',
+            transition: 'color 150ms ease, border-color 150ms ease'
           }}
           aria-label="Copy code to clipboard"
           data-testid="btn-copy-code"
@@ -157,8 +209,8 @@ export const CodeCard: React.FC<CodeCardProps> = ({ data, onCopy }) => {
         {data.explanation && (
           <div
             style={{
-              fontSize: '12px',
-              color: 'var(--mave-v2-text-secondary)',
+              fontSize: '13px',
+              color: 'var(--mave-dim)',
               lineHeight: 1.45
             }}
             data-testid="code-explanation"
@@ -169,41 +221,41 @@ export const CodeCard: React.FC<CodeCardProps> = ({ data, onCopy }) => {
 
         <div
           style={{
-            background: 'rgba(0, 0, 0, 0.45)',
-            borderRadius: '6px',
+            background: '#0a0c18',
+            borderRadius: '12px',
             overflowX: 'auto',
-            border: '1px solid var(--mave-v2-border-subtle)',
-            padding: '8px 10px'
+            border: '1px solid var(--mave-line)',
+            padding: '10px 0'
           }}
         >
           <pre
             style={{
               margin: 0,
-              fontSize: '12px',
-              fontFamily: 'Consolas, Monaco, "Courier New", monospace',
-              lineHeight: 1.5,
-              color: '#e2e8f0'
+              fontSize: '13px',
+              fontFamily: 'var(--mave-font-mono)',
+              lineHeight: 1.55,
+              color: '#c9cde8'
             }}
           >
             {data.lineNumbers ? (
               <table style={{ borderCollapse: 'collapse', width: '100%' }} data-testid="code-table-with-lines">
                 <tbody>
                   {codeLines.map((line, idx) => (
-                    <tr key={idx}>
+                    <tr key={idx} style={{ height: '24px' }}>
                       <td
                         style={{
-                          width: '32px',
-                          color: 'var(--mave-v2-text-dim)',
+                          width: '36px',
+                          color: 'var(--mave-faint)',
                           userSelect: 'none',
                           textAlign: 'right',
-                          paddingRight: '12px',
-                          fontSize: '11px'
+                          paddingRight: '14px',
+                          fontSize: '12px'
                         }}
                         data-testid="line-number"
                       >
                         {idx + 1}
                       </td>
-                      <td style={{ whiteSpace: 'pre', color: '#e2e8f0' }}>
+                      <td style={{ whiteSpace: 'pre', color: '#c9cde8', paddingRight: '14px' }}>
                         <code>{line}</code>
                       </td>
                     </tr>
@@ -211,7 +263,9 @@ export const CodeCard: React.FC<CodeCardProps> = ({ data, onCopy }) => {
                 </tbody>
               </table>
             ) : (
-              <code>{data.code}</code>
+              <div style={{ padding: '0 14px' }}>
+                <code>{data.code}</code>
+              </div>
             )}
           </pre>
         </div>
@@ -239,10 +293,6 @@ export interface DiffCardProps {
  */
 export const DiffCard: React.FC<DiffCardProps> = ({ data, onInspect, onOpenWorkspace }) => {
   const [isExpanded, setIsExpanded] = useState<boolean>(data.defaultExpanded ?? false);
-  // U3/U4 Architectural Clarification: Large Diff Threshold
-  // The threshold (>40 modifications) is an implementation-local prototype heuristic fallback.
-  // Canonical rule: Diff inspection that requires sustained structured interaction is Workspace-eligible;
-  // small/medium inspectable diffs remain directly inside Conversation or Chat-only.
   const DEFAULT_LARGE_DIFF_FALLBACK = 40;
   const totalModifications = data.additions + data.deletions;
   const isLargeDiff = totalModifications > DEFAULT_LARGE_DIFF_FALLBACK;
@@ -254,28 +304,28 @@ export const DiffCard: React.FC<DiffCardProps> = ({ data, onInspect, onOpenWorks
         style={{
           display: 'flex',
           flexDirection: 'column',
-          fontFamily: 'Consolas, Monaco, "Courier New", monospace',
-          fontSize: '11px',
-          lineHeight: 1.5,
-          background: 'rgba(0, 0, 0, 0.45)',
-          borderRadius: '6px',
+          fontFamily: 'var(--mave-font-mono)',
+          fontSize: '12px',
+          lineHeight: 1.55,
+          background: '#0a0c18',
+          borderRadius: '12px',
           overflowX: 'auto',
-          border: '1px solid var(--mave-v2-border-subtle)'
+          border: '1px solid var(--mave-line)'
         }}
         data-testid="diff-lines-container"
       >
         {lines.map((line, idx) => {
           let lineBg = 'transparent';
-          let textColor = 'var(--mave-v2-text-secondary)';
+          let textColor = 'var(--mave-dim)';
           let prefix = ' ';
 
           if (line.type === 'add') {
-            lineBg = 'rgba(34, 197, 94, 0.12)';
-            textColor = '#4ade80';
+            lineBg = 'rgba(95, 224, 168, 0.09)';
+            textColor = '#5fe0a8';
             prefix = '+';
           } else if (line.type === 'remove') {
-            lineBg = 'rgba(239, 68, 68, 0.12)';
-            textColor = '#f87171';
+            lineBg = 'rgba(255, 122, 133, 0.08)';
+            textColor = '#ff7a85';
             prefix = '-';
           }
 
@@ -288,30 +338,30 @@ export const DiffCard: React.FC<DiffCardProps> = ({ data, onInspect, onOpenWorks
                 display: 'flex',
                 alignItems: 'center',
                 background: lineBg,
-                padding: '2px 8px',
+                padding: '3px 12px',
                 borderBottom: '1px solid rgba(255, 255, 255, 0.02)'
               }}
             >
               <div
                 style={{
                   display: 'flex',
-                  gap: '6px',
-                  width: '56px',
-                  color: 'var(--mave-v2-text-dim)',
+                  gap: '8px',
+                  width: '60px',
+                  color: 'var(--mave-faint)',
                   userSelect: 'none',
-                  fontSize: '10px'
+                  fontSize: '11px'
                 }}
               >
-                <span style={{ width: '24px', textAlign: 'right' }}>
+                <span style={{ width: '26px', textAlign: 'right' }}>
                   {line.oldLineNumber ?? ''}
                 </span>
-                <span style={{ width: '24px', textAlign: 'right' }}>
+                <span style={{ width: '26px', textAlign: 'right' }}>
                   {line.newLineNumber ?? ''}
                 </span>
               </div>
               <span
                 style={{
-                  width: '14px',
+                  width: '16px',
                   textAlign: 'center',
                   color: textColor,
                   fontWeight: 700,
@@ -334,7 +384,7 @@ export const DiffCard: React.FC<DiffCardProps> = ({ data, onInspect, onOpenWorks
     <CardShell
       id={data.id}
       badge="DIFF"
-      badgeColor="var(--mave-v2-accent-thinking)"
+      badgeColor="var(--mave-cyan)"
       title={data.filename}
       intent={data.intent || 'default'}
       density={data.density || 'standard'}
@@ -344,13 +394,15 @@ export const DiffCard: React.FC<DiffCardProps> = ({ data, onInspect, onOpenWorks
             <button
               onClick={onOpenWorkspace}
               style={{
-                background: 'rgba(56, 189, 248, 0.12)',
-                border: '1px solid rgba(56, 189, 248, 0.3)',
-                borderRadius: '4px',
-                color: 'var(--mave-v2-accent-listening)',
-                padding: '3px 8px',
+                background: 'rgba(91, 132, 255, 0.14)',
+                border: '1px solid rgba(91, 132, 255, 0.35)',
+                borderRadius: '8px',
+                color: 'var(--mave-cyan)',
+                padding: '4px 12px',
                 fontSize: '11px',
-                cursor: 'pointer'
+                cursor: 'pointer',
+                fontFamily: 'var(--mave-font-mono)',
+                fontWeight: 500
               }}
               data-testid="btn-open-diff-workspace"
               aria-label="Inspect large diff in Workspace"
@@ -364,12 +416,13 @@ export const DiffCard: React.FC<DiffCardProps> = ({ data, onInspect, onOpenWorks
               onClick={() => onInspect(data.path!)}
               style={{
                 background: 'transparent',
-                border: '1px solid var(--mave-v2-border-subtle)',
-                borderRadius: '4px',
-                color: 'var(--mave-v2-text-secondary)',
-                padding: '3px 8px',
+                border: '1px solid var(--mave-line)',
+                borderRadius: '8px',
+                color: 'var(--mave-dim)',
+                padding: '4px 10px',
                 fontSize: '11px',
-                cursor: 'pointer'
+                cursor: 'pointer',
+                fontFamily: 'var(--mave-font-mono)'
               }}
               data-testid="btn-inspect-diff-file"
             >
@@ -382,12 +435,13 @@ export const DiffCard: React.FC<DiffCardProps> = ({ data, onInspect, onOpenWorks
               onClick={() => setIsExpanded(!isExpanded)}
               style={{
                 background: 'transparent',
-                border: '1px solid var(--mave-v2-border-subtle)',
-                borderRadius: '4px',
-                color: 'var(--mave-v2-text-secondary)',
-                padding: '3px 8px',
+                border: '1px solid var(--mave-line)',
+                borderRadius: '8px',
+                color: 'var(--mave-dim)',
+                padding: '4px 10px',
                 fontSize: '11px',
-                cursor: 'pointer'
+                cursor: 'pointer',
+                fontFamily: 'var(--mave-font-mono)'
               }}
               data-testid="btn-toggle-diff-expand"
               aria-expanded={isExpanded}
@@ -400,25 +454,25 @@ export const DiffCard: React.FC<DiffCardProps> = ({ data, onInspect, onOpenWorks
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }} data-testid="diff-card">
         {/* Metric summary header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '12px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span style={{ fontWeight: 600, color: 'var(--mave-v2-text-primary)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '13px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontWeight: 600, color: 'var(--mave-ink)' }}>
               {data.filename}
             </span>
             {data.path && (
-              <span style={{ color: 'var(--mave-v2-text-dim)', fontSize: '11px' }}>
+              <span style={{ color: 'var(--mave-faint)', fontSize: '11px', fontFamily: 'var(--mave-font-mono)' }}>
                 ({data.path})
               </span>
             )}
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 600, fontSize: '11px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600, fontSize: '11px', fontFamily: 'var(--mave-font-mono)' }}>
             <span
               style={{
-                color: '#4ade80',
-                background: 'rgba(34, 197, 94, 0.1)',
-                padding: '1px 6px',
-                borderRadius: '4px'
+                color: '#5fe0a8',
+                background: 'rgba(95, 224, 168, 0.12)',
+                padding: '2px 8px',
+                borderRadius: '6px'
               }}
               data-testid="diff-additions-badge"
             >
@@ -426,10 +480,10 @@ export const DiffCard: React.FC<DiffCardProps> = ({ data, onInspect, onOpenWorks
             </span>
             <span
               style={{
-                color: '#f87171',
-                background: 'rgba(239, 68, 68, 0.1)',
-                padding: '1px 6px',
-                borderRadius: '4px'
+                color: '#ff7a85',
+                background: 'rgba(255, 122, 133, 0.12)',
+                padding: '2px 8px',
+                borderRadius: '6px'
               }}
               data-testid="diff-deletions-badge"
             >
@@ -442,13 +496,13 @@ export const DiffCard: React.FC<DiffCardProps> = ({ data, onInspect, onOpenWorks
         {!isExpanded && data.compactPreview && data.compactPreview.length > 0 && (
           <div
             style={{
-              padding: '6px 10px',
-              background: 'rgba(0, 0, 0, 0.3)',
-              borderRadius: '6px',
-              fontSize: '11px',
-              fontFamily: 'Consolas, Monaco, monospace',
-              color: 'var(--mave-v2-text-secondary)',
-              border: '1px solid rgba(255, 255, 255, 0.04)'
+              padding: '8px 12px',
+              background: '#0a0c18',
+              borderRadius: '10px',
+              fontSize: '12px',
+              fontFamily: 'var(--mave-font-mono)',
+              color: 'var(--mave-dim)',
+              border: '1px solid var(--mave-line)'
             }}
             data-testid="diff-compact-preview"
           >

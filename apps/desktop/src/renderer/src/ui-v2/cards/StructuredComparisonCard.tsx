@@ -40,7 +40,7 @@ export const StructuredComparisonCard: React.FC<StructuredComparisonCardProps> =
     <CardShell
       id={data.id}
       badge="COMPARISON"
-      badgeColor="var(--mave-v2-accent-listening)"
+      badgeColor="var(--mave-cyan)"
       title={data.title || 'Structured Comparison'}
       intent={data.intent || 'default'}
       density={data.density || 'standard'}
@@ -50,12 +50,13 @@ export const StructuredComparisonCard: React.FC<StructuredComparisonCardProps> =
             onClick={() => setIsStacked(!isStacked)}
             style={{
               background: 'transparent',
-              border: '1px solid var(--mave-v2-border-subtle)',
-              borderRadius: '4px',
-              color: 'var(--mave-v2-text-secondary)',
-              padding: '3px 8px',
+              border: '1px solid var(--mave-line)',
+              borderRadius: '8px',
+              color: 'var(--mave-dim)',
+              padding: '4px 10px',
               fontSize: '11px',
-              cursor: 'pointer'
+              cursor: 'pointer',
+              fontFamily: 'var(--mave-font-mono)'
             }}
             data-testid="btn-toggle-comparison-layout"
             aria-label="Toggle between table and stacked record layout"
@@ -67,13 +68,15 @@ export const StructuredComparisonCard: React.FC<StructuredComparisonCardProps> =
             <button
               onClick={onOpenWorkspace}
               style={{
-                background: 'rgba(56, 189, 248, 0.1)',
-                border: '1px solid rgba(56, 189, 248, 0.25)',
-                borderRadius: '4px',
-                color: 'var(--mave-v2-accent-listening)',
-                padding: '3px 8px',
+                background: 'rgba(91, 132, 255, 0.14)',
+                border: '1px solid rgba(91, 132, 255, 0.35)',
+                borderRadius: '8px',
+                color: 'var(--mave-cyan)',
+                padding: '4px 12px',
                 fontSize: '11px',
-                cursor: 'pointer'
+                cursor: 'pointer',
+                fontFamily: 'var(--mave-font-mono)',
+                fontWeight: 500
               }}
               data-testid="btn-open-comparison-workspace"
               aria-label="Open detailed comparison in Workspace"
@@ -89,9 +92,9 @@ export const StructuredComparisonCard: React.FC<StructuredComparisonCardProps> =
         {data.caption && (
           <div
             style={{
-              fontSize: '12px',
-              color: 'var(--mave-v2-text-secondary)',
-              lineHeight: 1.4
+              fontSize: '13px',
+              color: 'var(--mave-dim)',
+              lineHeight: 1.45
             }}
             data-testid="comparison-caption"
           >
@@ -104,9 +107,9 @@ export const StructuredComparisonCard: React.FC<StructuredComparisonCardProps> =
           <div
             style={{
               overflowX: 'auto',
-              borderRadius: '6px',
-              border: '1px solid var(--mave-v2-border-subtle)',
-              background: 'rgba(0, 0, 0, 0.3)'
+              borderRadius: '12px',
+              border: '1px solid var(--mave-line)',
+              background: '#0a0c18'
             }}
             data-testid="comparison-table-wrapper"
           >
@@ -114,7 +117,7 @@ export const StructuredComparisonCard: React.FC<StructuredComparisonCardProps> =
               style={{
                 width: '100%',
                 borderCollapse: 'collapse',
-                fontSize: data.density === 'compact' ? '11px' : '12px',
+                fontSize: data.density === 'compact' ? '12px' : '13px',
                 textAlign: 'left'
               }}
               role="table"
@@ -122,16 +125,19 @@ export const StructuredComparisonCard: React.FC<StructuredComparisonCardProps> =
               data-testid="comparison-table"
             >
               <thead>
-                <tr style={{ borderBottom: '1px solid var(--mave-v2-border-subtle)', background: 'rgba(255, 255, 255, 0.03)' }}>
+                <tr style={{ borderBottom: '1px solid var(--mave-line)', background: 'var(--mave-raised)' }}>
                   {data.columns.map((col) => (
                     <th
                       key={col.key}
                       scope="col"
                       style={{
-                        padding: '8px 10px',
-                        color: col.isPrimary ? 'var(--mave-v2-text-primary)' : 'var(--mave-v2-text-dim)',
+                        padding: '10px 14px',
+                        color: col.isPrimary ? 'var(--mave-ink)' : 'var(--mave-faint)',
                         fontWeight: col.isPrimary ? 700 : 600,
-                        whiteSpace: 'nowrap'
+                        whiteSpace: 'nowrap',
+                        fontFamily: 'var(--mave-font-mono)',
+                        fontSize: '12px',
+                        letterSpacing: '0.04em'
                       }}
                       data-testid={`comparison-th-${col.key}`}
                     >
@@ -146,8 +152,8 @@ export const StructuredComparisonCard: React.FC<StructuredComparisonCardProps> =
                     key={row.id}
                     style={{
                       borderBottom: '1px solid rgba(255, 255, 255, 0.04)',
-                      background: row.highlighted ? 'rgba(56, 189, 248, 0.08)' : 'transparent',
-                      transition: 'background var(--mave-v2-motion-fast)'
+                      background: row.highlighted ? 'rgba(95, 210, 255, 0.08)' : 'transparent',
+                      transition: 'background var(--mave-dur-quick) ease'
                     }}
                     data-testid={`comparison-row-${row.id}`}
                     data-highlighted={row.highlighted ? 'true' : 'false'}
@@ -160,25 +166,26 @@ export const StructuredComparisonCard: React.FC<StructuredComparisonCardProps> =
                         <td
                           key={col.key}
                           style={{
-                            padding: '8px 10px',
+                            padding: '10px 14px',
                             color: col.isPrimary
-                              ? 'var(--mave-v2-text-primary)'
-                              : 'var(--mave-v2-text-secondary)',
+                              ? 'var(--mave-ink)'
+                              : 'var(--mave-dim)',
                             fontWeight: col.isPrimary ? 600 : 400
                           }}
                           data-testid={`comparison-cell-${row.id}-${col.key}`}
                         >
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <span>{formatCellValue(cellVal)}</span>
                             {isFirst && row.badge && (
                               <span
                                 style={{
                                   fontSize: '10px',
-                                  padding: '1px 5px',
-                                  borderRadius: '3px',
-                                  background: 'rgba(56, 189, 248, 0.15)',
-                                  color: 'var(--mave-v2-accent-listening)',
-                                  fontWeight: 600
+                                  padding: '2px 6px',
+                                  borderRadius: '4px',
+                                  background: 'rgba(95, 210, 255, 0.14)',
+                                  color: 'var(--mave-cyan)',
+                                  fontWeight: 600,
+                                  fontFamily: 'var(--mave-font-mono)'
                                 }}
                                 data-testid={`row-badge-${row.id}`}
                               >
@@ -210,16 +217,16 @@ export const StructuredComparisonCard: React.FC<StructuredComparisonCardProps> =
                   key={row.id}
                   style={{
                     background: row.highlighted
-                      ? 'rgba(56, 189, 248, 0.08)'
-                      : 'rgba(0, 0, 0, 0.35)',
+                      ? 'rgba(95, 210, 255, 0.06)'
+                      : '#0a0c18',
                     border: row.highlighted
-                      ? '1px solid rgba(56, 189, 248, 0.3)'
-                      : '1px solid var(--mave-v2-border-subtle)',
-                    borderRadius: '6px',
-                    padding: '8px 10px',
+                      ? '1px solid rgba(95, 210, 255, 0.35)'
+                      : '1px solid var(--mave-line)',
+                    borderRadius: '12px',
+                    padding: '10px 14px',
                     display: 'flex',
                     flexDirection: 'column',
-                    gap: '4px'
+                    gap: '6px'
                   }}
                   data-testid={`comparison-stacked-record-${row.id}`}
                   data-highlighted={row.highlighted ? 'true' : 'false'}
@@ -230,23 +237,24 @@ export const StructuredComparisonCard: React.FC<StructuredComparisonCardProps> =
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'space-between',
-                      borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
-                      paddingBottom: '4px',
+                      borderBottom: '1px solid var(--mave-line)',
+                      paddingBottom: '6px',
                       marginBottom: '2px'
                     }}
                   >
-                    <span style={{ fontWeight: 600, color: 'var(--mave-v2-text-primary)', fontSize: '12px' }}>
+                    <span style={{ fontWeight: 600, color: 'var(--mave-ink)', fontSize: '13px' }}>
                       {formatCellValue(primaryVal)}
                     </span>
                     {row.badge && (
                       <span
                         style={{
                           fontSize: '10px',
-                          padding: '1px 5px',
-                          borderRadius: '3px',
-                          background: 'rgba(56, 189, 248, 0.15)',
-                          color: 'var(--mave-v2-accent-listening)',
-                          fontWeight: 600
+                          padding: '2px 6px',
+                          borderRadius: '4px',
+                          background: 'rgba(95, 210, 255, 0.14)',
+                          color: 'var(--mave-cyan)',
+                          fontWeight: 600,
+                          fontFamily: 'var(--mave-font-mono)'
                         }}
                         data-testid={`stacked-row-badge-${row.id}`}
                       >
@@ -256,7 +264,7 @@ export const StructuredComparisonCard: React.FC<StructuredComparisonCardProps> =
                   </div>
 
                   {/* Field values */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', fontSize: '11px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', fontSize: '12px' }}>
                     {data.columns
                       .filter((col) => col.key !== primaryCol?.key)
                       .map((col) => (
@@ -268,10 +276,10 @@ export const StructuredComparisonCard: React.FC<StructuredComparisonCardProps> =
                             padding: '2px 0'
                           }}
                         >
-                          <span style={{ color: 'var(--mave-v2-text-dim)' }}>
+                          <span style={{ color: 'var(--mave-faint)', fontFamily: 'var(--mave-font-mono)', fontSize: '11px' }}>
                             {col.label}:
                           </span>
-                          <span style={{ color: 'var(--mave-v2-text-secondary)', fontWeight: 500 }}>
+                          <span style={{ color: 'var(--mave-dim)', fontWeight: 500 }}>
                             {formatCellValue(row.values[col.key])}
                           </span>
                         </div>

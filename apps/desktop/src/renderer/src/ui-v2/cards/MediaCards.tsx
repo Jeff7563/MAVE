@@ -33,7 +33,7 @@ export const SourceCard: React.FC<SourceCardProps> = ({ data, onOpenSource }) =>
     <CardShell
       id={data.id}
       badge={citationBadge}
-      badgeColor="var(--mave-v2-accent-retrieval)"
+      badgeColor="var(--mave-cyan)"
       title={data.domain}
       timestamp={data.authorOrDate}
       intent={data.intent || 'default'}
@@ -46,8 +46,8 @@ export const SourceCard: React.FC<SourceCardProps> = ({ data, onOpenSource }) =>
           onClick={handleOpen}
           aria-label={`View source: ${data.title}`}
           style={{
-            color: 'var(--mave-v2-accent-listening)',
-            fontSize: '11px',
+            color: 'var(--mave-cyan)',
+            fontSize: '12px',
             textDecoration: 'none',
             display: 'inline-flex',
             alignItems: 'center',
@@ -60,9 +60,9 @@ export const SourceCard: React.FC<SourceCardProps> = ({ data, onOpenSource }) =>
         </a>
       }
     >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
         <div
-          style={{ fontWeight: 600, fontSize: '13px', color: 'var(--mave-v2-text-primary)' }}
+          style={{ fontWeight: 600, fontSize: '15px', color: 'var(--mave-ink)', lineHeight: 1.4 }}
           data-testid="source-card-title"
         >
           {data.title}
@@ -70,9 +70,9 @@ export const SourceCard: React.FC<SourceCardProps> = ({ data, onOpenSource }) =>
 
         <div
           style={{
-            fontSize: '12px',
-            color: 'var(--mave-v2-text-secondary)',
-            lineHeight: 1.45
+            fontSize: '13px',
+            color: 'var(--mave-dim)',
+            lineHeight: 1.5
           }}
           data-testid="source-card-snippet"
         >
@@ -86,12 +86,13 @@ export const SourceCard: React.FC<SourceCardProps> = ({ data, onOpenSource }) =>
             style={{
               background: 'transparent',
               border: 'none',
-              color: 'var(--mave-v2-text-dim)',
+              color: 'var(--mave-faint)',
               fontSize: '11px',
               padding: 0,
               cursor: 'pointer',
               textAlign: 'left',
-              marginTop: '2px'
+              marginTop: '2px',
+              fontFamily: 'var(--mave-font-mono)'
             }}
             data-testid="btn-toggle-snippet"
           >
@@ -120,7 +121,7 @@ export const SourceGroupCard: React.FC<SourceGroupCardProps> = ({ data, onOpenSo
     <CardShell
       id={data.id}
       badge={`Sources · ${count}`}
-      badgeColor="var(--mave-v2-accent-retrieval)"
+      badgeColor="var(--mave-cyan)"
       intent={data.intent || 'quiet'}
       density={data.density || 'standard'}
       actions={
@@ -130,10 +131,11 @@ export const SourceGroupCard: React.FC<SourceGroupCardProps> = ({ data, onOpenSo
           style={{
             background: 'transparent',
             border: 'none',
-            color: 'var(--mave-v2-accent-listening)',
+            color: 'var(--mave-cyan)',
             fontSize: '11px',
             cursor: 'pointer',
-            fontWeight: 500
+            fontWeight: 500,
+            fontFamily: 'var(--mave-font-mono)'
           }}
           data-testid="btn-toggle-source-group"
         >
@@ -145,7 +147,7 @@ export const SourceGroupCard: React.FC<SourceGroupCardProps> = ({ data, onOpenSo
         {/* Compact summary rows when collapsed */}
         {!expanded && (
           <div
-            style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}
+            style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}
             data-testid="source-group-summary-list"
           >
             {data.sources.slice(0, 5).map((src, idx) => (
@@ -155,49 +157,127 @@ export const SourceGroupCard: React.FC<SourceGroupCardProps> = ({ data, onOpenSo
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
-                  fontSize: '11px',
-                  color: 'var(--mave-v2-text-secondary)',
-                  padding: '2px 0'
+                  fontSize: '12px',
+                  color: 'var(--mave-dim)',
+                  padding: '3px 0'
                 }}
               >
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                  <span style={{ color: 'var(--mave-v2-accent-listening)', fontWeight: 600 }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ color: 'var(--mave-cyan)', fontWeight: 600, fontFamily: 'var(--mave-font-mono)' }}>
                     [{src.citationIndex ?? idx + 1}]
                   </span>
-                  <span style={{ fontWeight: 500, color: 'var(--mave-v2-text-primary)' }}>
+                  <span style={{ fontWeight: 500, color: 'var(--mave-ink)' }}>
                     {src.title}
                   </span>
                 </span>
-                <span style={{ color: 'var(--mave-v2-text-dim)', fontSize: '10px' }}>
+                <span style={{ color: 'var(--mave-faint)', fontSize: '11px', fontFamily: 'var(--mave-font-mono)' }}>
                   {src.domain}
                 </span>
               </div>
             ))}
             {count > 5 && (
-              <div style={{ fontSize: '10px', color: 'var(--mave-v2-text-dim)', fontStyle: 'italic' }}>
+              <div style={{ fontSize: '11px', color: 'var(--mave-faint)', fontStyle: 'italic', fontFamily: 'var(--mave-font-mono)' }}>
                 +{count - 5} more sources…
               </div>
             )}
           </div>
         )}
 
-        {/* Full stacked cards when expanded */}
+        {/* Full stacked source rows when expanded (no nested CardShell) */}
         {expanded && (
           <div
-            style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '4px' }}
+            style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '6px' }}
             data-testid="source-group-expanded-list"
           >
-            {data.sources.map((src, idx) => (
-              <SourceCard
-                key={src.id}
-                data={{
-                  ...src,
-                  citationIndex: src.citationIndex ?? idx + 1,
-                  density: 'compact'
-                }}
-                onOpenSource={onOpenSource}
-              />
-            ))}
+            {data.sources.map((src, idx) => {
+              const citIndex = src.citationIndex ?? idx + 1;
+              const isPrimary = idx === 0;
+
+              return (
+                <div
+                  key={src.id}
+                  style={{
+                    padding: isPrimary ? '12px 14px' : '10px 12px',
+                    borderRadius: '12px',
+                    background: isPrimary ? 'rgba(255, 255, 255, 0.04)' : 'transparent',
+                    border: isPrimary ? '1px solid var(--mave-line)' : 'none',
+                    borderTop: !isPrimary ? '1px solid var(--mave-line)' : undefined,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '6px'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span
+                        style={{
+                          fontFamily: 'var(--mave-font-mono)',
+                          fontSize: '11px',
+                          color: 'var(--mave-cyan)',
+                          fontWeight: 600,
+                          background: 'rgba(95, 210, 255, 0.08)',
+                          padding: '2px 6px',
+                          borderRadius: '4px'
+                        }}
+                      >
+                        [{citIndex}]
+                      </span>
+                      <span
+                        style={{
+                          fontWeight: isPrimary ? 600 : 500,
+                          fontSize: isPrimary ? '14px' : '13px',
+                          color: 'var(--mave-ink)'
+                        }}
+                        data-testid="source-card-title"
+                      >
+                        {src.title}
+                      </span>
+                    </div>
+                    <span style={{ color: 'var(--mave-faint)', fontSize: '11px', fontFamily: 'var(--mave-font-mono)' }}>
+                      {src.domain}
+                    </span>
+                  </div>
+
+                  <div
+                    style={{
+                      fontSize: '12px',
+                      color: 'var(--mave-dim)',
+                      lineHeight: 1.45
+                    }}
+                    data-testid="source-card-snippet"
+                  >
+                    {src.snippet}
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '2px' }}>
+                    <a
+                      href={src.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      onClick={(e) => {
+                        if (onOpenSource) {
+                          e.preventDefault();
+                          onOpenSource(src.url);
+                        }
+                      }}
+                      aria-label={`View source: ${src.title}`}
+                      style={{
+                        color: 'var(--mave-cyan)',
+                        fontSize: '11px',
+                        textDecoration: 'none',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        fontWeight: 500
+                      }}
+                      data-testid="link-view-source"
+                    >
+                      View Source ↗
+                    </a>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
@@ -226,7 +306,7 @@ export const VideoCard: React.FC<VideoCardProps> = ({ data, onOpenVideo }) => {
     <CardShell
       id={data.id}
       badge="Video Result"
-      badgeColor="var(--mave-v2-accent-warning)"
+      badgeColor="var(--mave-cyan)"
       title={data.channel}
       timestamp={data.duration}
       intent={data.intent || 'default'}
@@ -239,8 +319,8 @@ export const VideoCard: React.FC<VideoCardProps> = ({ data, onOpenVideo }) => {
           onClick={handleOpen}
           aria-label={`Watch video: ${data.title}`}
           style={{
-            color: 'var(--mave-v2-accent-listening)',
-            fontSize: '11px',
+            color: 'var(--mave-cyan)',
+            fontSize: '12px',
             textDecoration: 'none',
             display: 'inline-flex',
             alignItems: 'center',
@@ -253,46 +333,48 @@ export const VideoCard: React.FC<VideoCardProps> = ({ data, onOpenVideo }) => {
         </a>
       }
     >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        {/* Synthetic Video Thumbnail Preview (Zero external network dependencies) */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        {/* Synthetic Video Thumbnail Preview (Dark Glass Spec) */}
         <div
           style={{
-            height: '110px',
-            background: 'linear-gradient(135deg, rgba(30, 41, 59, 0.8) 0%, rgba(15, 23, 42, 0.95) 100%)',
-            borderRadius: '8px',
+            height: '130px',
+            background: 'linear-gradient(180deg, rgba(20, 24, 46, 0.9) 0%, rgba(10, 12, 24, 0.95) 100%)',
+            borderRadius: '12px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             position: 'relative',
-            border: '1px solid var(--mave-v2-border-subtle)',
+            border: '1px solid var(--mave-line)',
             overflow: 'hidden'
           }}
           data-testid="video-thumbnail-placeholder"
         >
           <div
             style={{
-              width: '36px',
-              height: '36px',
+              width: '42px',
+              height: '42px',
               borderRadius: '50%',
-              background: 'rgba(56, 189, 248, 0.85)',
+              background: 'var(--mave-blue)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              boxShadow: '0 0 12px rgba(56, 189, 248, 0.5)'
+              boxShadow: '0 0 20px rgba(91, 132, 255, 0.45)'
             }}
           >
-            <span style={{ color: '#0f172a', fontSize: '14px', marginLeft: '2px' }}>▶</span>
+            <span style={{ color: '#ffffff', fontSize: '15px', marginLeft: '3px' }}>▶</span>
           </div>
           <span
             style={{
               position: 'absolute',
-              bottom: '6px',
-              right: '8px',
-              background: 'rgba(0, 0, 0, 0.75)',
-              color: '#fff',
-              padding: '2px 6px',
-              borderRadius: '4px',
-              fontSize: '10px',
+              bottom: '8px',
+              right: '10px',
+              background: 'rgba(5, 6, 13, 0.85)',
+              border: '1px solid var(--mave-line)',
+              color: 'var(--mave-ink)',
+              padding: '2px 8px',
+              borderRadius: '6px',
+              fontSize: '11px',
+              fontFamily: 'var(--mave-font-mono)',
               fontWeight: 600
             }}
           >
@@ -303,14 +385,14 @@ export const VideoCard: React.FC<VideoCardProps> = ({ data, onOpenVideo }) => {
         {/* Video Metadata */}
         <div>
           <div
-            style={{ fontWeight: 600, fontSize: '13px', color: 'var(--mave-v2-text-primary)' }}
+            style={{ fontWeight: 600, fontSize: '15px', color: 'var(--mave-ink)', lineHeight: 1.4 }}
             data-testid="video-card-title"
           >
             {data.title}
           </div>
           {data.summary && (
             <div
-              style={{ fontSize: '12px', color: 'var(--mave-v2-text-secondary)', marginTop: '2px', lineHeight: 1.4 }}
+              style={{ fontSize: '13px', color: 'var(--mave-dim)', marginTop: '4px', lineHeight: 1.45 }}
               data-testid="video-card-summary"
             >
               {data.summary}
@@ -336,7 +418,7 @@ export const ImageCard: React.FC<ImageCardProps> = ({ data, onOpenImage }) => {
     <CardShell
       id={data.id}
       badge="Media"
-      badgeColor="var(--mave-v2-accent-listening)"
+      badgeColor="var(--mave-cyan)"
       title={data.provenance?.domain || 'Image Preview'}
       intent={data.intent || 'default'}
       density={data.density || 'standard'}
@@ -348,8 +430,8 @@ export const ImageCard: React.FC<ImageCardProps> = ({ data, onOpenImage }) => {
             style={{
               background: 'transparent',
               border: 'none',
-              color: 'var(--mave-v2-accent-listening)',
-              fontSize: '11px',
+              color: 'var(--mave-cyan)',
+              fontSize: '12px',
               cursor: 'pointer',
               fontWeight: 500
             }}
@@ -360,29 +442,29 @@ export const ImageCard: React.FC<ImageCardProps> = ({ data, onOpenImage }) => {
         )
       }
     >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
         {/* Synthetic Media Canvas Preview */}
         <div
           style={{
-            height: '120px',
-            background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.9) 0%, rgba(30, 41, 59, 0.8) 100%)',
-            borderRadius: '8px',
-            border: '1px solid var(--mave-v2-border-subtle)',
+            height: '130px',
+            background: 'linear-gradient(180deg, rgba(20, 24, 46, 0.8) 0%, rgba(10, 12, 24, 0.95) 100%)',
+            borderRadius: '12px',
+            border: '1px solid var(--mave-line)',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
-            color: 'var(--mave-v2-text-dim)',
-            fontSize: '11px',
-            gap: '4px'
+            color: 'var(--mave-dim)',
+            fontSize: '12px',
+            gap: '6px'
           }}
           data-testid="image-canvas-placeholder"
         >
-          <span style={{ fontSize: '20px' }}>🖼</span>
+          <span style={{ fontSize: '24px' }}>🖼</span>
           <span>{data.altText || data.caption}</span>
         </div>
 
-        <div style={{ fontSize: '12px', color: 'var(--mave-v2-text-secondary)', lineHeight: 1.4 }}>
+        <div style={{ fontSize: '13px', color: 'var(--mave-dim)', lineHeight: 1.45 }}>
           {data.caption}
         </div>
       </div>
