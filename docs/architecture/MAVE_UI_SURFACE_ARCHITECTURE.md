@@ -341,6 +341,78 @@ This is preferred over forcing the user into a full-screen dashboard for ordinar
 
 ---
 
+## Conversation Surface Interaction Contract
+
+> [!IMPORTANT]
+> **Seven Canonical Architectural Invariants**
+> 1. **Surface State $\neq$ Conversation Context**: Collapsing Conversation into Presence or minimizing the surface does NOT cancel active generation, clear session state, or wipe dialogue history. Surface level is purely a viewport representation.
+> 2. **Visible Timeline $\neq$ Runtime Context**: MAVE surfaces only recent relevant turns by default to prevent cognitive and layout overload. Large context windows in memory do not imply an infinite scrolling wall of text. Older turns are loaded on-demand via `Load earlier conversation`.
+> 3. **Long Content $\neq$ Workspace**: Long text, articles, or detailed explanations scroll smoothly inside the Conversation surface. Text length alone never triggers a Workspace escalation.
+> 4. **Visual Need drives Presence $\to$ Conversation**: Transitions from Presence to Conversation are triggered by the need to inspect rich cards, source citations, code blocks, structured tables, or interactive decisions.
+> 5. **Interaction Complexity drives Conversation $\to$ Workspace**: Transitions to Workspace are reserved strictly for sustained multi-step agent workflows, multi-file diffs/editing, persistent project artifacts, and continuous task monitoring.
+> 6. **Content Provenance $\neq$ Execution Provider**: User-facing citations ("OpenAI Documentation", "Google Docs", "YouTube", "Wikipedia") represent external provenance and MUST be rendered. Technical AI substrates (Ollama, Claude, Codex, Antigravity, model IDs, token metrics) belong strictly in diagnostics and must NEVER leak into normal conversational UI metadata.
+> 7. **Observable Progress Only**: First-token states ("Thinking…", "Searching…", "Reading 4 sources…") and progress indicators MUST be backed by genuine observable runtime events. Fictional reasoning or progress steps are strictly prohibited.
+
+### 1. Deterministic Handoff & Collapse Lifecycle
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User
+    participant P as Presence Surface
+    participant C as Conversation Surface
+    participant R as Runtime Context
+
+    User->>P: Spoken / Quick Query
+    P->>R: Ingest request (requestId: req-101)
+    R-->>P: Streaming Quick Response ("Starting answer...")
+    User->>P: Clicks Expand (↗)
+    Note over P,C: Deterministic Handoff (Same requestId, no restart, no text loss)
+    P->>C: handoffPresenceToConversation()
+    C-->>User: Seamless continuation of stream in-place
+    User->>C: Clicks Minimize (↙)
+    Note over C,P: Collapse to Presence (Context preserved in background)
+    C->>P: collapseConversationToPresence()
+    P-->>User: Ambient Presence with latest answer snippet
+```
+
+### 2. Timeline Anatomy & Grouping Semantics
+
+Rather than adopting a rigid chat-bubble monotony, Conversation formats each conversational exchange into a structured **Response Group**:
+
+```text
+ResponseGroup
+├─ User Question (compact, visually distinct bubble)
+└─ MAVE Turn
+   ├─ Subtle MAVE header (rendered once per response group)
+   ├─ Observable progress banner (truthful first-token state only)
+   ├─ Answer text / in-place streaming text with blinking cursor
+   ├─ Status tags ([Stopped] on cancel, [Interrupted] on barge-in)
+   ├─ Grouped supporting sources (titled "Sources (N)" with external links)
+   ├─ Rich media / code / translation cards
+   └─ Contextual follow-up suggestions (disappear when irrelevant)
+```
+
+### 3. Composer & Prompt Accelerators
+
+- **Composer**: Minimal multiline textarea with Enter to send, Shift+Enter for newline, voice input trigger (`🎙`), and cancel generation button (`⏹ Stop`) during streaming.
+- **Shortcuts Bar**: Shortcuts (`Search`, `Analyze`, `Code`, `Write`, `Translate`, `Plan`) are **prompt accelerators**, NOT modal locks. Clicking a shortcut prefixes input text without trapping the user in a restricted mode.
+- **Contextual Follow-ups**: Suggestions post-answer (`Explain grammar`, `More natural`, `Practice speaking`) assist user continuation without mode lock-in.
+
+### 4. Deterministic Scroll Semantics
+
+- **At Bottom**: When user is at the bottom of the timeline, incoming streaming text automatically follows smoothly.
+- **Scrolled Up**: When the user scrolls upward to read prior turns, auto-scroll is immediately disengaged. The viewport is **never** forcibly yanked back down.
+- **Floating Pill**: A subtle floating button (`New response ↓`) appears near the bottom of the timeline. Clicking it smoothly scrolls to the newest content and re-engages follow behavior.
+
+### 5. Error & Cancellation Guarantees
+
+- **Local Error Handling**: Errors appear directly adjacent to the failed turn with a `↻ Retry` action and dismiss capability. No global red-screen blocking UI.
+- **Cancellation Preservation**: User clicking `⏹ Stop` halts token generation while preserving all already-streamed paragraphs, marking the turn as `[Stopped]`.
+- **Interruption / Barge-in**: User speech during an active assistant response preserves the already-rendered text, marks it `[Interrupted]`, and smoothly opens the next user turn.
+
+---
+
 # 5. Rich Context Expansion
 
 The Conversation Surface may expand when the answer requires visual complexity.

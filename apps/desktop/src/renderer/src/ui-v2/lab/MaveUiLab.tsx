@@ -5,6 +5,10 @@ import { PresenceSurface } from '../presence/PresenceSurface';
 import { ConversationShell } from '../conversation/ConversationShell';
 import { WorkspaceShell } from '../workspace/WorkspaceShell';
 import { evaluateExpansionEligibility, normalizeAudioRms } from '../presence/presence-rules';
+import {
+  handoffPresenceToConversation,
+  collapseConversationToPresence
+} from '../conversation/conversation-rules';
 import './MaveUiLab.css';
 import '../tokens.css';
 
@@ -28,7 +32,7 @@ const VIEWPORT_DIMENSIONS: Record<ViewportPreset, { width: string; height: strin
  * - Cloud subscription runtimes or network
  */
 export const MaveUiLab: React.FC = () => {
-  const [selectedScenarioId, setSelectedScenarioId] = useState<string>('01_presence_idle');
+  const [selectedScenarioId, setSelectedScenarioId] = useState<string>(MOCK_SCENARIOS[0]!.id);
   const [currentScenario, setCurrentScenario] = useState<MockScenario>(MOCK_SCENARIOS[0]!);
   const [snapshot, setSnapshot] = useState<UiV2Snapshot>(MOCK_SCENARIOS[0]!.snapshot);
   const [viewportPreset, setViewportPreset] = useState<ViewportPreset>('fill');
@@ -570,7 +574,23 @@ export const MaveUiLab: React.FC = () => {
                 audioLevel={snapshot.presence.audioLevel}
                 quickResponse={snapshot.presence.quickResponse}
                 officeMode={officeMode}
-                onExpand={() => handleSetLevel('conversation')}
+                onExpand={() => {
+                  const handoff = handoffPresenceToConversation({
+                    quickResponse: snapshot.presence.quickResponse,
+                    presenceState: snapshot.presence.state,
+                    activeRequestId: snapshot.conversation.activeRequestId,
+                    historyMessages: snapshot.conversation.messages
+                  });
+                  setSnapshot((prev) => ({
+                    ...prev,
+                    level: 'conversation',
+                    conversation: {
+                      ...prev.conversation,
+                      ...handoff
+                    }
+                  }));
+                  setViewportPreset('chat');
+                }}
                 onWakeToggle={() =>
                   handleSetPresenceState(
                     snapshot.presence.state === 'idle' ? 'listening' : 'idle'
@@ -590,9 +610,55 @@ export const MaveUiLab: React.FC = () => {
                 state={snapshot.conversation}
                 presenceState={snapshot.presence.state}
                 audioLevel={snapshot.presence.audioLevel}
+                officeMode={officeMode}
                 onSendMessage={handleSendMessage}
-                onCollapseToPresence={() => handleSetLevel('presence')}
+                onCollapseToPresence={() => {
+                  const quickResp = collapseConversationToPresence(snapshot.conversation);
+                  setSnapshot((prev) => ({
+                    ...prev,
+                    level: 'presence',
+                    presence: {
+                      ...prev.presence,
+                      state: quickResp?.streaming ? 'speaking' : 'idle',
+                      quickResponse: quickResp
+                    }
+                  }));
+                  setViewportPreset('compact');
+                }}
                 onExpandToWorkspace={() => handleSetLevel('workspace')}
+                onCancelGeneration={() => {
+                  setSnapshot((prev) => {
+                    const text = prev.conversation.streamingText;
+                    return {
+                      ...prev,
+                      conversation: {
+                        ...prev.conversation,
+                        status: 'idle',
+                        streamingStatus: 'cancelled',
+                        streamingText: undefined,
+                        timelineGroups: [
+                          ...(prev.conversation.timelineGroups || []),
+                          {
+                            id: `group-cancelled-${Date.now()}`,
+                            answerText: text,
+                            isCancelled: true,
+                            streamingStatus: 'cancelled'
+                          }
+                        ]
+                      }
+                    };
+                  });
+                }}
+                onRetry={() => {
+                  setSnapshot((prev) => ({
+                    ...prev,
+                    conversation: {
+                      ...prev.conversation,
+                      status: 'thinking',
+                      observableProgressText: 'Retrying previous request…'
+                    }
+                  }));
+                }}
                 onAllowAction={handleAllowAction}
                 onDenyAction={handleDenyAction}
                 width="100%"

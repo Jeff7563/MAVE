@@ -11,6 +11,7 @@ export * from './presence/PresenceSurface';
 export * from './presence/presence-rules';
 export * from './conversation/ConversationShell';
 export * from './conversation/ChatOnlyPanel';
+export * from './conversation/conversation-rules';
 export * from './workspace';
 export * from './mocks/mock-scenarios';
 export * from './lab/MaveUiLab';

@@ -47,6 +47,42 @@ export interface QuickResponseData {
   sourceLabel?: string;
   timestamp?: number;
   canExpand?: boolean;
+  requestId?: string;
+  streaming?: boolean;
+}
+
+/**
+ * Content Provenance
+ *
+ * Information origin representing legitimate documentation, articles, media,
+ * or reference material cited by MAVE.
+ * This is user-facing citation data and MUST render in normal conversation UI
+ * even when the title or domain contains vendor names (e.g. "OpenAI Documentation", "Google Docs").
+ */
+export interface ContentProvenance {
+  id?: string;
+  title: string;
+  sourceType: 'documentation' | 'web' | 'video' | 'file' | 'reference' | 'academic' | 'news';
+  domain?: string;
+  url?: string;
+  snippet?: string;
+  authorOrDate?: string;
+}
+
+/**
+ * Execution Substrate
+ *
+ * Technical AI model and provider execution details (e.g. Ollama, Claude,
+ * Codex, Antigravity, model IDs, token counts, latency).
+ * This is technical infrastructure metadata and MUST NOT render in normal
+ * user-facing conversation UI (reserved strictly for diagnostics).
+ */
+export interface ExecutionSubstrate {
+  providerId: 'ollama' | 'claude' | 'codex' | 'antigravity' | 'openai' | string;
+  modelId?: string;
+  runtime?: string;
+  latencyMs?: number;
+  tokensUsed?: number;
 }
 
 export type CardType =
@@ -72,6 +108,7 @@ export interface MessageCardData extends BaseCardData {
   role: 'user' | 'assistant';
   content: string;
   semanticRuntime?: string;
+  isTranscript?: boolean;
 }
 
 export interface TranslationCardData extends BaseCardData {
@@ -90,6 +127,7 @@ export interface SourceCardData extends BaseCardData {
   url: string;
   snippet: string;
   authorOrDate?: string;
+  provenance?: ContentProvenance;
 }
 
 export interface VideoCardData extends BaseCardData {
@@ -152,14 +190,66 @@ export type UiV2Card =
   | ApprovalCardData
   | ErrorCardData;
 
+export type StreamingStatus =
+  | 'idle'
+  | 'request_accepted'
+  | 'waiting_first_token'
+  | 'streaming'
+  | 'completed'
+  | 'cancelled'
+  | 'failed'
+  | 'interrupted';
+
+export interface TimelineError {
+  message: string;
+  recoverable?: boolean;
+  suggestedAction?: string;
+  technicalDetails?: string;
+}
+
+/**
+ * ResponseGroup
+ *
+ * Semantic grouping for a conversational turn:
+ * User Message -> MAVE Response -> Sources -> Media/Rich Cards -> Follow-up Suggestions
+ * Prevents rigid chat-bubble monotony and creates clear hierarchy.
+ */
+export interface ResponseGroup {
+  id: string;
+  requestId?: string;
+  userMessage?: MessageCardData;
+  answerText?: string;
+  streamingText?: string;
+  streamingStatus?: StreamingStatus;
+  observableProgressText?: string;
+  sources?: SourceCardData[];
+  cards?: UiV2Card[];
+  followUpSuggestions?: string[];
+  error?: TimelineError;
+  isCancelled?: boolean;
+  isInterrupted?: boolean;
+  timestamp?: number | string;
+}
+
 export interface ConversationState {
   status: 'idle' | 'listening' | 'thinking' | 'streaming' | 'result' | 'richResult' | 'error';
   observableProgressText?: string;
   messages: MessageCardData[];
   cards: UiV2Card[];
   streamingText?: string;
+  streamingStatus?: StreamingStatus;
+  activeRequestId?: string;
   suggestedShortcuts?: string[];
+  followUpSuggestions?: string[];
+  contextLabel?: string;
   semanticRuntimeLabel?: string;
+  executionSubstrate?: ExecutionSubstrate;
+  hasEarlierHistory?: boolean;
+  earlierHistoryCount?: number;
+  workspaceEligible?: boolean;
+  workspaceReason?: string;
+  isScrolledUp?: boolean;
+  timelineGroups?: ResponseGroup[];
 }
 
 export type WorkspaceType = 'agent' | 'language' | 'research' | 'project';
