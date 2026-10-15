@@ -17,6 +17,7 @@ import { StatusCard } from './components/StatusCard';
 import { DeveloperControls } from './components/DeveloperControls';
 import { DeveloperChat } from './components/DeveloperChat';
 import { DeveloperVoice } from './components/DeveloperVoice';
+import { MaveUiLab } from './ui-v2/lab/MaveUiLab';
 
 declare global {
   interface Window {
@@ -65,6 +66,7 @@ const defaultSnapshot: AssistantStateSnapshot = {
 
 export const App: React.FC = () => {
   const [snapshot, setSnapshot] = useState<AssistantStateSnapshot>(defaultSnapshot);
+  const [activeTab, setActiveTab] = useState<'diagnostics' | 'lab'>('diagnostics');
 
   useEffect(() => {
     if (window.mave?.getStatus) {
@@ -152,26 +154,64 @@ export const App: React.FC = () => {
   };
 
   return (
-    <div className="container">
-      <header>
-        <h1 data-testid="app-title">MAVE</h1>
+    <div className="container" style={activeTab === 'lab' ? { maxWidth: '100%', padding: 0, margin: 0 } : undefined}>
+      <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+        <h1 data-testid="app-title" style={{ margin: 0 }}>MAVE</h1>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button
+            onClick={() => setActiveTab('diagnostics')}
+            style={{
+              padding: '6px 12px',
+              borderRadius: '6px',
+              border: '1px solid #cbd5e1',
+              background: activeTab === 'diagnostics' ? '#0284c7' : '#ffffff',
+              color: activeTab === 'diagnostics' ? '#ffffff' : '#475569',
+              fontWeight: 600,
+              fontSize: '12px',
+              cursor: 'pointer'
+            }}
+          >
+            Diagnostics
+          </button>
+          <button
+            onClick={() => setActiveTab('lab')}
+            style={{
+              padding: '6px 12px',
+              borderRadius: '6px',
+              border: '1px solid #cbd5e1',
+              background: activeTab === 'lab' ? '#0284c7' : '#ffffff',
+              color: activeTab === 'lab' ? '#ffffff' : '#475569',
+              fontWeight: 600,
+              fontSize: '12px',
+              cursor: 'pointer'
+            }}
+          >
+            UI V2 Lab
+          </button>
+        </div>
       </header>
 
-      <main>
-        <StatusCard snapshot={snapshot} />
-        <DeveloperControls
-          onSendCommand={handleSendCommand}
-          isMuted={snapshot.isMuted}
-          availableDevices={snapshot.availableDevices}
-          currentDeviceIndex={snapshot.microphoneIndex}
-          currentSensitivity={snapshot.sensitivity}
-          lastWakeScore={snapshot.lastWakeScore}
-          peakScore={snapshot.peakScore}
-          latestScore={snapshot.latestScore}
-        />
-        <DeveloperVoice />
-        <DeveloperChat />
-      </main>
+      {activeTab === 'lab' ? (
+        <div style={{ width: '100vw', height: 'calc(100vh - 65px)', overflow: 'hidden' }}>
+          <MaveUiLab />
+        </div>
+      ) : (
+        <main>
+          <StatusCard snapshot={snapshot} />
+          <DeveloperControls
+            onSendCommand={handleSendCommand}
+            isMuted={snapshot.isMuted}
+            availableDevices={snapshot.availableDevices}
+            currentDeviceIndex={snapshot.microphoneIndex}
+            currentSensitivity={snapshot.sensitivity}
+            lastWakeScore={snapshot.lastWakeScore}
+            peakScore={snapshot.peakScore}
+            latestScore={snapshot.latestScore}
+          />
+          <DeveloperVoice />
+          <DeveloperChat />
+        </main>
+      )}
     </div>
   );
 };
