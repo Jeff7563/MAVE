@@ -145,6 +145,7 @@ Goal: วางรากฐาน Intelligence Provider Architecture, Multi-Mode
 Detailed Architecture Record:
 - [`MAVE_INTELLIGENCE_PROVIDER_ARCHITECTURE.md`](MAVE_INTELLIGENCE_PROVIDER_ARCHITECTURE.md)
 - [`MAVE_SUBSCRIPTION_INTELLIGENCE_ARCHITECTURE.md`](MAVE_SUBSCRIPTION_INTELLIGENCE_ARCHITECTURE.md)
+- [`MAVE_INTELLIGENCE_ESCALATION_AND_TRUST.md`](MAVE_INTELLIGENCE_ESCALATION_AND_TRUST.md)
 
 Program Sequence:
 - **F1.0 Architecture Audit & Modernization** ✅ COMPLETE
@@ -169,6 +170,7 @@ Program Sequence:
 - **F1.5-C1 Local Model Provider Foundation (`OllamaBrainProvider`)** ✅ COMPLETE
 - **F1.5-C1.1 Local Provider Qualification & Catalog Hardening** ✅ COMPLETE
 - **F1.5-C2 Local Fast Brain Empirical Benchmarking & Model Qualification** ✅ COMPLETE
+- **Parallel Design Track — Intelligence Escalation & Knowledge Trust Architecture** ✅ COMPLETE (ARCHITECTURE/POLICY DESIGN ONLY — ZERO CODE MODIFICATIONS, F1.5-C3/C4 UNCHANGED)
 - **F1.5-C3 Local Model Lifecycle & Resident Memory Management** ← NEXT
 - **F1.5-C4 Conversational Brain Closeout Audit**
 - **F1.6 Production Deep Brain** (Deferred after Local Fast Brain Closeout)
