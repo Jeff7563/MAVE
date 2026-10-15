@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import type { TranslationCardData } from '../types';
 import { CardShell } from '../primitives/CardShell';
-import { SpeakerIcon, CopyIcon, CheckIcon, ChevronUpIcon, ChevronDownIcon } from '../primitives';
+import { SpeakerIcon, CopyIcon, CheckIcon, ChevronUpIcon, ChevronDownIcon, DocumentIcon } from '../primitives';
 import '../tokens.css';
 
 export interface TranslationCardProps {
@@ -198,7 +198,8 @@ export const TranslationCard: React.FC<TranslationCardProps> = ({
                 }}
                 data-testid="translation-grammar-note"
               >
-                💡 <span style={{ fontStyle: 'italic' }}>{data.grammarNote}</span>
+                <DocumentIcon size={12} color="var(--mave-cyan)" style={{ display: 'inline-block', verticalAlign: '-1px', marginRight: '6px' }} />
+                <span style={{ fontStyle: 'italic' }}>{data.grammarNote}</span>
               </div>
             )}
 

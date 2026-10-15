@@ -135,7 +135,7 @@ export const InlineCorrectionCard: React.FC<InlineCorrectionCardProps> = ({
 
       {/* Body: List of corrections */}
       {isExpanded && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: isMultiple ? '16px' : '10px' }}>
           {items.map((item, idx) => {
             const isGrammarError = item.category === 'grammar';
             const categoryLabel = item.category === 'naturalness'
@@ -150,10 +150,8 @@ export const InlineCorrectionCard: React.FC<InlineCorrectionCardProps> = ({
               <div
                 key={item.id || idx}
                 style={{
-                  background: '#0a0c18',
-                  border: '1px solid var(--mave-line)',
-                  borderRadius: '12px',
-                  padding: '12px 14px',
+                  borderTop: idx > 0 ? '1px solid var(--mave-line)' : 'none',
+                  paddingTop: idx > 0 ? '14px' : '0',
                   display: 'flex',
                   flexDirection: 'column',
                   gap: '8px'
@@ -168,6 +166,7 @@ export const InlineCorrectionCard: React.FC<InlineCorrectionCardProps> = ({
                       fontWeight: 600,
                       color: isGrammarError ? 'var(--mave-warn)' : 'var(--mave-cyan)',
                       textTransform: 'uppercase',
+                      letterSpacing: '0.06em',
                       fontFamily: 'var(--mave-font-mono)'
                     }}
                     data-testid="correction-category"
@@ -178,14 +177,16 @@ export const InlineCorrectionCard: React.FC<InlineCorrectionCardProps> = ({
 
                 {/* What you said */}
                 <div style={{ fontSize: '13px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                  <span style={{ fontSize: '10px', color: 'var(--mave-faint)', textTransform: 'uppercase', fontFamily: 'var(--mave-font-mono)' }}>
+                  <span style={{ fontSize: '10px', color: 'var(--mave-faint)', textTransform: 'uppercase', letterSpacing: '0.06em', fontFamily: 'var(--mave-font-mono)' }}>
                     You said:
                   </span>
                   <span
                     style={{
-                      color: 'var(--mave-faint)',
+                      color: 'var(--mave-dim)',
                       textDecoration: 'line-through',
-                      fontStyle: 'italic'
+                      textDecorationColor: 'rgba(255, 255, 255, 0.2)',
+                      fontStyle: 'italic',
+                      lineHeight: 1.4
                     }}
                     data-testid="correction-original-text"
                   >
@@ -193,15 +194,17 @@ export const InlineCorrectionCard: React.FC<InlineCorrectionCardProps> = ({
                   </span>
                 </div>
 
-                {/* More Natural / Correction */}
-                <div style={{ fontSize: '14px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                  <span style={{ fontSize: '10px', color: 'var(--mave-cyan)', fontWeight: 600, textTransform: 'uppercase', fontFamily: 'var(--mave-font-mono)' }}>
+                {/* More Natural / Correction (Primary insight prominence) */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                  <span style={{ fontSize: '10px', color: 'var(--mave-cyan)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', fontFamily: 'var(--mave-font-mono)' }}>
                     More natural:
                   </span>
                   <span
                     style={{
                       fontWeight: 600,
-                      color: 'var(--mave-cyan)'
+                      fontSize: '15px',
+                      color: 'var(--mave-cyan)',
+                      lineHeight: 1.45
                     }}
                     data-testid="correction-improved-text"
                   >
@@ -212,7 +215,7 @@ export const InlineCorrectionCard: React.FC<InlineCorrectionCardProps> = ({
                 {/* Explanation ("Why") */}
                 {item.explanation && (
                   <div style={{ fontSize: '13px', color: 'var(--mave-dim)', marginTop: '2px', lineHeight: 1.45 }}>
-                    <strong style={{ color: 'var(--mave-faint)', fontSize: '12px' }}>Why: </strong>
+                    <strong style={{ color: 'var(--mave-faint)', fontSize: '11px', fontFamily: 'var(--mave-font-mono)', textTransform: 'uppercase' }}>Why: </strong>
                     <span data-testid="correction-explanation">{item.explanation}</span>
                   </div>
                 )}
@@ -222,12 +225,9 @@ export const InlineCorrectionCard: React.FC<InlineCorrectionCardProps> = ({
                   <div
                     style={{
                       marginTop: '4px',
-                      padding: '8px 10px',
-                      background: 'var(--mave-raised)',
-                      border: '1px solid var(--mave-line)',
-                      borderRadius: '8px',
                       fontSize: '12px',
-                      color: 'var(--mave-dim)'
+                      color: 'var(--mave-dim)',
+                      lineHeight: 1.45
                     }}
                   >
                     <span style={{ fontWeight: 600, color: 'var(--mave-ink)' }}>Alternatives: </span>

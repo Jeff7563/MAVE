@@ -5,6 +5,14 @@ import type {
   LanguageVocabularyItem,
   LanguageSessionSummary
 } from '../types';
+import {
+  SpeakerIcon,
+  MicIcon,
+  ChevronUpIcon,
+  ChevronDownIcon,
+  CheckIcon,
+  BookmarkIcon
+} from '../primitives';
 import '../tokens.css';
 
 /**
@@ -37,16 +45,21 @@ export const RoleplayBanner: React.FC<RoleplayBannerProps> = ({
       className={`mave-v2-roleplay-banner ${className}`.trim()}
       style={{
         background: isOutOfRole
-          ? 'linear-gradient(135deg, rgba(245, 158, 11, 0.12) 0%, rgba(245, 158, 11, 0.05) 100%)'
-          : 'linear-gradient(135deg, rgba(2, 132, 199, 0.12) 0%, rgba(56, 189, 248, 0.05) 100%)',
+          ? 'linear-gradient(135deg, rgba(255, 196, 107, 0.08) 0%, rgba(255, 196, 107, 0.02) 100%), var(--mave-glass-gradient)'
+          : 'linear-gradient(135deg, rgba(95, 210, 255, 0.08) 0%, rgba(95, 210, 255, 0.02) 100%), var(--mave-glass-gradient)',
         border: isOutOfRole
-          ? '1px solid rgba(245, 158, 11, 0.3)'
-          : '1px solid rgba(56, 189, 248, 0.25)',
-        borderRadius: 'var(--mave-v2-radius-card)',
-        padding: '12px 16px',
+          ? '1px solid rgba(255, 196, 107, 0.35)'
+          : '1px solid rgba(95, 210, 255, 0.25)',
+        borderRadius: '16px',
+        boxShadow: 'var(--mave-shadow-glass)',
+        backdropFilter: 'var(--mave-backdrop-glass)',
+        WebkitBackdropFilter: 'var(--mave-backdrop-glass)',
+        padding: '14px 18px',
         display: 'flex',
         flexDirection: 'column',
-        gap: '6px'
+        gap: '8px',
+        color: 'var(--mave-ink)',
+        fontFamily: 'var(--mave-font-sans)'
       }}
       data-testid="roleplay-scenario-banner"
     >
@@ -54,17 +67,18 @@ export const RoleplayBanner: React.FC<RoleplayBannerProps> = ({
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <span
             style={{
-              fontSize: '10px',
+              fontSize: '11px',
               fontWeight: 700,
-              color: isOutOfRole ? 'var(--mave-v2-accent-warning)' : 'var(--mave-v2-accent-listening)',
+              color: isOutOfRole ? 'var(--mave-warn)' : 'var(--mave-cyan)',
               textTransform: 'uppercase',
-              letterSpacing: '0.5px'
+              letterSpacing: '0.08em',
+              fontFamily: 'var(--mave-font-mono)'
             }}
           >
             {isOutOfRole ? 'Roleplay Paused (MAVE Direct)' : 'Roleplay Active'}
           </span>
           {location && (
-            <span style={{ fontSize: '11px', color: 'var(--mave-v2-text-dim)' }}>
+            <span style={{ fontSize: '11px', color: 'var(--mave-dim)' }}>
               • {location}
             </span>
           )}
@@ -75,14 +89,18 @@ export const RoleplayBanner: React.FC<RoleplayBannerProps> = ({
             <button
               onClick={onResumeRoleplay}
               style={{
-                background: 'rgba(56, 189, 248, 0.15)',
-                border: '1px solid var(--mave-v2-accent-listening)',
-                borderRadius: '4px',
-                color: 'var(--mave-v2-accent-listening)',
+                background: 'rgba(95, 210, 255, 0.12)',
+                border: '1px solid var(--mave-cyan)',
+                borderRadius: '6px',
+                color: 'var(--mave-cyan)',
                 fontSize: '11px',
-                padding: '3px 8px',
+                padding: '4px 10px',
                 cursor: 'pointer',
-                fontWeight: 600
+                fontWeight: 600,
+                fontFamily: 'var(--mave-font-mono)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px'
               }}
               data-testid="btn-resume-roleplay"
             >
@@ -92,13 +110,17 @@ export const RoleplayBanner: React.FC<RoleplayBannerProps> = ({
             <button
               onClick={onStepOutOfRole}
               style={{
-                background: 'rgba(255, 255, 255, 0.05)',
-                border: '1px solid var(--mave-v2-border-subtle)',
-                borderRadius: '4px',
-                color: 'var(--mave-v2-text-secondary)',
+                background: 'var(--mave-raised)',
+                border: '1px solid var(--mave-line)',
+                borderRadius: '6px',
+                color: 'var(--mave-dim)',
                 fontSize: '11px',
-                padding: '3px 8px',
-                cursor: 'pointer'
+                padding: '4px 10px',
+                cursor: 'pointer',
+                fontFamily: 'var(--mave-font-mono)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px'
               }}
               data-testid="btn-step-out-of-role"
               title="Ask MAVE to explain or step out of role anytime"
@@ -110,28 +132,28 @@ export const RoleplayBanner: React.FC<RoleplayBannerProps> = ({
       </div>
 
       {scenarioTitle && (
-        <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--mave-v2-text-primary)' }}>
+        <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--mave-ink)' }}>
           {scenarioTitle}
         </div>
       )}
 
       {isOutOfRole ? (
-        <div style={{ fontSize: '12px', color: 'var(--mave-v2-accent-warning)', lineHeight: 1.4 }}>
+        <div style={{ fontSize: '12px', color: 'var(--mave-warn)', lineHeight: 1.45 }}>
           MAVE speaking directly as coach. You can ask for grammar explanations, vocabulary clarification, or strategy before resuming.
         </div>
       ) : (
-        <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--mave-v2-text-primary)' }}>
-          MAVE as <span style={{ color: 'var(--mave-v2-accent-listening)' }}>{assistantRole}</span> (You: {scenario.userRole})
+        <div style={{ fontSize: '13px', fontWeight: 500, color: 'var(--mave-dim)' }}>
+          MAVE as <span style={{ color: 'var(--mave-cyan)', fontWeight: 600 }}>{assistantRole}</span> (You: {scenario.userRole})
         </div>
       )}
 
       {situation && (
-        <div style={{ fontSize: '12px', color: 'var(--mave-v2-text-secondary)', lineHeight: 1.4 }}>
+        <div style={{ fontSize: '12px', color: 'var(--mave-dim)', lineHeight: 1.45 }}>
           {situation}
         </div>
       )}
 
-      <div style={{ fontSize: '10px', color: 'var(--mave-v2-text-dim)', marginTop: '2px' }}>
+      <div style={{ fontSize: '11px', color: 'var(--mave-faint)', marginTop: '2px', fontFamily: 'var(--mave-font-mono)' }}>
         Ask MAVE to explain or step out of role anytime by asking in your native language.
       </div>
     </div>
@@ -169,25 +191,30 @@ export const PronunciationGuideCard: React.FC<PronunciationGuideCardProps> = ({
     <div
       className={`mave-v2-pronunciation-guide-card ${className}`.trim()}
       style={{
-        background: 'var(--mave-v2-surface-elevated)',
-        border: '1px solid var(--mave-v2-border-subtle)',
-        borderRadius: 'var(--mave-v2-radius-card)',
-        padding: '14px 16px',
+        background: 'var(--mave-glass-gradient)',
+        border: '1px solid var(--mave-edge)',
+        borderRadius: '16px',
+        boxShadow: 'var(--mave-shadow-glass)',
+        backdropFilter: 'var(--mave-backdrop-glass)',
+        WebkitBackdropFilter: 'var(--mave-backdrop-glass)',
+        padding: '16px 18px',
         display: 'flex',
         flexDirection: 'column',
-        gap: '10px',
-        color: 'var(--mave-v2-text-primary)'
+        gap: '12px',
+        color: 'var(--mave-ink)',
+        fontFamily: 'var(--mave-font-sans)'
       }}
       data-testid="pronunciation-guide-card"
     >
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
         <span
           style={{
             fontSize: '11px',
             fontWeight: 700,
-            color: 'var(--mave-v2-accent-listening)',
+            color: 'var(--mave-cyan)',
             textTransform: 'uppercase',
-            letterSpacing: '0.4px'
+            letterSpacing: '0.08em',
+            fontFamily: 'var(--mave-font-mono)'
           }}
         >
           Pronunciation Guidance (Truthful Reference)
@@ -195,10 +222,12 @@ export const PronunciationGuideCard: React.FC<PronunciationGuideCardProps> = ({
         <span
           style={{
             fontSize: '10px',
-            color: 'var(--mave-v2-text-muted)',
+            color: 'var(--mave-faint)',
             background: 'rgba(255, 255, 255, 0.04)',
+            border: '1px solid var(--mave-line)',
             padding: '2px 6px',
-            borderRadius: '4px'
+            borderRadius: '4px',
+            fontFamily: 'var(--mave-font-mono)'
           }}
           data-testid="no-score-guarantee"
         >
@@ -208,21 +237,21 @@ export const PronunciationGuideCard: React.FC<PronunciationGuideCardProps> = ({
 
       {/* Target Phrase & Phonetics */}
       <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px', flexWrap: 'wrap' }}>
-        <span style={{ fontSize: '16px', fontWeight: 700, color: 'var(--mave-v2-text-primary)' }} data-testid="pronunciation-phrase">
+        <span style={{ fontSize: '18px', fontWeight: 600, color: 'var(--mave-ink)' }} data-testid="pronunciation-phrase">
           {targetPhrase}
         </span>
         {formattedIpa && (
-          <span style={{ fontSize: '13px', fontFamily: 'monospace', color: 'var(--mave-v2-accent-listening)' }} data-testid="pronunciation-ipa">
+          <span style={{ fontSize: '13px', fontFamily: 'var(--mave-font-mono)', color: 'var(--mave-cyan)' }} data-testid="pronunciation-ipa">
             {formattedIpa}
           </span>
         )}
         {guide.phoneticSpelling && (
-          <span style={{ fontSize: '12px', color: 'var(--mave-v2-text-dim)' }} data-testid="pronunciation-phonetic">
+          <span style={{ fontSize: '12px', color: 'var(--mave-dim)', fontFamily: 'var(--mave-font-mono)' }} data-testid="pronunciation-phonetic">
             ({guide.phoneticSpelling})
           </span>
         )}
         {guide.practiceCount && (
-          <span style={{ fontSize: '11px', color: 'var(--mave-v2-text-dim)', background: 'rgba(255, 255, 255, 0.05)', padding: '1px 6px', borderRadius: '4px' }}>
+          <span style={{ fontSize: '10px', color: 'var(--mave-faint)', background: 'var(--mave-raised)', border: '1px solid var(--mave-line)', padding: '2px 6px', borderRadius: '4px', fontFamily: 'var(--mave-font-mono)' }}>
             Practiced {guide.practiceCount} times
           </span>
         )}
@@ -230,16 +259,16 @@ export const PronunciationGuideCard: React.FC<PronunciationGuideCardProps> = ({
 
       {/* Stress & Mouth Guide */}
       {(guide.stressHint || guide.mouthGuide) && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '12px', color: 'var(--mave-v2-text-secondary)' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '13px', color: 'var(--mave-dim)' }}>
           {guide.stressHint && (
             <div>
-              <strong style={{ color: 'var(--mave-v2-text-primary)' }}>Stress: </strong>
+              <strong style={{ color: 'var(--mave-faint)', fontSize: '11px', fontFamily: 'var(--mave-font-mono)', textTransform: 'uppercase' }}>Stress: </strong>
               <span data-testid="pronunciation-stress">{guide.stressHint}</span>
             </div>
           )}
           {guide.mouthGuide && (
             <div>
-              <strong style={{ color: 'var(--mave-v2-text-primary)' }}>Mouth / Sound: </strong>
+              <strong style={{ color: 'var(--mave-faint)', fontSize: '11px', fontFamily: 'var(--mave-font-mono)', textTransform: 'uppercase' }}>Mouth / Sound: </strong>
               <span data-testid="pronunciation-mouth-guide">{guide.mouthGuide}</span>
             </div>
           )}
@@ -248,50 +277,54 @@ export const PronunciationGuideCard: React.FC<PronunciationGuideCardProps> = ({
 
       {/* Mock Actions (Audio presentation only) */}
       {!officeMode && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '2px' }}>
           <button
             onClick={() => onListenExample?.(targetPhrase)}
             style={{
-              background: 'rgba(255, 255, 255, 0.05)',
-              border: '1px solid var(--mave-v2-border-subtle)',
-              borderRadius: '6px',
-              color: 'var(--mave-v2-text-primary)',
+              background: 'var(--mave-raised)',
+              border: '1px solid var(--mave-line)',
+              borderRadius: '8px',
+              color: 'var(--mave-ink)',
               padding: '6px 12px',
               fontSize: '11px',
               fontWeight: 500,
               cursor: 'pointer',
-              display: 'flex',
+              fontFamily: 'var(--mave-font-mono)',
+              display: 'inline-flex',
               alignItems: 'center',
               gap: '6px'
             }}
             data-testid="btn-listen-example-mock"
           >
-            <span>🔊</span> Listen Example
+            <SpeakerIcon size={12} color="currentColor" />
+            <span>Listen Example</span>
           </button>
           <button
             onClick={() => onStartSpeakingPractice?.(targetPhrase)}
             style={{
-              background: 'rgba(56, 189, 248, 0.1)',
-              border: '1px solid var(--mave-v2-accent-listening)',
-              borderRadius: '6px',
-              color: 'var(--mave-v2-accent-listening)',
+              background: 'rgba(95, 210, 255, 0.1)',
+              border: '1px solid rgba(95, 210, 255, 0.35)',
+              borderRadius: '8px',
+              color: 'var(--mave-cyan)',
               padding: '6px 12px',
               fontSize: '11px',
               fontWeight: 600,
               cursor: 'pointer',
-              display: 'flex',
+              fontFamily: 'var(--mave-font-mono)',
+              display: 'inline-flex',
               alignItems: 'center',
               gap: '6px'
             }}
             data-testid="btn-speak-practice-mock"
           >
-            <span>🎤</span> Practice Speaking
+            <MicIcon size={12} color="currentColor" />
+            <span>Practice Speaking</span>
           </button>
         </div>
       )}
 
       {officeMode && (
-        <div style={{ fontSize: '11px', color: 'var(--mave-v2-text-dim)', fontStyle: 'italic' }}>
+        <div style={{ fontSize: '11px', color: 'var(--mave-faint)', fontStyle: 'italic' }}>
           Audio controls are disabled in Office Mode. Focus on reading and phonetic structure.
         </div>
       )}
@@ -326,13 +359,18 @@ export const VocabularyPanel: React.FC<VocabularyPanelProps> = ({
     <div
       className={`mave-v2-vocabulary-panel ${className}`.trim()}
       style={{
-        background: 'var(--mave-v2-surface-elevated)',
-        border: '1px solid var(--mave-v2-border-subtle)',
-        borderRadius: 'var(--mave-v2-radius-card)',
-        padding: '12px 14px',
+        background: 'var(--mave-glass-gradient)',
+        border: '1px solid var(--mave-edge)',
+        borderRadius: '16px',
+        boxShadow: 'var(--mave-shadow-glass)',
+        backdropFilter: 'var(--mave-backdrop-glass)',
+        WebkitBackdropFilter: 'var(--mave-backdrop-glass)',
+        padding: '14px 16px',
         display: 'flex',
         flexDirection: 'column',
-        gap: '8px'
+        gap: '10px',
+        color: 'var(--mave-ink)',
+        fontFamily: 'var(--mave-font-sans)'
       }}
       data-testid="vocabulary-panel"
     >
@@ -351,113 +389,143 @@ export const VocabularyPanel: React.FC<VocabularyPanelProps> = ({
           style={{
             fontSize: '11px',
             fontWeight: 700,
-            color: 'var(--mave-v2-accent-listening)',
+            color: 'var(--mave-cyan)',
             textTransform: 'uppercase',
-            letterSpacing: '0.4px'
+            letterSpacing: '0.08em',
+            fontFamily: 'var(--mave-font-mono)'
           }}
         >
           Session Vocabulary Recap · {items.length}
         </span>
-        <span style={{ fontSize: '11px', color: 'var(--mave-v2-text-dim)' }}>
-          {isExpanded ? '▲' : '▼'}
+        <span style={{ display: 'inline-flex', alignItems: 'center', color: 'var(--mave-dim)' }}>
+          {isExpanded ? <ChevronUpIcon size={12} color="currentColor" /> : <ChevronDownIcon size={12} color="currentColor" />}
         </span>
       </div>
 
       {isExpanded && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          {items.map((item) => (
-            <div
-              key={item.id}
-              style={{
-                background: 'rgba(0, 0, 0, 0.25)',
-                border: '1px solid rgba(255, 255, 255, 0.05)',
-                borderRadius: '6px',
-                padding: '8px 10px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '4px'
-              }}
-              data-testid={`vocabulary-item-${item.id}`}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span style={{ fontWeight: 700, fontSize: '13px', color: 'var(--mave-v2-text-primary)' }}>
-                    {item.term}
-                  </span>
-                  {item.partOfSpeech && (
-                    <span style={{ fontSize: '10px', color: 'var(--mave-v2-text-dim)', fontStyle: 'italic' }}>
-                      ({item.partOfSpeech})
-                    </span>
-                  )}
-                  {item.pronunciationHint && (
-                    <span style={{ fontSize: '11px', color: 'var(--mave-v2-text-dim)' }}>
-                      {item.pronunciationHint}
-                    </span>
-                  )}
-                </div>
+          {items.map((item) => {
+            const isReviewed = item.status === 'reviewed';
+            const isPracticed = item.status === 'practiced';
+            const statusColor = isReviewed ? 'var(--mave-ok)' : isPracticed ? 'var(--mave-cyan)' : 'var(--mave-faint)';
+            const statusBg = isReviewed ? 'rgba(74, 222, 128, 0.12)' : isPracticed ? 'rgba(95, 210, 255, 0.1)' : 'rgba(255, 255, 255, 0.04)';
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span
-                    style={{
-                      fontSize: '9px',
-                      textTransform: 'uppercase',
-                      padding: '1px 6px',
-                      borderRadius: '4px',
-                      fontWeight: 600,
-                      background: item.status === 'reviewed' ? 'rgba(34, 197, 94, 0.15)' : 'rgba(56, 189, 248, 0.12)',
-                      color: item.status === 'reviewed' ? 'var(--mave-v2-accent-success)' : 'var(--mave-v2-accent-listening)'
-                    }}
-                    data-testid="vocabulary-status-badge"
-                  >
-                    {(item.status ?? 'seen').toUpperCase()}
-                  </span>
-                  {onSaveItem ? (
-                    <button
-                      onClick={() => onSaveItem(item.id)}
-                      style={{
-                        background: item.isSavedMock ? 'rgba(34, 197, 94, 0.2)' : 'rgba(255, 255, 255, 0.05)',
-                        border: '1px solid var(--mave-v2-border-subtle)',
-                        borderRadius: '4px',
-                        color: item.isSavedMock ? 'var(--mave-v2-accent-success)' : 'var(--mave-v2-text-muted)',
-                        fontSize: '10px',
-                        padding: '2px 6px',
-                        cursor: 'pointer'
-                      }}
-                      data-testid={`btn-save-vocab-${item.id}`}
-                      title="Save to session vocabulary (mock)"
-                    >
-                      {item.isSavedMock ? '✓ Saved' : '+ Save'}
-                    </button>
-                  ) : item.isSavedMock ? (
+            return (
+              <div
+                key={item.id}
+                style={{
+                  background: 'var(--mave-raised)',
+                  border: '1px solid var(--mave-line)',
+                  borderRadius: '10px',
+                  padding: '10px 12px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '4px'
+                }}
+                data-testid={`vocabulary-item-${item.id}`}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ fontWeight: 600, fontSize: '13px', color: 'var(--mave-ink)' }}>
+                      {item.term}
+                    </span>
+                    {item.partOfSpeech && (
+                      <span style={{ fontSize: '10px', color: 'var(--mave-faint)', fontStyle: 'italic', fontFamily: 'var(--mave-font-mono)' }}>
+                        ({item.partOfSpeech})
+                      </span>
+                    )}
+                    {item.pronunciationHint && (
+                      <span style={{ fontSize: '11px', color: 'var(--mave-dim)', fontFamily: 'var(--mave-font-mono)' }}>
+                        {item.pronunciationHint}
+                      </span>
+                    )}
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <span
                       style={{
                         fontSize: '9px',
-                        color: 'var(--mave-v2-accent-success)',
-                        background: 'rgba(34, 197, 94, 0.15)',
+                        textTransform: 'uppercase',
                         padding: '1px 6px',
                         borderRadius: '4px',
-                        fontWeight: 600
+                        fontWeight: 600,
+                        background: statusBg,
+                        color: statusColor,
+                        fontFamily: 'var(--mave-font-mono)',
+                        border: `1px solid ${isReviewed ? 'rgba(74, 222, 128, 0.25)' : isPracticed ? 'rgba(95, 210, 255, 0.2)' : 'var(--mave-line)'}`
                       }}
-                      data-testid={`vocab-saved-${item.id}`}
+                      data-testid="vocabulary-status-badge"
                     >
-                      ✓ Saved
+                      {(item.status ?? 'seen').toUpperCase()}
                     </span>
-                  ) : null}
+                    {onSaveItem ? (
+                      <button
+                        onClick={() => onSaveItem(item.id)}
+                        style={{
+                          background: item.isSavedMock ? 'rgba(74, 222, 128, 0.15)' : 'var(--mave-raised)',
+                          border: item.isSavedMock ? '1px solid rgba(74, 222, 128, 0.35)' : '1px solid var(--mave-line)',
+                          borderRadius: '4px',
+                          color: item.isSavedMock ? 'var(--mave-ok)' : 'var(--mave-dim)',
+                          fontSize: '10px',
+                          padding: '2px 6px',
+                          cursor: 'pointer',
+                          fontFamily: 'var(--mave-font-mono)',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '3px'
+                        }}
+                        data-testid={`btn-save-vocab-${item.id}`}
+                        title="Save to session vocabulary (mock)"
+                      >
+                        {item.isSavedMock ? (
+                          <>
+                            <CheckIcon size={10} color="currentColor" />
+                            <span>Saved</span>
+                          </>
+                        ) : (
+                          <>
+                            <BookmarkIcon size={10} color="currentColor" />
+                            <span>+ Save</span>
+                          </>
+                        )}
+                      </button>
+                    ) : item.isSavedMock ? (
+                      <span
+                        style={{
+                          fontSize: '9px',
+                          color: 'var(--mave-ok)',
+                          background: 'rgba(74, 222, 128, 0.15)',
+                          border: '1px solid rgba(74, 222, 128, 0.25)',
+                          padding: '2px 6px',
+                          borderRadius: '4px',
+                          fontWeight: 600,
+                          fontFamily: 'var(--mave-font-mono)',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '3px'
+                        }}
+                        data-testid={`vocab-saved-${item.id}`}
+                      >
+                        <CheckIcon size={10} color="currentColor" />
+                        <span>Saved</span>
+                      </span>
+                    ) : null}
+                  </div>
                 </div>
-              </div>
 
-              <div style={{ fontSize: '12px', color: 'var(--mave-v2-text-secondary)' }}>
-                {item.meaning}
-              </div>
-
-              {item.exampleSentence && (
-                <div style={{ fontSize: '11px', color: 'var(--mave-v2-text-dim)', fontStyle: 'italic', marginTop: '2px' }}>
-                  &ldquo;{item.exampleSentence}&rdquo;
-                  {item.exampleTranslation && <span> — {item.exampleTranslation}</span>}
+                <div style={{ fontSize: '12px', color: 'var(--mave-dim)', lineHeight: 1.4 }}>
+                  {item.meaning}
                 </div>
-              )}
-            </div>
-          ))}
+
+                {item.exampleSentence && (
+                  <div style={{ fontSize: '11px', color: 'var(--mave-faint)', fontStyle: 'italic', marginTop: '2px' }}>
+                    &ldquo;{item.exampleSentence}&rdquo;
+                    {item.exampleTranslation && <span> — {item.exampleTranslation}</span>}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
@@ -487,34 +555,40 @@ export const SessionSummaryCard: React.FC<SessionSummaryCardProps> = ({
     <div
       className={`mave-v2-session-summary-card ${className}`.trim()}
       style={{
-        background: 'var(--mave-v2-surface-elevated)',
-        border: '1px solid var(--mave-v2-border-subtle)',
-        borderRadius: 'var(--mave-v2-radius-card)',
-        padding: '16px',
+        background: 'var(--mave-glass-gradient)',
+        border: '1px solid var(--mave-edge)',
+        borderRadius: '16px',
+        boxShadow: 'var(--mave-shadow-glass)',
+        backdropFilter: 'var(--mave-backdrop-glass)',
+        WebkitBackdropFilter: 'var(--mave-backdrop-glass)',
+        padding: '18px 20px',
         display: 'flex',
         flexDirection: 'column',
-        gap: '12px',
-        color: 'var(--mave-v2-text-primary)'
+        gap: '14px',
+        color: 'var(--mave-ink)',
+        fontFamily: 'var(--mave-font-sans)'
       }}
       data-testid="language-session-summary-card"
     >
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
-          <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--mave-v2-accent-success)', textTransform: 'uppercase' }}>
+          <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--mave-ok)', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: 'var(--mave-font-mono)' }}>
             Practice Session Complete
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '2px' }}>
-            <span style={{ fontSize: '15px', fontWeight: 700 }}>
+            <span style={{ fontSize: '16px', fontWeight: 600, color: 'var(--mave-ink)' }}>
               Session Recap
             </span>
             {summary.durationMinutes && (
               <span
                 style={{
                   fontSize: '11px',
-                  background: 'rgba(255, 255, 255, 0.06)',
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  border: '1px solid var(--mave-line)',
                   padding: '2px 6px',
                   borderRadius: '4px',
-                  color: 'var(--mave-v2-text-secondary)'
+                  color: 'var(--mave-dim)',
+                  fontFamily: 'var(--mave-font-mono)'
                 }}
                 data-testid="session-duration"
               >
@@ -527,14 +601,15 @@ export const SessionSummaryCard: React.FC<SessionSummaryCardProps> = ({
           <button
             onClick={onPracticeAgain}
             style={{
-              background: 'rgba(56, 189, 248, 0.1)',
-              border: '1px solid var(--mave-v2-accent-listening)',
+              background: 'rgba(95, 210, 255, 0.1)',
+              border: '1px solid var(--mave-cyan)',
               borderRadius: '6px',
-              color: 'var(--mave-v2-accent-listening)',
-              padding: '6px 12px',
+              color: 'var(--mave-cyan)',
+              padding: '6px 14px',
               fontSize: '11px',
               fontWeight: 600,
-              cursor: 'pointer'
+              cursor: 'pointer',
+              fontFamily: 'var(--mave-font-mono)'
             }}
             data-testid="btn-practice-again"
           >
@@ -550,34 +625,35 @@ export const SessionSummaryCard: React.FC<SessionSummaryCardProps> = ({
           gridTemplateColumns: '1fr 1fr 1fr',
           gap: '8px',
           background: 'rgba(0, 0, 0, 0.25)',
+          border: '1px solid var(--mave-line)',
           padding: '12px',
-          borderRadius: '6px'
+          borderRadius: '10px'
         }}
         data-testid="session-metrics-grid"
       >
         <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--mave-v2-accent-listening)' }} data-testid="stat-phrases">
+          <div style={{ fontSize: '20px', fontWeight: 700, color: 'var(--mave-cyan)', fontFamily: 'var(--mave-font-mono)' }} data-testid="stat-phrases">
             {summary.phrasesPracticedCount ?? summary.phrasesSpokenCount ?? 0}
           </div>
-          <div style={{ fontSize: '10px', color: 'var(--mave-v2-text-dim)', textTransform: 'uppercase' }}>
+          <div style={{ fontSize: '10px', color: 'var(--mave-faint)', textTransform: 'uppercase', letterSpacing: '0.04em', fontFamily: 'var(--mave-font-mono)' }}>
             Phrases Spoken
           </div>
         </div>
 
         <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--mave-v2-accent-warning)' }} data-testid="stat-corrections">
+          <div style={{ fontSize: '20px', fontWeight: 700, color: 'var(--mave-warn)', fontFamily: 'var(--mave-font-mono)' }} data-testid="stat-corrections">
             {summary.correctionsCount ?? summary.correctionsReviewedCount ?? 0}
           </div>
-          <div style={{ fontSize: '10px', color: 'var(--mave-v2-text-dim)', textTransform: 'uppercase' }}>
+          <div style={{ fontSize: '10px', color: 'var(--mave-faint)', textTransform: 'uppercase', letterSpacing: '0.04em', fontFamily: 'var(--mave-font-mono)' }}>
             Corrections
           </div>
         </div>
 
         <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--mave-v2-accent-success)' }} data-testid="stat-vocabulary">
+          <div style={{ fontSize: '20px', fontWeight: 700, color: 'var(--mave-ok)', fontFamily: 'var(--mave-font-mono)' }} data-testid="stat-vocabulary">
             {summary.vocabularyCount ?? summary.vocabularyEncounteredCount ?? 0}
           </div>
-          <div style={{ fontSize: '10px', color: 'var(--mave-v2-text-dim)', textTransform: 'uppercase' }}>
+          <div style={{ fontSize: '10px', color: 'var(--mave-faint)', textTransform: 'uppercase', letterSpacing: '0.04em', fontFamily: 'var(--mave-font-mono)' }}>
             New Terms
           </div>
         </div>
@@ -585,9 +661,9 @@ export const SessionSummaryCard: React.FC<SessionSummaryCardProps> = ({
 
       {/* Topics Covered */}
       {summary.topicsPracticed.length > 0 && (
-        <div style={{ fontSize: '12px' }}>
-          <span style={{ fontWeight: 600, color: 'var(--mave-v2-text-secondary)' }}>Topics Practiced: </span>
-          <span style={{ color: 'var(--mave-v2-text-primary)' }} data-testid="summary-topics">
+        <div style={{ fontSize: '12px', color: 'var(--mave-dim)', lineHeight: 1.4 }}>
+          <span style={{ fontWeight: 600, color: 'var(--mave-ink)' }}>Topics Practiced: </span>
+          <span data-testid="summary-topics">
             {summary.topicsPracticed.join(', ')}
           </span>
         </div>
@@ -595,14 +671,14 @@ export const SessionSummaryCard: React.FC<SessionSummaryCardProps> = ({
 
       {/* Suggested Next Steps */}
       {((summary.suggestedNextSteps && summary.suggestedNextSteps.length > 0) || summary.nextPracticeSuggestion) && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-          <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--mave-v2-text-dim)', textTransform: 'uppercase' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--mave-faint)', textTransform: 'uppercase', letterSpacing: '0.04em', fontFamily: 'var(--mave-font-mono)' }}>
             Suggested Next Practice:
           </span>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
             {(summary.suggestedNextSteps || (summary.nextPracticeSuggestion ? [summary.nextPracticeSuggestion] : [])).map((step, idx) => (
-              <div key={idx} style={{ fontSize: '12px', color: 'var(--mave-v2-text-secondary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span style={{ color: 'var(--mave-v2-accent-listening)' }}>✦</span>
+              <div key={idx} style={{ fontSize: '12px', color: 'var(--mave-dim)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: 'var(--mave-cyan)', display: 'inline-block', flexShrink: 0 }} />
                 <span>{step}</span>
               </div>
             ))}

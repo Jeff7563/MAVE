@@ -558,4 +558,116 @@ describe('MAVE UI V2 — U6 Language Experience & Conversational Learning System
       });
     });
   });
+
+  // -------------------------------------------------------------------------
+  // 10. VSM5 Visual Migration & Architectural Invariants
+  // -------------------------------------------------------------------------
+  describe('10. VSM5 Visual Migration & Architectural Invariants', () => {
+    it('Invariant 1: Language context does not replace MAVE global identity', () => {
+      const html = renderToStaticMarkup(
+        <LanguageWorkspaceView
+          state={{
+            type: 'language',
+            status: 'running',
+            languageSession: {
+              targetLanguage: 'English',
+              practiceType: 'speaking',
+              topic: 'Daily Conversation',
+              status: 'practicing'
+            }
+          }}
+        />
+      );
+
+      expect(html).toContain('data-testid="language-practice-identity-badge"');
+      expect(html).toContain('MAVE / Language Practice');
+      expect(html).not.toContain('Your AI Language Assistant');
+      expect(html).not.toContain('Duolingo');
+    });
+
+    it('Invariant 2: Quick language request stays Presence or Conversation without workspace elevation', () => {
+      const pScenario = U6_LANGUAGE_SCENARIOS.find((s) => s.id === 'u6_01_quick_translation_presence');
+      expect(pScenario).toBeDefined();
+      expect(pScenario!.snapshot.level).toBe('presence');
+      expect(pScenario!.snapshot.presence.quickResponse?.text).toContain('actually');
+
+      const cScenario = U6_LANGUAGE_SCENARIOS.find((s) => s.id === 'u6_02_short_correction_conversation');
+      expect(cScenario).toBeDefined();
+      expect(cScenario!.snapshot.level).toBe('conversation');
+      expect(cScenario!.snapshot.conversation?.cards?.[0]?.type).toBe('correction');
+    });
+
+    it('Invariant 3: Workspace is reserved for sustained practice or roleplay sessions', () => {
+      const freeConv = U6_LANGUAGE_SCENARIOS.find((s) => s.id === 'u6_04_free_conversation_workspace');
+      expect(freeConv).toBeDefined();
+      expect(freeConv!.snapshot.level).toBe('workspace');
+      expect(freeConv!.snapshot.workspace.languageSession?.practiceType).toBe('free_conversation');
+
+      const roleplay = U6_LANGUAGE_SCENARIOS.find((s) => s.id === 'u6_05_roleplay_coffee_shop');
+      expect(roleplay).toBeDefined();
+      expect(roleplay!.snapshot.level).toBe('workspace');
+      expect(roleplay!.snapshot.workspace.languageSession?.practiceType).toBe('roleplay');
+    });
+
+    it('Invariant 4: Truthfulness — strictly ZERO fake score in pronunciation guidance', () => {
+      const html = renderToStaticMarkup(
+        <PronunciationGuideCard
+          guide={{
+            phrase: 'Sophisticated pronunciation',
+            ipa: '/səˈfɪs.tɪ.keɪ.tɪd/',
+            phoneticSpelling: 'suh-FIS-tih-kay-tid',
+            stressHint: 'Stress on the second syllable (FIS).',
+            mouthGuide: 'Round lips slightly for the initial vowel.'
+          }}
+        />
+      );
+
+      expect(html).toContain('data-testid="no-score-guarantee"');
+      expect(html).toContain('No Audio Evaluation • Guide Only');
+      expect(html).not.toContain('92%');
+      expect(html).not.toContain('85%');
+      expect(html).not.toContain('Score:');
+      expect(html).not.toContain('Fluency:');
+      expect(html).not.toContain('CEFR:');
+    });
+
+    it('Invariant 5: Roleplay is escapable — stepping out leaves MAVE responding directly as MAVE', () => {
+      const html = renderToStaticMarkup(
+        <RoleplayBanner
+          scenario={{
+            title: 'Hotel Check-in',
+            userRole: 'Guest',
+            assistantRole: 'Receptionist',
+            isOutOfRole: true
+          }}
+        />
+      );
+
+      expect(html).toContain('Roleplay Paused (MAVE Direct)');
+      expect(html).toContain('MAVE speaking directly as coach');
+      expect(html).toContain('btn-resume-roleplay');
+    });
+
+    it('Invariant 6: Language to general task continuity without trapping the user', () => {
+      const transitionScenario = U6_LANGUAGE_SCENARIOS.find((s) => s.id === 'u6_17_general_mave_transition');
+      expect(transitionScenario).toBeDefined();
+      expect(transitionScenario!.snapshot.workspace.status).toBe('paused');
+      expect(transitionScenario!.snapshot.workspace.userFacingState).toContain('Session Paused');
+      expect(transitionScenario?.snapshot.conversation?.messages?.some((m) => m.content.includes('เปิดโปรเจกต์ MAVE'))).toBe(true);
+    });
+
+    it('Invariant 7: Responsive narrow layout preserves practice artifact without clipping', () => {
+      const narrowScenario = U6_LANGUAGE_SCENARIOS.find((s) => s.id === 'u6_18_narrow_workspace_adaptation');
+      expect(narrowScenario).toBeDefined();
+      expect(narrowScenario!.snapshot.workspace.type).toBe('language');
+
+      const html = renderToStaticMarkup(
+        <LanguageWorkspaceView state={narrowScenario!.snapshot.workspace} />
+      );
+
+      expect(html).toContain('data-testid="language-primary-practice-area"');
+      expect(html).toContain('data-testid="active-practice-card"');
+      expect(html).toContain('Can you describe your favorite hobby');
+    });
+  });
 });
