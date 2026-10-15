@@ -45,19 +45,19 @@ export const RoleplayBanner: React.FC<RoleplayBannerProps> = ({
       className={`mave-v2-roleplay-banner ${className}`.trim()}
       style={{
         background: isOutOfRole
-          ? 'linear-gradient(135deg, rgba(255, 196, 107, 0.08) 0%, rgba(255, 196, 107, 0.02) 100%), var(--mave-glass-gradient)'
+          ? 'linear-gradient(135deg, rgba(95, 210, 255, 0.05) 0%, rgba(95, 210, 255, 0.02) 100%), var(--mave-glass-gradient)'
           : 'linear-gradient(135deg, rgba(95, 210, 255, 0.08) 0%, rgba(95, 210, 255, 0.02) 100%), var(--mave-glass-gradient)',
         border: isOutOfRole
-          ? '1px solid rgba(255, 196, 107, 0.35)'
+          ? '1px solid rgba(95, 210, 255, 0.2)'
           : '1px solid rgba(95, 210, 255, 0.25)',
         borderRadius: '16px',
         boxShadow: 'var(--mave-shadow-glass)',
         backdropFilter: 'var(--mave-backdrop-glass)',
         WebkitBackdropFilter: 'var(--mave-backdrop-glass)',
-        padding: '14px 18px',
+        padding: '12px 16px',
         display: 'flex',
         flexDirection: 'column',
-        gap: '8px',
+        gap: '6px',
         color: 'var(--mave-ink)',
         fontFamily: 'var(--mave-font-sans)'
       }}
@@ -69,7 +69,7 @@ export const RoleplayBanner: React.FC<RoleplayBannerProps> = ({
             style={{
               fontSize: '11px',
               fontWeight: 700,
-              color: isOutOfRole ? 'var(--mave-warn)' : 'var(--mave-cyan)',
+              color: isOutOfRole ? 'var(--mave-dim)' : 'var(--mave-cyan)',
               textTransform: 'uppercase',
               letterSpacing: '0.08em',
               fontFamily: 'var(--mave-font-mono)'
@@ -132,23 +132,23 @@ export const RoleplayBanner: React.FC<RoleplayBannerProps> = ({
       </div>
 
       {scenarioTitle && (
-        <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--mave-ink)' }}>
+        <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--mave-ink)' }}>
           {scenarioTitle}
         </div>
       )}
 
       {isOutOfRole ? (
-        <div style={{ fontSize: '12px', color: 'var(--mave-warn)', lineHeight: 1.45 }}>
+        <div style={{ fontSize: '12px', color: 'var(--mave-dim)', lineHeight: 1.4 }}>
           MAVE speaking directly as coach. You can ask for grammar explanations, vocabulary clarification, or strategy before resuming.
         </div>
       ) : (
-        <div style={{ fontSize: '13px', fontWeight: 500, color: 'var(--mave-dim)' }}>
+        <div style={{ fontSize: '12px', fontWeight: 500, color: 'var(--mave-dim)' }}>
           MAVE as <span style={{ color: 'var(--mave-cyan)', fontWeight: 600 }}>{assistantRole}</span> (You: {scenario.userRole})
         </div>
       )}
 
       {situation && (
-        <div style={{ fontSize: '12px', color: 'var(--mave-dim)', lineHeight: 1.45 }}>
+        <div style={{ fontSize: '12px', color: 'var(--mave-dim)', lineHeight: 1.4 }}>
           {situation}
         </div>
       )}
@@ -221,17 +221,14 @@ export const PronunciationGuideCard: React.FC<PronunciationGuideCardProps> = ({
         </span>
         <span
           style={{
-            fontSize: '10px',
+            fontSize: '11px',
             color: 'var(--mave-faint)',
-            background: 'rgba(255, 255, 255, 0.04)',
-            border: '1px solid var(--mave-line)',
-            padding: '2px 6px',
-            borderRadius: '4px',
-            fontFamily: 'var(--mave-font-mono)'
+            fontFamily: 'var(--mave-font-mono)',
+            fontWeight: 400
           }}
           data-testid="no-score-guarantee"
         >
-          No Audio Evaluation • Guide Only
+          Guide only · no audio evaluation
         </span>
       </div>
 

@@ -623,7 +623,7 @@ describe('MAVE UI V2 — U6 Language Experience & Conversational Learning System
       );
 
       expect(html).toContain('data-testid="no-score-guarantee"');
-      expect(html).toContain('No Audio Evaluation • Guide Only');
+      expect(html).toContain('Guide only · no audio evaluation');
       expect(html).not.toContain('92%');
       expect(html).not.toContain('85%');
       expect(html).not.toContain('Score:');
@@ -668,6 +668,140 @@ describe('MAVE UI V2 — U6 Language Experience & Conversational Learning System
       expect(html).toContain('data-testid="language-primary-practice-area"');
       expect(html).toContain('data-testid="active-practice-card"');
       expect(html).toContain('Can you describe your favorite hobby');
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // 11. VSM5.1 Language Workspace De-Dashboard & Roleplay Hardening
+  // -------------------------------------------------------------------------
+  describe('11. VSM5.1 Language Workspace De-Dashboard & Roleplay Hardening', () => {
+    it('vocabulary is not permanent in default speaking workspace', () => {
+      const html = renderToStaticMarkup(
+        <LanguageWorkspaceView
+          state={{
+            type: 'language',
+            status: 'running',
+            languageSession: {
+              targetLanguage: 'English',
+              practiceType: 'free_conversation',
+              topic: 'Daily Engineering Work',
+              currentPrompt: 'What feature did you deploy today?',
+              vocabulary: [
+                { id: 'v1', term: 'Deploy', meaning: 'Release software to environment', status: 'seen' },
+                { id: 'v2', term: 'Rollback', meaning: 'Revert to previous version', status: 'seen' }
+              ],
+              status: 'practicing'
+            }
+          }}
+        />
+      );
+
+      // In default speaking, vocabulary panel is NOT rendered permanently
+      expect(html).not.toContain('data-testid="language-context-panel"');
+      // Instead, a contextual drawer toggle button is presented
+      expect(html).toContain('data-testid="btn-toggle-vocab-drawer"');
+      expect(html).toContain('Vocabulary · 2');
+      // Dominant primary interaction is visible
+      expect(html).toContain('data-testid="language-primary-practice-area"');
+      expect(html).toContain('What feature did you deploy today?');
+    });
+
+    it('roleplay paused semantic state removes ROLEPLAY ACTIVE and Step out of role action', () => {
+      const html = renderToStaticMarkup(
+        <RoleplayBanner
+          scenario={{
+            title: 'Coffee Shop Roleplay',
+            role: 'Barista',
+            userRole: 'Customer',
+            situation: 'Paused for vocabulary explanation: substitution.',
+            location: 'Shibuya Coffee Roasters',
+            isOutOfRole: true
+          }}
+        />
+      );
+
+      // Must NOT claim active roleplay
+      expect(html).not.toContain('Roleplay Active');
+      expect(html).not.toContain('ROLEPLAY ACTIVE');
+      // Must NOT display redundant step out action
+      expect(html).not.toContain('btn-step-out-of-role');
+      expect(html).not.toContain('Step out of role');
+      // Must clearly display paused state and offer resume
+      expect(html).toContain('Roleplay Paused');
+      expect(html).toContain('btn-resume-roleplay');
+      expect(html).toContain('Resume Roleplay');
+      // Must NOT use warning/amber color tokens
+      expect(html).not.toContain('var(--mave-warn)');
+    });
+
+    it('Resume roleplay appears when paused and MAVE responds directly as coach', () => {
+      const pauseScenario = U6_LANGUAGE_SCENARIOS.find((s) => s.id === 'u6_06_roleplay_explanation_break');
+      expect(pauseScenario).toBeDefined();
+
+      const html = renderToStaticMarkup(
+        <LanguageWorkspaceView state={pauseScenario!.snapshot.workspace} />
+      );
+
+      // Direct MAVE Coach card dominates
+      expect(html).toContain('data-testid="roleplay-stepout-coach-card"');
+      expect(html).toContain('MAVE (Direct Coach)');
+      expect(html).toContain('substitution');
+      expect(html).toContain('data-testid="btn-resume-roleplay-coach"');
+      expect(html).toContain('Resume Roleplay');
+      // In-role prompt and step out action are NOT active
+      expect(html).not.toContain('data-testid="btn-step-out-of-role"');
+      expect(html).not.toContain('Roleplay Active');
+    });
+
+    it('correction preferences are secondary and not required primary chrome', () => {
+      const html = renderToStaticMarkup(
+        <LanguageWorkspaceView
+          state={{
+            type: 'language',
+            status: 'running',
+            languageSession: {
+              targetLanguage: 'English',
+              practiceType: 'free_conversation',
+              topic: 'Lightweight Conversation',
+              currentPrompt: 'How was your morning?',
+              status: 'practicing'
+            }
+          }}
+        />
+      );
+
+      // Options button is available
+      expect(html).toContain('data-testid="btn-toggle-language-settings"');
+      expect(html).toContain('Options');
+      // Cluttering intensity level buttons are NOT present in default collapsed chrome
+      expect(html).not.toContain('data-testid="btn-intensity-light"');
+      expect(html).not.toContain('data-testid="btn-intensity-detailed"');
+      expect(html).not.toContain('data-testid="btn-toggle-translation"');
+    });
+
+    it('pronunciation disclosure is quiet metadata while truthfulness remains strictly intact', () => {
+      const html = renderToStaticMarkup(
+        <PronunciationGuideCard
+          guide={{
+            phrase: 'Phenomenal phrasing',
+            ipa: '/fəˈnɒm.ɪ.nəl/',
+            phoneticSpelling: 'fuh-NOM-ih-nuhl',
+            stressHint: 'Stress on the second syllable: NOM.',
+            mouthGuide: 'Start with teeth on lower lip for /f/.'
+          }}
+        />
+      );
+
+      // Truthful disclosure is quiet metadata
+      expect(html).toContain('data-testid="no-score-guarantee"');
+      expect(html).toContain('Guide only · no audio evaluation');
+      // No fake scores
+      expect(html).not.toContain('92%');
+      expect(html).not.toContain('Score:');
+      expect(html).not.toContain('Accuracy:');
+      // Pronunciation content dominates
+      expect(html).toContain('Phenomenal phrasing');
+      expect(html).toContain('/fəˈnɒm.ɪ.nəl/');
     });
   });
 });

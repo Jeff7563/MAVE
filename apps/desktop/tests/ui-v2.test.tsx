@@ -397,6 +397,7 @@ describe('MAVE UI V2 — U0 Adaptive Surface Foundation & UI Lab', () => {
     it('renders LanguageWorkspaceView treating language as an experience, not global branding', () => {
       const html = renderToStaticMarkup(
         <LanguageWorkspaceView
+          initialShowVocabulary={true}
           state={{
             type: 'language',
             title: 'Japanese Practice',

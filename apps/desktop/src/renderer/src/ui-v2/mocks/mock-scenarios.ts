@@ -3735,12 +3735,13 @@ export const U6_LANGUAGE_SCENARIOS: MockScenario[] = [
             role: 'Barista',
             userRole: 'Customer',
             situation: 'Paused for vocabulary explanation: "substitution".',
-            location: 'Shibuya Coffee Roasters'
+            location: 'Shibuya Coffee Roasters',
+            isOutOfRole: true
           },
           currentPrompt: 'Ready to continue ordering? Try saying: "I’d like oat milk instead, please."',
           correctionIntensity: 'detailed',
           showTranslation: true,
-          status: 'practicing',
+          status: 'paused',
           observableStateText: 'Explanation provided • Ready to resume',
           vocabulary: [
             { id: 'v-sub', term: 'Substitution', meaning: 'The action of replacing someone or something with another', partOfSpeech: 'noun', exampleSentence: 'Is there an extra charge for oat milk substitution?', exampleTranslation: 'มีค่าบริการเพิ่มเติมสำหรับการเปลี่ยนเป็นนมโอ๊ตไหมครับ', status: 'reviewed', isSavedMock: true }

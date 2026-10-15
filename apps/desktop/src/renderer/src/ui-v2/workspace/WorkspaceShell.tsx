@@ -50,6 +50,7 @@ export interface WorkspaceShellProps {
   onChangeCorrectionIntensity?: (intensity: any) => void;
   onToggleShowTranslation?: () => void;
   onStepOutOfRole?: () => void;
+  onResumeRoleplay?: () => void;
   onPracticeAgain?: () => void;
   className?: string;
   officeMode?: boolean;
@@ -94,6 +95,7 @@ export const WorkspaceShell: React.FC<WorkspaceShellProps> = ({
   onChangeCorrectionIntensity,
   onToggleShowTranslation,
   onStepOutOfRole,
+  onResumeRoleplay,
   onPracticeAgain,
   className = '',
   officeMode = false,
@@ -687,6 +689,7 @@ export const WorkspaceShell: React.FC<WorkspaceShellProps> = ({
                   onChangeCorrectionIntensity={onChangeCorrectionIntensity}
                   onToggleShowTranslation={onToggleShowTranslation}
                   onStepOutOfRole={onStepOutOfRole}
+                  onResumeRoleplay={onResumeRoleplay}
                   onPracticeAgain={onPracticeAgain}
                 />
               );
