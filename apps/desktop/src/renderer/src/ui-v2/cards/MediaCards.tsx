@@ -6,6 +6,7 @@ import type {
   ImageCardData
 } from '../types';
 import { CardShell } from '../primitives/CardShell';
+import { ExternalLinkIcon, PlayIcon, ChevronDownIcon, ChevronUpIcon, ImageIcon } from '../primitives';
 import '../tokens.css';
 
 // ---------------------------------------------------------------------------
@@ -56,7 +57,8 @@ export const SourceCard: React.FC<SourceCardProps> = ({ data, onOpenSource }) =>
           }}
           data-testid="link-view-source"
         >
-          View Source ↗
+          <span>View Source</span>
+          <ExternalLinkIcon size={12} color="currentColor" />
         </a>
       }
     >
@@ -92,11 +94,24 @@ export const SourceCard: React.FC<SourceCardProps> = ({ data, onOpenSource }) =>
               cursor: 'pointer',
               textAlign: 'left',
               marginTop: '2px',
-              fontFamily: 'var(--mave-font-mono)'
+              fontFamily: 'var(--mave-font-mono)',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '4px'
             }}
             data-testid="btn-toggle-snippet"
           >
-            {expanded ? '▲ Show less' : '▼ Read more'}
+            {expanded ? (
+              <>
+                <ChevronUpIcon size={11} color="currentColor" />
+                <span>Show less</span>
+              </>
+            ) : (
+              <>
+                <ChevronDownIcon size={11} color="currentColor" />
+                <span>Read more</span>
+              </>
+            )}
           </button>
         )}
       </div>
@@ -135,13 +150,27 @@ export const SourceGroupCard: React.FC<SourceGroupCardProps> = ({ data, onOpenSo
             fontSize: '11px',
             cursor: 'pointer',
             fontWeight: 500,
-            fontFamily: 'var(--mave-font-mono)'
+            fontFamily: 'var(--mave-font-mono)',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '4px'
           }}
           data-testid="btn-toggle-source-group"
         >
-          {expanded ? '▲ Collapse list' : `▼ Expand all (${count})`}
+          {expanded ? (
+            <>
+              <ChevronUpIcon size={11} color="currentColor" />
+              <span>Collapse list</span>
+            </>
+          ) : (
+            <>
+              <ChevronDownIcon size={11} color="currentColor" />
+              <span>Expand all ({count})</span>
+            </>
+          )}
         </button>
       }
+
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
         {/* Compact summary rows when collapsed */}
@@ -272,7 +301,8 @@ export const SourceGroupCard: React.FC<SourceGroupCardProps> = ({ data, onOpenSo
                       }}
                       data-testid="link-view-source"
                     >
-                      View Source ↗
+                      <span>View Source</span>
+                      <ExternalLinkIcon size={11} color="currentColor" />
                     </a>
                   </div>
                 </div>
@@ -329,7 +359,8 @@ export const VideoCard: React.FC<VideoCardProps> = ({ data, onOpenVideo }) => {
           }}
           data-testid="link-watch-video"
         >
-          Watch Video ↗
+          <span>Watch Video</span>
+          <ExternalLinkIcon size={12} color="currentColor" />
         </a>
       }
     >
@@ -361,7 +392,7 @@ export const VideoCard: React.FC<VideoCardProps> = ({ data, onOpenVideo }) => {
               boxShadow: '0 0 20px rgba(91, 132, 255, 0.45)'
             }}
           >
-            <span style={{ color: '#ffffff', fontSize: '15px', marginLeft: '3px' }}>▶</span>
+            <PlayIcon size={16} color="#ffffff" style={{ marginLeft: '2px' }} />
           </div>
           <span
             style={{
@@ -433,11 +464,15 @@ export const ImageCard: React.FC<ImageCardProps> = ({ data, onOpenImage }) => {
               color: 'var(--mave-cyan)',
               fontSize: '12px',
               cursor: 'pointer',
-              fontWeight: 500
+              fontWeight: 500,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '4px'
             }}
             data-testid="btn-open-image"
           >
-            Open Media ↗
+            <span>Open Media</span>
+            <ExternalLinkIcon size={12} color="currentColor" />
           </button>
         )
       }
@@ -460,7 +495,7 @@ export const ImageCard: React.FC<ImageCardProps> = ({ data, onOpenImage }) => {
           }}
           data-testid="image-canvas-placeholder"
         >
-          <span style={{ fontSize: '24px' }}>🖼</span>
+          <ImageIcon size={28} color="var(--mave-dim)" />
           <span>{data.altText || data.caption}</span>
         </div>
 

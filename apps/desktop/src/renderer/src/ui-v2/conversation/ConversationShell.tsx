@@ -7,10 +7,19 @@ import type {
   SidecarPlacement
 } from '../types';
 import { AdaptivePresenceMark } from '../primitives/AdaptivePresenceMark';
+import {
+  PinIcon,
+  ExpandIcon,
+  MinimizeIcon,
+  CloseIcon,
+  MicIcon,
+  PauseIcon
+} from '../primitives/Icons';
 import { CardRenderer } from '../cards';
 import { SourceCard } from '../cards/MediaCards';
 import { groupConversationTimeline } from './conversation-rules';
 import '../tokens.css';
+
 
 export interface ConversationShellProps {
   state: ConversationState;
@@ -202,6 +211,7 @@ export const ConversationShell: React.FC<ConversationShellProps> = ({
           boxSizing: 'border-box',
           overflowX: 'hidden'
         }}
+        data-testid="conversation-header"
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <AdaptivePresenceMark
@@ -222,22 +232,6 @@ export const ConversationShell: React.FC<ConversationShellProps> = ({
               >
                 MAVE
               </span>
-              <span
-                style={{
-                  fontSize: '11px',
-                  fontFamily: "var(--mave-font-mono, monospace)",
-                  fontWeight: 600,
-                  letterSpacing: '0.14em',
-                  color: 'var(--mave-faint)',
-                  textTransform: 'uppercase',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '5px'
-                }}
-              >
-                <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: 'var(--mave-cyan)' }} />
-                {isSidecar ? 'SIDECAR' : 'CONVERSATION'}
-              </span>
               {state.contextLabel && (
                 <span
                   style={{
@@ -255,12 +249,14 @@ export const ConversationShell: React.FC<ConversationShellProps> = ({
                 </span>
               )}
             </div>
-            <div
-              style={{ fontSize: '11px', color: 'var(--mave-faint)', marginTop: '1px' }}
-              data-testid="conversation-subtitle"
-            >
-              {state.semanticRuntimeLabel ?? 'Desktop Companion'}
-            </div>
+            {state.semanticRuntimeLabel && state.semanticRuntimeLabel !== 'Desktop Companion' && (
+              <div
+                style={{ fontSize: '11px', color: 'var(--mave-faint)', marginTop: '1px' }}
+                data-testid="conversation-subtitle"
+              >
+                {state.semanticRuntimeLabel}
+              </div>
+            )}
           </div>
         </div>
 
@@ -278,12 +274,15 @@ export const ConversationShell: React.FC<ConversationShellProps> = ({
                 cursor: 'pointer',
                 padding: '4px 6px',
                 borderRadius: '4px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
                 fontSize: '12px'
               }}
               data-testid="btn-pin-sidecar"
               aria-pressed={isPinned}
             >
-              📌
+              <PinIcon size={13} color={isPinned ? 'var(--mave-cyan)' : 'var(--mave-faint)'} />
             </button>
           )}
 
@@ -299,11 +298,14 @@ export const ConversationShell: React.FC<ConversationShellProps> = ({
                 cursor: 'pointer',
                 padding: '4px 6px',
                 borderRadius: '4px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
                 fontSize: '13px'
               }}
               data-testid="btn-expand-conversation"
             >
-              ⤢
+              <ExpandIcon size={13} color="var(--mave-faint)" />
             </button>
           )}
 
@@ -319,11 +321,14 @@ export const ConversationShell: React.FC<ConversationShellProps> = ({
                 cursor: 'pointer',
                 padding: '4px 6px',
                 borderRadius: '4px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
                 fontSize: '13px'
               }}
               data-testid="btn-expand-workspace"
             >
-              ⤢
+              <ExpandIcon size={13} color={state.workspaceEligible ? 'var(--mave-cyan)' : 'var(--mave-faint)'} />
             </button>
           )}
 
@@ -339,11 +344,14 @@ export const ConversationShell: React.FC<ConversationShellProps> = ({
                 cursor: 'pointer',
                 padding: '4px 6px',
                 borderRadius: '4px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
                 fontSize: '13px'
               }}
               data-testid="btn-collapse-presence"
             >
-              ↙
+              <MinimizeIcon size={13} color="var(--mave-faint)" />
             </button>
           )}
 
@@ -359,11 +367,14 @@ export const ConversationShell: React.FC<ConversationShellProps> = ({
                 cursor: 'pointer',
                 padding: '4px 6px',
                 borderRadius: '4px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
                 fontSize: '13px'
               }}
               data-testid="btn-close-conversation"
             >
-              ✕
+              <CloseIcon size={13} color="var(--mave-faint)" />
             </button>
           )}
         </div>
@@ -838,7 +849,7 @@ export const ConversationShell: React.FC<ConversationShellProps> = ({
                         flexDirection: 'column',
                         gap: '6px',
                         width: '100%',
-                        maxWidth: '92%',
+                        maxWidth: isSidecar ? '100%' : 'min(680px, 100%)',
                         marginTop: '4px'
                       }}
                       data-testid="grouped-sources-section"
@@ -870,7 +881,7 @@ export const ConversationShell: React.FC<ConversationShellProps> = ({
                         flexDirection: 'column',
                         gap: '8px',
                         width: '100%',
-                        maxWidth: '92%',
+                        maxWidth: isSidecar ? '100%' : 'min(680px, 100%)',
                         marginTop: '4px'
                       }}
                       data-testid="rich-cards-section"
@@ -1103,7 +1114,7 @@ export const ConversationShell: React.FC<ConversationShellProps> = ({
               }}
               data-testid="conversation-voice-button"
             >
-              🎙
+              <MicIcon size={14} color="var(--mave-faint)" />
             </button>
           )}
 
@@ -1125,12 +1136,12 @@ export const ConversationShell: React.FC<ConversationShellProps> = ({
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '4px',
+                gap: '6px',
                 flex: 'none'
               }}
               data-testid="conversation-stop-button"
             >
-              <span>⏹</span>
+              <PauseIcon size={11} color="var(--mave-err)" />
               <span>Stop</span>
             </button>
           ) : (

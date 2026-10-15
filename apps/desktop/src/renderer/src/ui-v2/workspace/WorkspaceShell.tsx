@@ -5,6 +5,17 @@ import type {
   WorkspaceArtifact
 } from '../types';
 import { AdaptivePresenceMark } from '../primitives/AdaptivePresenceMark';
+import {
+  FocusIcon,
+  ChatIcon,
+  FolderIcon,
+  MinimizeIcon,
+  CloseIcon,
+  ChevronLeftIcon,
+  AlertIcon,
+  HandIcon,
+  RetryIcon
+} from '../primitives/Icons';
 import { WorkspaceDiffView } from './WorkspaceDiffView';
 import { WorkspaceResearchView } from './WorkspaceResearchView';
 import { WorkspaceProjectView } from './WorkspaceProjectView';
@@ -14,6 +25,7 @@ import { ConversationShell } from '../conversation/ConversationShell';
 import { ApprovalCard } from '../cards/ActionAndTaskCards';
 import { SourceCard } from '../cards/MediaCards';
 import '../tokens.css';
+
 
 export interface WorkspaceShellProps {
   state: WorkspaceState;
@@ -298,12 +310,16 @@ export const WorkspaceShell: React.FC<WorkspaceShellProps> = ({
               color: isFocusMode ? 'var(--mave-v2-accent-listening)' : 'var(--mave-v2-text-secondary)',
               padding: '4px 8px',
               fontSize: '11px',
-              cursor: 'pointer'
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '5px'
             }}
             data-testid="btn-workspace-focus"
             aria-pressed={isFocusMode}
           >
-            ⛶ Focus
+            <FocusIcon size={12} color={isFocusMode ? 'var(--mave-v2-accent-listening)' : 'var(--mave-v2-text-secondary)'} />
+            <span>Focus</span>
           </button>
 
           {/* Conversation Panel Toggle */}
@@ -319,12 +335,16 @@ export const WorkspaceShell: React.FC<WorkspaceShellProps> = ({
                 color: showConversation ? 'var(--mave-v2-text-primary)' : 'var(--mave-v2-text-muted)',
                 padding: '4px 8px',
                 fontSize: '11px',
-                cursor: 'pointer'
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px'
               }}
               data-testid="btn-workspace-toggle-chat"
               aria-pressed={showConversation}
             >
-              💬 Chat
+              <ChatIcon size={12} color={showConversation ? 'var(--mave-v2-text-primary)' : 'var(--mave-v2-text-muted)'} />
+              <span>Chat</span>
             </button>
           )}
 
@@ -341,18 +361,21 @@ export const WorkspaceShell: React.FC<WorkspaceShellProps> = ({
                 color: showContext ? 'var(--mave-v2-text-primary)' : 'var(--mave-v2-text-muted)',
                 padding: '4px 8px',
                 fontSize: '11px',
-                cursor: 'pointer'
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px'
               }}
               data-testid="btn-workspace-toggle-context"
               aria-pressed={showContext}
             >
-              📁 Context
+              <FolderIcon size={12} color={showContext ? 'var(--mave-v2-text-primary)' : 'var(--mave-v2-text-muted)'} />
+              <span>Context</span>
             </button>
           )}
 
           <div style={{ width: '1px', height: '16px', background: 'var(--mave-v2-border-subtle)', margin: '0 4px' }} />
 
-          {/* Minimize to Conversation */}
           {/* Minimize to Conversation */}
           <button
             onClick={() => onMinimizeToConversation?.()}
@@ -365,11 +388,15 @@ export const WorkspaceShell: React.FC<WorkspaceShellProps> = ({
               color: 'var(--mave-v2-text-secondary)',
               padding: '4px 8px',
               fontSize: '11px',
-              cursor: 'pointer'
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '5px'
             }}
             data-testid="btn-workspace-minimize-conversation"
           >
-            ↙ Conversation
+            <MinimizeIcon size={12} color="var(--mave-v2-text-secondary)" />
+            <span>Conversation</span>
           </button>
 
           {/* Collapse to Presence */}
@@ -384,11 +411,15 @@ export const WorkspaceShell: React.FC<WorkspaceShellProps> = ({
               color: 'var(--mave-v2-text-secondary)',
               padding: '4px 8px',
               fontSize: '11px',
-              cursor: 'pointer'
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px'
             }}
             data-testid="btn-workspace-collapse-presence"
           >
-            • Presence
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'currentColor' }} />
+            <span>Presence</span>
           </button>
 
           {/* Close Surface (Visual dismiss != Cancel task) */}
@@ -402,11 +433,14 @@ export const WorkspaceShell: React.FC<WorkspaceShellProps> = ({
               color: 'var(--mave-v2-text-muted)',
               padding: '4px 6px',
               fontSize: '13px',
-              cursor: 'pointer'
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
             }}
             data-testid="btn-workspace-close"
           >
-            ✕
+            <CloseIcon size={13} color="var(--mave-v2-text-muted)" />
           </button>
         </div>
       </header>
@@ -455,10 +489,10 @@ export const WorkspaceShell: React.FC<WorkspaceShellProps> = ({
               <span>Conversation Context</span>
               <button
                 onClick={() => setShowConversation(false)}
-                style={{ background: 'transparent', border: 'none', color: 'var(--mave-v2-text-dim)', cursor: 'pointer', fontSize: '11px' }}
+                style={{ background: 'transparent', border: 'none', color: 'var(--mave-v2-text-dim)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
                 title="Collapse Conversation Rail"
               >
-                ◀
+                <ChevronLeftIcon size={12} color="var(--mave-v2-text-dim)" />
               </button>
             </div>
             <div style={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
@@ -502,8 +536,9 @@ export const WorkspaceShell: React.FC<WorkspaceShellProps> = ({
               }}
               data-testid="workspace-error-banner"
             >
-              <div style={{ fontSize: '12px', color: '#fca5a5' }}>
-                ⚠️ Task encountered an error. Completed artifacts and conversation context are preserved.
+              <div style={{ fontSize: '12px', color: '#fca5a5', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <AlertIcon size={14} color="#f87171" />
+                <span>Task encountered an error. Completed artifacts and conversation context are preserved.</span>
               </div>
               {onRetry && (
                 <button
@@ -516,11 +551,15 @@ export const WorkspaceShell: React.FC<WorkspaceShellProps> = ({
                     padding: '4px 10px',
                     fontSize: '11px',
                     fontWeight: 600,
-                    cursor: 'pointer'
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px'
                   }}
                   data-testid="btn-workspace-retry"
                 >
-                  Retry Task
+                  <RetryIcon size={11} color="#f87171" />
+                  <span>Retry Task</span>
                 </button>
               )}
             </div>
@@ -543,15 +582,18 @@ export const WorkspaceShell: React.FC<WorkspaceShellProps> = ({
               }}
               data-testid="workspace-waiting-banner"
             >
-              <span>✋</span>
+              <HandIcon size={14} color="var(--mave-v2-accent-warning)" />
               <span style={{ fontWeight: 600 }}>MAVE is waiting for your approval before proceeding.</span>
             </div>
           )}
 
           {/* Primary Work Area Slot Dispatcher */}
           {(() => {
+            const conversationDiffCard = (activeConversation.cards?.find((c) => c.type === 'diff')
+              || activeConversation.timelineGroups?.flatMap(g => g.cards || []).find(c => c.type === 'diff')) as any;
+
             // 1. Diff Review Workspace
-            if (state.type === 'diff_review' || currentArtifact?.type === 'diff') {
+            if (state.type === 'diff_review' || currentArtifact?.type === 'diff' || (!currentArtifact && conversationDiffCard)) {
               const diffData = currentArtifact?.diffData || (state.diffArtifacts?.[0] ? {
                 id: 'diff-artifact-0',
                 type: 'diff' as const,
@@ -564,13 +606,21 @@ export const WorkspaceShell: React.FC<WorkspaceShellProps> = ({
                   oldLineNumber: l.oldLineNumber,
                   newLineNumber: l.newLineNumber
                 }))
+              } : conversationDiffCard ? {
+                id: conversationDiffCard.id,
+                type: 'diff' as const,
+                filename: conversationDiffCard.filename,
+                path: conversationDiffCard.path,
+                additions: conversationDiffCard.additions,
+                deletions: conversationDiffCard.deletions,
+                lines: conversationDiffCard.lines || []
               } : undefined);
 
               return (
                 <WorkspaceDiffView
                   diffData={diffData}
-                  files={state.files || state.targetFiles}
-                  selectedFilePath={selectedFile}
+                  files={state.files || state.targetFiles || (diffData?.filename ? [{ path: diffData.path || diffData.filename, status: 'modified' }] : undefined)}
+                  selectedFilePath={selectedFile || diffData?.path || diffData?.filename}
                   onSelectFile={(f) => {
                     setSelectedFile(f);
                     onSelectFile?.(f);

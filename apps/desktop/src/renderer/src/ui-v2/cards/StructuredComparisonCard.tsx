@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import type { ComparisonCardData } from '../types';
 import { CardShell } from '../primitives/CardShell';
+import { TableIcon, StackedIcon, ExpandIcon } from '../primitives/Icons';
 import '../tokens.css';
 
 export interface StructuredComparisonCardProps {
@@ -24,15 +25,15 @@ export const StructuredComparisonCard: React.FC<StructuredComparisonCardProps> =
   data,
   onOpenWorkspace
 }) => {
-  // Respect forced responsiveStack prop or density, while allowing interactive toggle
-  const initialStacked = data.responsiveStack ?? data.density === 'compact';
+  // Narrow / Sidecar defaults to stacked key-value presentation; wide table otherwise
+  const initialStacked = data.responsiveStack ?? (data.density === 'compact' || Boolean(data.columns && data.columns.length > 3));
   const [isStacked, setIsStacked] = useState<boolean>(initialStacked);
 
   const primaryCol = data.columns.find((c) => c.isPrimary) || data.columns[0];
 
   const formatCellValue = (val: string | number | boolean | undefined): string => {
     if (val === undefined || val === null) return '—';
-    if (typeof val === 'boolean') return val ? '✓ Yes' : '✕ No';
+    if (typeof val === 'boolean') return val ? 'Yes' : 'No';
     return String(val);
   };
 
@@ -56,12 +57,25 @@ export const StructuredComparisonCard: React.FC<StructuredComparisonCardProps> =
               padding: '4px 10px',
               fontSize: '11px',
               cursor: 'pointer',
-              fontFamily: 'var(--mave-font-mono)'
+              fontFamily: 'var(--mave-font-mono)',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px'
             }}
             data-testid="btn-toggle-comparison-layout"
             aria-label="Toggle between table and stacked record layout"
           >
-            {isStacked ? '▦ Table View' : '▤ Stacked View'}
+            {isStacked ? (
+              <>
+                <TableIcon size={12} color="var(--mave-dim)" />
+                <span>Table View</span>
+              </>
+            ) : (
+              <>
+                <StackedIcon size={12} color="var(--mave-dim)" />
+                <span>Stacked View</span>
+              </>
+            )}
           </button>
 
           {onOpenWorkspace && (
@@ -76,12 +90,16 @@ export const StructuredComparisonCard: React.FC<StructuredComparisonCardProps> =
                 fontSize: '11px',
                 cursor: 'pointer',
                 fontFamily: 'var(--mave-font-mono)',
-                fontWeight: 500
+                fontWeight: 500,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px'
               }}
               data-testid="btn-open-comparison-workspace"
               aria-label="Open detailed comparison in Workspace"
             >
-              Open in Workspace ⤢
+              <span>Open in Workspace</span>
+              <ExpandIcon size={12} color="var(--mave-cyan)" />
             </button>
           )}
         </div>

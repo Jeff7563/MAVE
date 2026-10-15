@@ -1585,9 +1585,28 @@ export const U3_RICH_CARD_SCENARIOS: MockScenario[] = [
         ]
       },
       workspace: {
-        type: 'project',
+        type: 'diff_review',
         title: 'Runtime Config',
         status: 'idle',
+        targetFiles: [{ path: 'src/config/runtime.ts', status: 'modified' }],
+        diffArtifacts: [
+          {
+            filePath: 'src/config/runtime.ts',
+            additions: 8,
+            deletions: 2,
+            diffLines: [
+              { type: 'context', text: 'import { ProviderPolicy } from "./types";', oldLineNumber: 1, newLineNumber: 1 },
+              { type: 'context', text: '', oldLineNumber: 2, newLineNumber: 2 },
+              { type: 'deletion', text: 'export const DEFAULT_PROVIDER = "openai_api";', oldLineNumber: 3 },
+              { type: 'deletion', text: 'export const ALLOW_PAID_API = true;', oldLineNumber: 4 },
+              { type: 'addition', text: 'export const DEFAULT_PROVIDER = "subscription_runtime";', newLineNumber: 3 },
+              { type: 'addition', text: 'export const FALLBACK_PROVIDER = "local_fast_brain";', newLineNumber: 4 },
+              { type: 'addition', text: 'export const ALLOW_PAID_API = false; // Default-deny', newLineNumber: 5 },
+              { type: 'context', text: '', oldLineNumber: 5, newLineNumber: 6 },
+              { type: 'context', text: 'export function getActivePolicy(): ProviderPolicy {', oldLineNumber: 6, newLineNumber: 7 }
+            ]
+          }
+        ],
         steps: []
       }
     }

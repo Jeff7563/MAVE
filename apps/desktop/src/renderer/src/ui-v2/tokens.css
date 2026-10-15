@@ -357,6 +357,65 @@
 }
 
 
+/* ==========================================================================
+   MAVE Subtle Scrollbar System (Section 16 Specification)
+   Thin, quiet, low-contrast, rounded glass scrollbar consistent with dark canvas
+   ========================================================================== */
+:root {
+  --mave-scrollbar-width: 5px;
+  --mave-scrollbar-track: transparent;
+  --mave-scrollbar-thumb: var(--mave-line, rgba(255, 255, 255, 0.08));
+  --mave-scrollbar-thumb-hover: var(--mave-edge, rgba(180, 190, 255, 0.22));
+}
+
+/* Global scrollbar rules for WebKit (Electron/Chromium) */
+::-webkit-scrollbar {
+  width: var(--mave-scrollbar-width);
+  height: var(--mave-scrollbar-width);
+}
+
+::-webkit-scrollbar-track {
+  background: var(--mave-scrollbar-track);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--mave-scrollbar-thumb);
+  border-radius: 9999px;
+  transition: background var(--mave-dur-quick, 200ms) ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--mave-scrollbar-thumb-hover);
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Firefox scrollbar properties */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--mave-scrollbar-thumb) transparent;
+}
+
+.mave-scrollbar::-webkit-scrollbar {
+  width: var(--mave-scrollbar-width);
+  height: var(--mave-scrollbar-width);
+}
+
+.mave-scrollbar::-webkit-scrollbar-track {
+  background: var(--mave-scrollbar-track);
+}
+
+.mave-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--mave-scrollbar-thumb);
+  border-radius: 9999px;
+}
+
+.mave-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--mave-scrollbar-thumb-hover);
+}
+
 /* Reduced Motion Override */
 @media (prefers-reduced-motion: reduce) {
   :root {
@@ -374,3 +433,4 @@
     transition-duration: 0.01ms !important;
   }
 }
+

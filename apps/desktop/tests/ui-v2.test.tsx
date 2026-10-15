@@ -155,7 +155,7 @@ describe('MAVE UI V2 — U0 Adaptive Surface Foundation & UI Lab', () => {
       expect(html).toContain('github.com');
       expect(html).toContain('MAVE Repository');
       expect(html).toContain('Personal AI desktop orchestrator');
-      expect(html).toContain('View Source ↗');
+      expect(html).toContain('View Source');
     });
 
     it('renders VideoCard with duration badge and channel info', () => {
@@ -484,11 +484,12 @@ describe('MAVE UI V2 — U0 Adaptive Surface Foundation & UI Lab', () => {
   });
 
   describe('VA1.1 Canonical Surface Visual Migration & Structural Rules', () => {
-    it('PresenceSurface in idle mode renders branded luminous orb and breathing dots with zero pause bars', () => {
+    it('PresenceSurface in idle mode renders branded resting wordmark with zero pause bars', () => {
       const html = renderToStaticMarkup(<PresenceSurface state="idle" />);
-      expect(html).toContain('data-testid="presence-dots"');
+      expect(html).toContain('data-testid="presence-wordmark"');
       expect(html).toContain('MAVE');
-      expect(html).toContain('data-testid="adaptive-presence-mark"');
+      expect(html).not.toContain('data-testid="presence-dots"');
+      expect(html).not.toContain('data-testid="adaptive-presence-mark"');
       // Invariant: no acoustic waveform in resting idle
       expect(html).not.toContain('data-testid="presence-waveform"');
     });

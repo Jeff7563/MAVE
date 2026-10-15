@@ -698,4 +698,89 @@ describe('MAVE UI V2 — U3 Rich Cards & Structured Information Presentation Tes
       }
     });
   });
+
+  // -------------------------------------------------------------------------
+  // 13. Visual QA P2 — Responsive Comparison Fallback & Scroll Ownership
+  // -------------------------------------------------------------------------
+  describe('13. Visual QA P2 — Responsive Comparison Fallback & Scroll Ownership', () => {
+    it('defaults to stacked record view when comparison card has more than 3 columns', () => {
+      const html = renderToStaticMarkup(
+        <StructuredComparisonCard
+          data={{
+            id: 'comp-1',
+            type: 'comparison',
+            title: 'Provider Comparison',
+            columns: [
+              { key: 'col1', label: 'Col 1', isPrimary: true },
+              { key: 'col2', label: 'Col 2' },
+              { key: 'col3', label: 'Col 3' },
+              { key: 'col4', label: 'Col 4' }
+            ],
+            rows: [
+              {
+                id: 'row-1',
+                values: { col1: 'Val 1', col2: 'Val 2', col3: 'Val 3', col4: 'Val 4' }
+              }
+            ]
+          }}
+        />
+      );
+
+      // Defaults to stacked record layout to prevent horizontal scroll overflow
+      expect(html).toContain('data-testid="comparison-stacked-list"');
+      expect(html).not.toContain('data-testid="comparison-table-wrapper"');
+      expect(html).toContain('data-testid="btn-toggle-comparison-layout"');
+    });
+
+    it('defaults to table view when comparison card has 3 or fewer columns and standard density', () => {
+      const html = renderToStaticMarkup(
+        <StructuredComparisonCard
+          data={{
+            id: 'comp-2',
+            type: 'comparison',
+            title: 'Compact Comparison',
+            columns: [
+              { key: 'name', label: 'Name', isPrimary: true },
+              { key: 'speed', label: 'Speed' },
+              { key: 'cost', label: 'Cost' }
+            ],
+            rows: [
+              {
+                id: 'r1',
+                values: { name: 'Local Fast Brain', speed: '32 t/s', cost: '$0.00' }
+              }
+            ]
+          }}
+        />
+      );
+
+      expect(html).toContain('data-testid="comparison-table-wrapper"');
+      expect(html).not.toContain('data-testid="comparison-stacked-list"');
+    });
+
+    it('enforces scroll ownership on diff lines container with subtle scrollbars', () => {
+      const html = renderToStaticMarkup(
+        <DiffCard
+          data={{
+            id: 'd1',
+            type: 'diff',
+            filename: 'runtime.ts',
+            path: 'src/runtime.ts',
+            defaultExpanded: true,
+            additions: 1,
+            deletions: 1,
+            lines: [
+              { type: 'remove', text: 'const a = 1;', oldLineNumber: 1 },
+              { type: 'add', text: 'const a = 2;', newLineNumber: 1 }
+            ]
+          }}
+        />
+      );
+
+      // Dedicated lines scroll container owns overflow
+      expect(html).toContain('data-testid="diff-lines-container"');
+      expect(html).toContain('overflow-x:auto');
+    });
+  });
 });
+

@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import type { PresenceState, QuickResponseData } from '../types';
 import { AdaptivePresenceMark } from '../primitives/AdaptivePresenceMark';
+import { ExpandIcon, CloseIcon, RetryIcon, ClockIcon } from '../primitives/Icons';
 import {
   getPresenceButtonDescriptor,
   sanitizeQuickResponseSource,
   normalizeAudioRms
 } from './presence-rules';
 import '../tokens.css';
+
 
 export interface PresenceSurfaceProps {
   state?: PresenceState;
@@ -174,15 +176,15 @@ export const PresenceSurface: React.FC<PresenceSurfaceProps> = ({
   onExpand,
   onWakeToggle,
   onManualActivate,
-  onStopListening,
-  onCancelThinking,
-  onStopSpeaking,
+  onStopListening: _onStopListening,
+  onCancelThinking: _onCancelThinking,
+  onStopSpeaking: _onStopSpeaking,
   onRetryError,
   onDismissError,
   onDismissQuickResponse,
   className = ''
 }) => {
-  const [isHovered, setIsHovered] = useState(false);
+  const [, setIsHovered] = useState(false);
 
   const isIdle = state === 'idle';
   const isWaking = state === 'waking';
@@ -255,9 +257,6 @@ export const PresenceSurface: React.FC<PresenceSurfaceProps> = ({
     : '';
 
   // Contextual action descriptors
-  const stopListeningDesc = getPresenceButtonDescriptor('stop-listening');
-  const cancelThinkingDesc = getPresenceButtonDescriptor('cancel-thinking');
-  const stopSpeakingDesc = getPresenceButtonDescriptor('stop-speaking');
   const retryDesc = getPresenceButtonDescriptor('retry');
   const expandDesc = getPresenceButtonDescriptor('expand');
 
@@ -373,13 +372,17 @@ export const PresenceSurface: React.FC<PresenceSurfaceProps> = ({
                     padding: '3px 10px',
                     borderRadius: '12px',
                     fontFamily: "var(--mave-font-sans, sans-serif)",
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
                     transition: 'background var(--mave-dur-quick, 200ms) ease'
                   }}
                   title={expandDesc.tooltip}
                   aria-label={expandDesc.label}
                   data-testid="quick-response-expand"
                 >
-                  Expand ↗
+                  <span>Expand</span>
+                  <ExpandIcon size={11} color="var(--mave-cyan, #5FD2FF)" />
                 </button>
               )}
               {onDismissQuickResponse && (
@@ -390,15 +393,17 @@ export const PresenceSurface: React.FC<PresenceSurfaceProps> = ({
                     border: 'none',
                     color: 'var(--mave-faint, rgba(222, 226, 255, 0.38))',
                     cursor: 'pointer',
-                    fontSize: '13px',
                     padding: '2px 4px',
-                    lineHeight: 1
+                    lineHeight: 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
                   }}
                   title="Dismiss quick response"
                   aria-label="Dismiss quick response"
                   data-testid="quick-response-dismiss"
                 >
-                  ✕
+                  <CloseIcon size={12} color="var(--mave-faint, rgba(222, 226, 255, 0.38))" />
                 </button>
               )}
             </div>
@@ -456,7 +461,9 @@ export const PresenceSurface: React.FC<PresenceSurfaceProps> = ({
         />
 
         {/* ------------------------------------------------------------------
-            IDLE LAYOUT: Centered Presence Identity
+            IDLE LAYOUT: Resting Wordmark Only ([ M A V E ])
+            Strictly no Orb, no status dot, no audio bars, no decorative dots,
+            no stop/cancel, no expand icon, no state text.
             ------------------------------------------------------------------ */}
         {isIdle && (
           <div
@@ -464,7 +471,6 @@ export const PresenceSurface: React.FC<PresenceSurfaceProps> = ({
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: '12px',
               width: '100%',
               cursor: onManualActivate || onWakeToggle ? 'pointer' : 'default'
             }}
@@ -472,22 +478,13 @@ export const PresenceSurface: React.FC<PresenceSurfaceProps> = ({
             title="Manual activation: start listening"
             aria-label="Manual activation"
           >
-            {/* Identity Orb */}
-            <AdaptivePresenceMark
-              state="idle"
-              size="compact"
-              audioLevel={0}
-              onClick={handleActivation}
-            />
-
-            {/* Jost 300 Wide Wordmark */}
             <span
               style={{
                 fontFamily: "var(--mave-font-wordmark, 'Jost', sans-serif)",
                 fontWeight: 300,
                 fontSize: '18px',
-                letterSpacing: '0.38em',
-                paddingLeft: '0.38em',
+                letterSpacing: '0.42em',
+                paddingLeft: '0.42em',
                 color: '#f3f4fc',
                 lineHeight: 1,
                 whiteSpace: 'nowrap'
@@ -496,50 +493,6 @@ export const PresenceSurface: React.FC<PresenceSurfaceProps> = ({
             >
               MAVE
             </span>
-
-            {/* Resting breathing element (satisfies presence-dots invariant with elegance) */}
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '3px',
-                paddingLeft: '2px',
-                opacity: 0.45
-              }}
-              data-testid="presence-dots"
-            >
-              {[0.5, 0.8, 1.0, 0.8, 0.5].map((s, i) => (
-                <span
-                  key={i}
-                  style={{
-                    width: '2px',
-                    height: '2px',
-                    borderRadius: '50%',
-                    background: 'var(--mave-cyan, #5FD2FF)',
-                    transform: `scale(${s})`,
-                    animation: 'mave-v3-dots-pulse 3s ease-in-out infinite',
-                    animationDelay: `${i * 0.2}s`
-                  }}
-                />
-              ))}
-            </div>
-
-            {/* Office Mode Subtle Indicator */}
-            {officeMode && (
-              <span
-                style={{
-                  fontSize: '12px',
-                  color: 'var(--mave-faint, rgba(222, 226, 255, 0.38))',
-                  marginLeft: '2px',
-                  opacity: 0.75
-                }}
-                title="Office Mode (Voice output muted)"
-                aria-label="Office Mode (Voice output muted)"
-                data-testid="presence-office-badge"
-              >
-                🔇
-              </span>
-            )}
           </div>
         )}
 
@@ -674,102 +627,18 @@ export const PresenceSurface: React.FC<PresenceSurfaceProps> = ({
             </div>
 
             {/* --------------------------------------------------------------
-                Contextual Control Actions (Subtle Circular Glyph, Non-Bulky)
+                Contextual Control Actions (Zero persistent stop/cancel in capsule)
+                Only error retry appears contextually when truly needed.
                 -------------------------------------------------------------- */}
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px',
-                flexShrink: 0
-              }}
-            >
-              {/* Stop Listening */}
-              {isListening && (onStopListening || onWakeToggle) && (
-                <button
-                  onClick={onStopListening || onWakeToggle}
-                  title={stopListeningDesc.tooltip}
-                  aria-label={stopListeningDesc.label}
-                  style={{
-                    background: 'rgba(255, 255, 255, 0.05)',
-                    border: '1px solid rgba(95, 210, 255, 0.25)',
-                    color: 'var(--mave-cyan, #5FD2FF)',
-                    cursor: 'pointer',
-                    width: '24px',
-                    height: '24px',
-                    borderRadius: '50%',
-                    fontSize: '11px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    padding: 0,
-                    transition:
-                      'background-color var(--mave-v2-motion-fast), border-color var(--mave-v2-motion-fast), color var(--mave-v2-motion-fast), transform var(--mave-v2-motion-fast), opacity var(--mave-v2-motion-fast)'
-                  }}
-                  data-testid="presence-action-stop-listening"
-                >
-                  {stopListeningDesc.icon}
-                </button>
-              )}
-
-              {/* Cancel Thinking */}
-              {isThinking && (onCancelThinking || onWakeToggle) && (
-                <button
-                  onClick={onCancelThinking || onWakeToggle}
-                  title={cancelThinkingDesc.tooltip}
-                  aria-label={cancelThinkingDesc.label}
-                  style={{
-                    background: 'rgba(255, 255, 255, 0.05)',
-                    border: '1px solid rgba(154, 114, 255, 0.25)',
-                    color: 'var(--mave-violet, #9A72FF)',
-                    cursor: 'pointer',
-                    width: '24px',
-                    height: '24px',
-                    borderRadius: '50%',
-                    fontSize: '11px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    padding: 0,
-                    transition:
-                      'background-color var(--mave-v2-motion-fast), border-color var(--mave-v2-motion-fast), color var(--mave-v2-motion-fast), transform var(--mave-v2-motion-fast), opacity var(--mave-v2-motion-fast)'
-                  }}
-                  data-testid="presence-action-cancel-thinking"
-                >
-                  {cancelThinkingDesc.icon}
-                </button>
-              )}
-
-              {/* Stop Speaking / Barge-in */}
-              {isSpeaking && (onStopSpeaking || onWakeToggle) && (
-                <button
-                  onClick={onStopSpeaking || onWakeToggle}
-                  title={stopSpeakingDesc.tooltip}
-                  aria-label={stopSpeakingDesc.label}
-                  style={{
-                    background: 'rgba(255, 255, 255, 0.05)',
-                    border: '1px solid rgba(95, 210, 255, 0.25)',
-                    color: 'var(--mave-cyan, #5FD2FF)',
-                    cursor: 'pointer',
-                    width: '24px',
-                    height: '24px',
-                    borderRadius: '50%',
-                    fontSize: '11px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    padding: 0,
-                    transition:
-                      'background-color var(--mave-v2-motion-fast), border-color var(--mave-v2-motion-fast), color var(--mave-v2-motion-fast), transform var(--mave-v2-motion-fast), opacity var(--mave-v2-motion-fast)'
-                  }}
-                  data-testid="presence-action-stop-speaking"
-                >
-                  {stopSpeakingDesc.icon}
-                </button>
-              )}
-
-              {/* Retry on Error */}
-              {isError && (onRetryError || onDismissError) && (
+            {isError && (onRetryError || onDismissError) && (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  flexShrink: 0
+                }}
+              >
                 <button
                   onClick={onRetryError || onDismissError}
                   title={retryDesc.tooltip}
@@ -782,7 +651,6 @@ export const PresenceSurface: React.FC<PresenceSurfaceProps> = ({
                     width: '24px',
                     height: '24px',
                     borderRadius: '50%',
-                    fontSize: '11px',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -792,40 +660,10 @@ export const PresenceSurface: React.FC<PresenceSurfaceProps> = ({
                   }}
                   data-testid="presence-action-retry-error"
                 >
-                  {retryDesc.icon}
+                  <RetryIcon size={12} color="var(--mave-err, #FF7A85)" />
                 </button>
-              )}
-
-              {/* Expand to Conversation / Workspace */}
-              {onExpand && (
-                <button
-                  onClick={onExpand}
-                  title={expandDesc.tooltip}
-                  aria-label={expandDesc.label}
-                  style={{
-                    background: 'transparent',
-                    border: 'none',
-                    color: isHovered || !isIdle ? 'var(--mave-dim)' : 'var(--mave-faint)',
-                    cursor: 'pointer',
-                    padding: '3px 6px',
-                    fontSize: '13px',
-                    borderRadius: '4px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    transition: 'color var(--mave-dur-quick, 200ms) ease'
-                  }}
-                  onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--mave-ink)')}
-                  onMouseLeave={(e) =>
-                    (e.currentTarget.style.color =
-                      isHovered || !isIdle ? 'var(--mave-dim)' : 'var(--mave-faint)')
-                  }
-                  data-testid="presence-action-expand"
-                >
-                  {expandDesc.icon}
-                </button>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -858,7 +696,7 @@ export const PresenceSurface: React.FC<PresenceSurfaceProps> = ({
           }}
           data-testid="presence-background-task"
         >
-          <span style={{ color: 'var(--mave-cyan, #5FD2FF)', fontSize: '13px' }}>◷</span>
+          <ClockIcon size={13} color="var(--mave-cyan, #5FD2FF)" />
           <span style={{ fontWeight: 500, color: 'var(--mave-ink, #EEF0FB)' }}>{backgroundTask.taskName}</span>
           <span style={{ color: 'rgba(255, 255, 255, 0.2)' }}>|</span>
           <span style={{ color: 'var(--mave-dim, rgba(222, 226, 255, 0.60))', fontSize: '12px' }}>
@@ -869,3 +707,4 @@ export const PresenceSurface: React.FC<PresenceSurfaceProps> = ({
     </div>
   );
 };
+

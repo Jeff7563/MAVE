@@ -1,7 +1,15 @@
 import React, { useState } from 'react';
 import type { FileCardData, CodeCardData, DiffCardData, DiffLine } from '../types';
 import { CardShell } from '../primitives/CardShell';
+import {
+  CopyIcon,
+  CheckIcon,
+  ExpandIcon,
+  ChevronDownIcon,
+  ChevronUpIcon
+} from '../primitives/Icons';
 import '../tokens.css';
+
 
 export interface FileCardProps {
   data: FileCardData;
@@ -196,12 +204,25 @@ export const CodeCard: React.FC<CodeCardProps> = ({ data, onCopy }) => {
             fontSize: '11px',
             cursor: 'pointer',
             fontFamily: 'var(--mave-font-mono)',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '5px',
             transition: 'color 150ms ease, border-color 150ms ease'
           }}
           aria-label="Copy code to clipboard"
           data-testid="btn-copy-code"
         >
-          {copied ? '✓ Copied' : '📋 Copy Code'}
+          {copied ? (
+            <>
+              <CheckIcon size={12} color="var(--mave-ok)" />
+              <span>Copied</span>
+            </>
+          ) : (
+            <>
+              <CopyIcon size={12} color="var(--mave-dim)" />
+              <span>Copy Code</span>
+            </>
+          )}
         </button>
       }
     >
@@ -402,12 +423,16 @@ export const DiffCard: React.FC<DiffCardProps> = ({ data, onInspect, onOpenWorks
                 fontSize: '11px',
                 cursor: 'pointer',
                 fontFamily: 'var(--mave-font-mono)',
-                fontWeight: 500
+                fontWeight: 500,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px'
               }}
               data-testid="btn-open-diff-workspace"
               aria-label="Inspect large diff in Workspace"
             >
-              Open in Workspace ⤢
+              <span>Open in Workspace</span>
+              <ExpandIcon size={12} color="var(--mave-cyan)" />
             </button>
           )}
 
@@ -441,12 +466,25 @@ export const DiffCard: React.FC<DiffCardProps> = ({ data, onInspect, onOpenWorks
                 padding: '4px 10px',
                 fontSize: '11px',
                 cursor: 'pointer',
-                fontFamily: 'var(--mave-font-mono)'
+                fontFamily: 'var(--mave-font-mono)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px'
               }}
               data-testid="btn-toggle-diff-expand"
               aria-expanded={isExpanded}
             >
-              {isExpanded ? '▲ Hide Diff' : '▼ Show Full Diff'}
+              {isExpanded ? (
+                <>
+                  <ChevronUpIcon size={12} color="var(--mave-dim)" />
+                  <span>Hide Diff</span>
+                </>
+              ) : (
+                <>
+                  <ChevronDownIcon size={12} color="var(--mave-dim)" />
+                  <span>Show Full Diff</span>
+                </>
+              )}
             </button>
           )}
         </div>

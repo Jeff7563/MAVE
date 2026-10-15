@@ -332,5 +332,52 @@ describe('MAVE UI V2 — U5 Workspace Surface Foundation & Structured Work Tests
       expect(capsuleContent).toContain('MaveCapsule');
     });
   });
+
+  // -------------------------------------------------------------------------
+  // 7. Visual QA P2 — File + Diff Workspace Artifact Dominance
+  // -------------------------------------------------------------------------
+  describe('7. Visual QA P2 — File + Diff Workspace Artifact Dominance', () => {
+    it('promotes conversation diff card to dominate main workspace canvas', () => {
+      const html = renderToStaticMarkup(
+        <WorkspaceShell
+          state={{
+            type: 'project',
+            title: 'Runtime Config',
+            status: 'idle',
+            steps: []
+          }}
+          conversationState={{
+            status: 'result',
+            messages: [],
+            cards: [
+              {
+                id: 'diff-1',
+                type: 'diff',
+                filename: 'runtime.ts',
+                path: 'src/config/runtime.ts',
+                additions: 8,
+                deletions: 2,
+                lines: [
+                  { type: 'context', text: 'import { ProviderPolicy } from "./types";', oldLineNumber: 1, newLineNumber: 1 },
+                  { type: 'add', text: 'export const DEFAULT_PROVIDER = "subscription_runtime";', newLineNumber: 2 }
+                ]
+              }
+            ]
+          }}
+        />
+      );
+
+      // Central workspace canvas renders WorkspaceDiffView
+      expect(html).toContain('data-testid="workspace-diff-view"');
+      expect(html).toContain('runtime.ts');
+      expect(html).toContain('+8');
+      expect(html).toContain('-2');
+      expect(html).toContain('DEFAULT_PROVIDER');
+      expect(html).toContain('subscription_runtime');
+      // Must NOT be an empty canvas
+      expect(html).not.toContain('No active project steps');
+    });
+  });
 });
+
 

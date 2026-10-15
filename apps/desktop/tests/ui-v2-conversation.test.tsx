@@ -588,5 +588,54 @@ describe('MAVE UI V2 — U2 Conversation Surface Dialogue & Composition Foundati
       }
     });
   });
+
+  describe('14. Visual QA P2 — User-Facing Terminology & Fluid Width Invariants', () => {
+    it('does NOT expose internal architecture label "SIDECAR" or default "Desktop Companion" in user-facing header', () => {
+      const htmlSidecar = renderToStaticMarkup(
+        <ConversationShell
+          state={{
+            status: 'idle',
+            messages: [],
+            cards: []
+          }}
+          presentationMode="sidecar"
+        />
+      );
+
+      // Must NOT leak internal architecture terminology
+      expect(htmlSidecar).not.toContain('• SIDECAR');
+      expect(htmlSidecar).not.toContain('Desktop Companion');
+      expect(htmlSidecar).toContain('data-testid="conversation-header"');
+      expect(htmlSidecar).toContain('MAVE');
+    });
+
+    it('uses fluid responsive card layout bounded by container', () => {
+      const html = renderToStaticMarkup(
+        <ConversationShell
+          state={{
+            status: 'result',
+            messages: [
+              { id: 'm1', type: 'message', role: 'user', content: 'Show me an example source' },
+              { id: 'm2', type: 'message', role: 'assistant', content: 'Here is the source:' }
+            ],
+            cards: [
+              {
+                id: 's1',
+                type: 'source',
+                domain: 'example.com',
+                title: 'Example Source',
+                url: 'https://example.com',
+                snippet: 'A snippet'
+              }
+            ]
+          }}
+          presentationMode="floating"
+        />
+      );
+
+      expect(html).toContain('max-width:min(680px, 100%)');
+    });
+  });
 });
+
 

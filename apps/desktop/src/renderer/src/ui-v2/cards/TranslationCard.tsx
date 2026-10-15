@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import type { TranslationCardData } from '../types';
 import { CardShell } from '../primitives/CardShell';
+import { SpeakerIcon, CopyIcon, CheckIcon, ChevronUpIcon, ChevronDownIcon } from '../primitives';
 import '../tokens.css';
 
 export interface TranslationCardProps {
@@ -41,12 +42,16 @@ export const TranslationCard: React.FC<TranslationCardProps> = ({
           padding: '4px 10px',
           fontSize: '11px',
           cursor: 'pointer',
-          fontFamily: 'var(--mave-font-mono)'
+          fontFamily: 'var(--mave-font-mono)',
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '5px'
         }}
         aria-label="Listen to translation pronunciation"
         data-testid="btn-listen-translation"
       >
-        🔊 Listen
+        <SpeakerIcon size={12} color="currentColor" />
+        <span>Listen</span>
       </button>
       <button
         onClick={handleCopy}
@@ -59,12 +64,25 @@ export const TranslationCard: React.FC<TranslationCardProps> = ({
           fontSize: '11px',
           cursor: 'pointer',
           fontFamily: 'var(--mave-font-mono)',
-          transition: 'color 150ms ease, border-color 150ms ease'
+          transition: 'color 150ms ease, border-color 150ms ease',
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '5px'
         }}
         aria-label="Copy translated text"
         data-testid="btn-copy-translation"
       >
-        {copied ? '✓ Copied' : '📋 Copy'}
+        {copied ? (
+          <>
+            <CheckIcon size={12} color="currentColor" />
+            <span>Copied</span>
+          </>
+        ) : (
+          <>
+            <CopyIcon size={12} color="currentColor" />
+            <span>Copy</span>
+          </>
+        )}
       </button>
     </>
   );
@@ -141,11 +159,24 @@ export const TranslationCard: React.FC<TranslationCardProps> = ({
               cursor: 'pointer',
               textAlign: 'left',
               padding: 0,
-              fontFamily: 'var(--mave-font-mono)'
+              fontFamily: 'var(--mave-font-mono)',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '4px'
             }}
             data-testid="btn-toggle-translation-notes"
           >
-            {showNotes ? '▲ Hide grammar & notes' : '▼ Show grammar & vocabulary'}
+            {showNotes ? (
+              <>
+                <ChevronUpIcon size={11} color="currentColor" />
+                <span>Hide grammar & notes</span>
+              </>
+            ) : (
+              <>
+                <ChevronDownIcon size={11} color="currentColor" />
+                <span>Show grammar & vocabulary</span>
+              </>
+            )}
           </button>
         )}
 

@@ -15,11 +15,11 @@ import type { UiV2Card } from '../src/renderer/src/ui-v2/types';
 
 describe('MAVE UI V2 — U1.1 Presence Interaction Semantics Hardening Tests', () => {
   describe('1. Idle State Minimality & Wordmark Identity', () => {
-    it('renders MAVE wordmark and Presence Mark in idle state', () => {
+    it('renders MAVE wordmark in resting idle state without orb or decorative controls', () => {
       const html = renderToStaticMarkup(<PresenceSurface state="idle" />);
       expect(html).toContain('data-testid="presence-wordmark"');
       expect(html).toContain('MAVE');
-      expect(html).toContain('data-testid="adaptive-presence-mark"');
+      expect(html).not.toContain('data-testid="adaptive-presence-mark"');
     });
 
     it('does NOT render status label "IDLE" or "idle" in resting idle state', () => {
@@ -42,35 +42,34 @@ describe('MAVE UI V2 — U1.1 Presence Interaction Semantics Hardening Tests', (
     });
   });
 
-  describe('2. Contextual Action Buttons & Semantic Disclosure', () => {
-    it('renders Stop Listening button exclusively in listening state', () => {
+  describe('2. Active Streamlining & Capsule Cleanliness', () => {
+    it('renders clean active listening state without persistent cancel/stop in capsule', () => {
       const htmlListening = renderToStaticMarkup(
         <PresenceSurface state="listening" onStopListening={() => {}} />
       );
-      expect(htmlListening).toContain('data-testid="presence-action-stop-listening"');
-      expect(htmlListening).toContain('aria-label="Stop listening"');
       expect(htmlListening).toContain('Listening…');
+      expect(htmlListening).not.toContain('data-testid="presence-action-stop-listening"');
 
       const htmlIdle = renderToStaticMarkup(<PresenceSurface state="idle" onStopListening={() => {}} />);
       expect(htmlIdle).not.toContain('data-testid="presence-action-stop-listening"');
     });
 
-    it('renders Cancel button exclusively in thinking state', () => {
+    it('renders clean active thinking state with cognitive wave and no cancel in capsule', () => {
       const htmlThinking = renderToStaticMarkup(
         <PresenceSurface state="thinking" onCancelThinking={() => {}} />
       );
-      expect(htmlThinking).toContain('data-testid="presence-action-cancel-thinking"');
-      expect(htmlThinking).toContain('aria-label="Cancel thinking"');
       expect(htmlThinking).toContain('Thinking…');
+      expect(htmlThinking).toContain('data-testid="presence-thinking-indicator"');
+      expect(htmlThinking).not.toContain('data-testid="presence-action-cancel-thinking"');
     });
 
-    it('renders Stop Speaking button in speaking state for barge-in / mute', () => {
+    it('renders clean active speaking state with waveform and no stop in capsule', () => {
       const htmlSpeaking = renderToStaticMarkup(
         <PresenceSurface state="speaking" onStopSpeaking={() => {}} />
       );
-      expect(htmlSpeaking).toContain('data-testid="presence-action-stop-speaking"');
-      expect(htmlSpeaking).toContain('aria-label="Stop speaking"');
       expect(htmlSpeaking).toContain('Speaking…');
+      expect(htmlSpeaking).toContain('data-testid="presence-waveform"');
+      expect(htmlSpeaking).not.toContain('data-testid="presence-action-stop-speaking"');
     });
 
     it('renders Retry button exclusively in error state', () => {
@@ -278,10 +277,11 @@ describe('MAVE UI V2 — U1.1 Presence Interaction Semantics Hardening Tests', (
   });
 
   describe('7. Office Mode & Manual Activation Semantics', () => {
-    it('renders subtle mute micro-indicator in idle state when Office Mode is active', () => {
+    it('sets data-office-mode attribute when Office Mode is active while keeping idle capsule minimal', () => {
       const html = renderToStaticMarkup(<PresenceSurface state="idle" officeMode={true} />);
-      expect(html).toContain('data-testid="presence-office-badge"');
-      expect(html).toContain('🔇');
+      expect(html).toContain('data-office-mode="true"');
+      expect(html).toContain('data-testid="presence-wordmark"');
+      expect(html).not.toContain('data-testid="presence-dots"');
     });
 
     it('labels speaking state as Silent Output in Office Mode', () => {
@@ -336,12 +336,17 @@ describe('MAVE UI V2 — U1.1 Presence Interaction Semantics Hardening Tests', (
       expect(htmlListening).toContain('max-width 400ms');
       expect(htmlListening).toContain('border-radius 350ms');
 
-      // Action buttons must use explicit properties, not transition: all
-      expect(htmlListening).toContain('background-color var(--mave-v2-motion-fast)');
+      // Capsule must use explicit morph properties, not transition: all
       expect(htmlListening).not.toContain('transition:all');
+
+      // Retry action button on error state uses explicit transition
+      const htmlError = renderToStaticMarkup(
+        <PresenceSurface state="error" errorMessage="Err" onRetryError={() => {}} />
+      );
+      expect(htmlError).toContain('background-color var(--mave-v2-motion-fast)');
     });
 
-    it('Eliminates square stop button glyph in favor of subtle circular action controls', () => {
+    it('Eliminates square stop button glyph and removes persistent cancel/stop buttons from capsule', () => {
       const htmlListening = renderToStaticMarkup(
         <PresenceSurface state="listening" onStopListening={() => {}} />
       );
@@ -353,11 +358,9 @@ describe('MAVE UI V2 — U1.1 Presence Interaction Semantics Hardening Tests', (
       expect(htmlListening).not.toContain('⏹');
       expect(htmlSpeaking).not.toContain('⏹');
 
-      // Uses subtle dismiss glyph and circular button styling
-      expect(htmlListening).toContain('border-radius:50%');
-      expect(htmlListening).toContain('data-testid="presence-action-stop-listening"');
-      expect(htmlSpeaking).toContain('border-radius:50%');
-      expect(htmlSpeaking).toContain('data-testid="presence-action-stop-speaking"');
+      // Visual QA P2: persistent stop/cancel controls eliminated from capsule entirely
+      expect(htmlListening).not.toContain('data-testid="presence-action-stop-listening"');
+      expect(htmlSpeaking).not.toContain('data-testid="presence-action-stop-speaking"');
     });
 
     it('Presence capsule maintains constant 50px height across states for seamless morphing', () => {

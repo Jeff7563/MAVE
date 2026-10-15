@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import type { LanguageCorrection, CorrectionIntensity } from '../types';
+import { ChevronUpIcon, ChevronDownIcon } from '../primitives';
 import '../tokens.css';
 
 export interface InlineCorrectionCardProps {
@@ -125,8 +126,8 @@ export const InlineCorrectionCard: React.FC<InlineCorrectionCardProps> = ({
             {effectiveIntensity.toUpperCase()} GUIDANCE
           </span>
           {isMultiple && (
-            <span style={{ fontSize: '11px', color: 'var(--mave-dim)', fontFamily: 'var(--mave-font-mono)' }}>
-              {isExpanded ? '▲' : '▼'}
+            <span style={{ display: 'inline-flex', alignItems: 'center', color: 'var(--mave-dim)' }}>
+              {isExpanded ? <ChevronUpIcon size={12} color="currentColor" /> : <ChevronDownIcon size={12} color="currentColor" />}
             </span>
           )}
         </div>

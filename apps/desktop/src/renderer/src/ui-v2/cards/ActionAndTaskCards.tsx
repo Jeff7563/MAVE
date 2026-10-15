@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import type { TaskCardData, ProgressCardData, ApprovalCardData, ErrorCardData } from '../types';
 import { CardShell } from '../primitives/CardShell';
+import { CheckIcon, CloseIcon, ChevronUpIcon, ChevronDownIcon, RetryIcon } from '../primitives';
 import '../tokens.css';
 
 export interface TaskCardProps {
@@ -500,11 +501,24 @@ export const ApprovalCard: React.FC<ApprovalCardProps> = ({
                 background: data.status === 'allowed' ? 'rgba(95, 224, 168, 0.1)' : 'rgba(255, 122, 133, 0.1)',
                 border: `1px solid ${data.status === 'allowed' ? 'rgba(95, 224, 168, 0.3)' : 'rgba(255, 122, 133, 0.3)'}`,
                 borderRadius: '8px',
-                fontFamily: 'var(--mave-font-mono)'
+                fontFamily: 'var(--mave-font-mono)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px'
               }}
               data-testid="approval-status-resolved"
             >
-              {data.status === 'allowed' ? '✓ Allowed (Mock Intent Emitted)' : '✕ Denied (Mock Intent Emitted)'}
+              {data.status === 'allowed' ? (
+                <>
+                  <CheckIcon size={12} color="currentColor" />
+                  <span>Allowed (Mock Intent Emitted)</span>
+                </>
+              ) : (
+                <>
+                  <CloseIcon size={12} color="currentColor" />
+                  <span>Denied (Mock Intent Emitted)</span>
+                </>
+              )}
             </div>
           )
         }
@@ -673,12 +687,25 @@ export const ErrorCard: React.FC<ErrorCardProps> = ({ data, onRetry }) => {
                 padding: '4px 10px',
                 fontSize: '11px',
                 cursor: 'pointer',
-                fontFamily: 'var(--mave-font-mono)'
+                fontFamily: 'var(--mave-font-mono)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px'
               }}
               data-testid="btn-toggle-error-details"
               aria-expanded={showTechnicalDetails}
             >
-              {showTechnicalDetails ? '▲ Hide Details' : '▼ Technical Details'}
+              {showTechnicalDetails ? (
+                <>
+                  <ChevronUpIcon size={11} color="currentColor" />
+                  <span>Hide Details</span>
+                </>
+              ) : (
+                <>
+                  <ChevronDownIcon size={11} color="currentColor" />
+                  <span>Technical Details</span>
+                </>
+              )}
             </button>
           )}
 
@@ -694,11 +721,15 @@ export const ErrorCard: React.FC<ErrorCardProps> = ({ data, onRetry }) => {
                 fontSize: '11px',
                 fontWeight: 600,
                 cursor: 'pointer',
-                fontFamily: 'var(--mave-font-mono)'
+                fontFamily: 'var(--mave-font-mono)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px'
               }}
               data-testid="btn-retry-error"
             >
-              ↻ {data.suggestedAction ?? 'Retry'}
+              <RetryIcon size={12} color="currentColor" />
+              <span>{data.suggestedAction ?? 'Retry'}</span>
             </button>
           )}
         </div>
