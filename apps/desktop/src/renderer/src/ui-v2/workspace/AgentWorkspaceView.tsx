@@ -14,11 +14,13 @@ export const AgentWorkspaceView: React.FC<AgentWorkspaceViewProps> = ({
   onAllowApproval,
   onDenyApproval
 }) => {
+  const hasSidePanel = Boolean(state.activeApproval || (state.files && state.files.length > 0));
+
   return (
     <div
       style={{
         display: 'grid',
-        gridTemplateColumns: '1fr 340px',
+        gridTemplateColumns: hasSidePanel ? '1fr 300px' : '1fr',
         gap: '16px',
         height: '100%',
         overflow: 'hidden'
@@ -39,10 +41,13 @@ export const AgentWorkspaceView: React.FC<AgentWorkspaceViewProps> = ({
         {state.currentObjective && (
           <div
             style={{
-              background: 'var(--mave-v2-surface-elevated)',
-              border: '1px solid var(--mave-v2-border-subtle)',
-              borderRadius: 'var(--mave-v2-radius-card)',
-              padding: '12px 16px'
+              background: 'rgba(18, 22, 38, 0.75)',
+              backdropFilter: 'blur(20px)',
+              WebkitBackdropFilter: 'blur(20px)',
+              border: '1px solid rgba(255, 255, 255, 0.07)',
+              borderRadius: '16px',
+              padding: '14px 18px',
+              boxShadow: '0 8px 24px rgba(0, 0, 0, 0.35)'
             }}
           >
             <div style={{ fontSize: '11px', color: 'var(--mave-v2-accent-listening)', fontWeight: 600, textTransform: 'uppercase' }}>
@@ -58,10 +63,13 @@ export const AgentWorkspaceView: React.FC<AgentWorkspaceViewProps> = ({
         {state.steps && state.steps.length > 0 && (
           <div
             style={{
-              background: 'var(--mave-v2-surface-elevated)',
-              border: '1px solid var(--mave-v2-border-subtle)',
-              borderRadius: 'var(--mave-v2-radius-card)',
-              padding: '14px 16px',
+              background: 'rgba(18, 22, 38, 0.75)',
+              backdropFilter: 'blur(20px)',
+              WebkitBackdropFilter: 'blur(20px)',
+              border: '1px solid rgba(255, 255, 255, 0.07)',
+              borderRadius: '16px',
+              padding: '14px 18px',
+              boxShadow: '0 8px 24px rgba(0, 0, 0, 0.35)',
               display: 'flex',
               flexDirection: 'column',
               gap: '10px'
@@ -155,72 +163,77 @@ export const AgentWorkspaceView: React.FC<AgentWorkspaceViewProps> = ({
       )}
     </div>
 
-      {/* Side Column: Context Files & Approvals */}
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '14px',
-          overflowY: 'auto'
-        }}
-      >
-        {/* Active Approval Card if waiting */}
-        {state.activeApproval && (
-          <ApprovalCard
-            data={state.activeApproval}
-            onAllow={() => onAllowApproval?.(state.activeApproval!.id)}
-            onDeny={() => onDenyApproval?.(state.activeApproval!.id)}
-          />
-        )}
+      {/* Side Column: Context Files & Approvals (Auto-collapsed when empty) */}
+      {hasSidePanel && (
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '14px',
+            overflowY: 'auto'
+          }}
+        >
+          {/* Active Approval Card if waiting */}
+          {state.activeApproval && (
+            <ApprovalCard
+              data={state.activeApproval}
+              onAllow={() => onAllowApproval?.(state.activeApproval!.id)}
+              onDeny={() => onDenyApproval?.(state.activeApproval!.id)}
+            />
+          )}
 
-        {/* Workspace Files */}
-        {state.files && state.files.length > 0 && (
-          <div
-            style={{
-              background: 'var(--mave-v2-surface-elevated)',
-              border: '1px solid var(--mave-v2-border-subtle)',
-              borderRadius: 'var(--mave-v2-radius-card)',
-              padding: '12px 14px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '8px'
-            }}
-          >
-            <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--mave-v2-text-secondary)', textTransform: 'uppercase' }}>
-              Target Files ({state.files.length})
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              {state.files.map((file, i) => (
-                <div
-                  key={i}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    fontSize: '11px',
-                    padding: '4px 6px',
-                    borderRadius: '4px',
-                    background: 'rgba(255, 255, 255, 0.03)'
-                  }}
-                >
-                  <span style={{ color: 'var(--mave-v2-text-primary)', fontFamily: 'monospace' }}>
-                    {file.path.split(/[\\/]/).pop()}
-                  </span>
-                  <span
+          {/* Workspace Files */}
+          {state.files && state.files.length > 0 && (
+            <div
+              style={{
+                background: 'rgba(18, 22, 38, 0.75)',
+                backdropFilter: 'blur(20px)',
+                WebkitBackdropFilter: 'blur(20px)',
+                border: '1px solid rgba(255, 255, 255, 0.07)',
+                borderRadius: '16px',
+                padding: '14px 16px',
+                boxShadow: '0 8px 24px rgba(0, 0, 0, 0.35)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '8px'
+              }}
+            >
+              <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--mave-v2-text-secondary)', textTransform: 'uppercase' }}>
+                Target Files ({state.files.length})
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                {state.files.map((file, i) => (
+                  <div
+                    key={i}
                     style={{
-                      fontSize: '9px',
-                      color: file.status === 'modified' ? 'var(--mave-v2-accent-warning)' : 'var(--mave-v2-accent-listening)',
-                      fontWeight: 600
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      fontSize: '11px',
+                      padding: '4px 6px',
+                      borderRadius: '4px',
+                      background: 'rgba(255, 255, 255, 0.03)'
                     }}
                   >
-                    {file.status.toUpperCase()}
-                  </span>
-                </div>
-              ))}
+                    <span style={{ color: 'var(--mave-v2-text-primary)', fontFamily: 'monospace' }}>
+                      {file.path.split(/[\\/]/).pop()}
+                    </span>
+                    <span
+                      style={{
+                        fontSize: '9px',
+                        color: file.status === 'modified' ? 'var(--mave-v2-accent-warning)' : 'var(--mave-v2-accent-listening)',
+                        fontWeight: 600
+                      }}
+                    >
+                      {file.status.toUpperCase()}
+                    </span>
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };

@@ -22,10 +22,10 @@ import '../tokens.css';
 type ViewportPreset = 'compact' | 'chat' | 'sidecar' | 'workspace' | 'fill';
 
 const VIEWPORT_DIMENSIONS: Record<ViewportPreset, { width: string; height: string }> = {
-  compact: { width: '360px', height: '180px' },
-  chat: { width: '400px', height: '640px' },
-  sidecar: { width: '380px', height: '640px' },
-  workspace: { width: '960px', height: '640px' },
+  compact: { width: '380px', height: '220px' },
+  chat: { width: '440px', height: '680px' },
+  sidecar: { width: '380px', height: '100%' },
+  workspace: { width: '1100px', height: '760px' },
   fill: { width: '100%', height: '100%' }
 };
 
@@ -1423,10 +1423,18 @@ export const MaveUiLab: React.FC = () => {
           <div
             className="mave-ui-lab-viewport-frame"
             style={{
-              width: showcaseScene !== 'none' ? '100%' : currentDimensions.width,
-              height: showcaseScene !== 'none' ? '100%' : currentDimensions.height,
+              width: showcaseScene !== 'none' || snapshot.level === 'presence' || viewportPreset === 'fill' ? '100%' : currentDimensions.width,
+              height: showcaseScene !== 'none' || snapshot.level === 'presence' || viewportPreset === 'fill' ? '100%' : currentDimensions.height,
               maxHeight: '100%',
-              maxWidth: '100%'
+              maxWidth: '100%',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: snapshot.level === 'presence' ? 'flex-end' : 'center',
+              alignItems: (snapshot.level === 'conversation' && (snapshot.presentationMode === 'sidecar' || snapshot.conversation.presentationMode === 'sidecar' || viewportPreset === 'sidecar'))
+                ? (sidecarPlacement === 'left' ? 'flex-start' : 'flex-end')
+                : 'center',
+              paddingBottom: snapshot.level === 'presence' ? '56px' : 0,
+              boxSizing: 'border-box'
             }}
           >
             {showcaseScene !== 'none' ? (

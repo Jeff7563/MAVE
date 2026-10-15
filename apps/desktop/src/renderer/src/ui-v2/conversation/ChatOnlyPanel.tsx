@@ -79,23 +79,23 @@ export const ChatOnlyPanel: React.FC<ChatOnlyPanelProps> = ({
   const handleExpand = onExpandToConversation || onExpand;
 
   // Placement-specific sidecar borders and radii
-  let borderRadius = 'var(--mave-v2-radius-panel)';
-  let border = '1px solid var(--mave-v2-border-subtle)';
+  let borderRadius = '18px';
+  let border = '1px solid rgba(255, 255, 255, 0.08)';
 
   if (placement === 'right') {
-    borderRadius = '16px 0 0 16px';
-    border = '1px solid var(--mave-v2-border-subtle)';
+    borderRadius = '18px 0 0 18px';
+    border = '1px solid rgba(255, 255, 255, 0.08)';
   } else if (placement === 'left') {
-    borderRadius = '0 16px 16px 0';
-    border = '1px solid var(--mave-v2-border-subtle)';
+    borderRadius = '0 18px 18px 0';
+    border = '1px solid rgba(255, 255, 255, 0.08)';
   } else if (placement === 'floating') {
-    borderRadius = 'var(--mave-v2-radius-panel)';
-    border = '1px solid var(--mave-v2-border-subtle)';
+    borderRadius = '18px';
+    border = '1px solid rgba(255, 255, 255, 0.08)';
   }
 
   const boxShadow = internalPinned
-    ? '0 8px 32px rgba(56, 189, 248, 0.2), 0 2px 12px rgba(0, 0, 0, 0.45)'
-    : '0 8px 24px rgba(0, 0, 0, 0.35)';
+    ? '0 16px 40px rgba(0, 0, 0, 0.6), 0 0 20px -3px rgba(56, 189, 248, 0.25)'
+    : '0 16px 40px rgba(0, 0, 0, 0.55), 0 0 1px rgba(255, 255, 255, 0.12) inset';
 
   return (
     <div
@@ -109,9 +109,9 @@ export const ChatOnlyPanel: React.FC<ChatOnlyPanelProps> = ({
         flexDirection: 'column',
         borderRadius,
         border,
-        background: 'var(--mave-v2-surface-resting)',
-        backdropFilter: 'blur(var(--mave-v2-blur))',
-        WebkitBackdropFilter: 'blur(var(--mave-v2-blur))',
+        background: 'rgba(12, 16, 28, 0.88)',
+        backdropFilter: 'blur(28px)',
+        WebkitBackdropFilter: 'blur(28px)',
         boxShadow,
         overflow: 'hidden',
         position: 'relative'

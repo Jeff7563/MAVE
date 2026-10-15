@@ -116,13 +116,17 @@ export const LanguageWorkspaceView: React.FC<LanguageWorkspaceViewProps> = ({
   };
 
   const isCompleted = session.status === 'completed' || state.status === 'completed';
+  const hasRightPanel = Boolean(
+    (session.vocabulary && session.vocabulary.length > 0) ||
+    (state.steps && state.steps.length > 0)
+  );
 
   return (
     <div
       className={`mave-v2-language-workspace-view ${className}`.trim()}
       style={{
         display: 'grid',
-        gridTemplateColumns: 'minmax(0, 1fr) 300px',
+        gridTemplateColumns: hasRightPanel ? 'minmax(0, 1fr) 280px' : '1fr',
         gap: '16px',
         height: '100%',
         overflow: 'hidden',
@@ -131,7 +135,7 @@ export const LanguageWorkspaceView: React.FC<LanguageWorkspaceViewProps> = ({
       data-testid="language-workspace-view"
     >
       {/* =========================================================================
-          PRIMARY PRACTICE AREA (Left Column, Flex 1)
+          PRIMARY PRACTICE AREA (Left Column, Dominant)
          ========================================================================= */}
       <div
         style={{
@@ -146,10 +150,13 @@ export const LanguageWorkspaceView: React.FC<LanguageWorkspaceViewProps> = ({
         {/* 1. Session Context & Goal Banner */}
         <div
           style={{
-            background: 'var(--mave-v2-surface-elevated)',
-            border: '1px solid var(--mave-v2-border-subtle)',
-            borderRadius: 'var(--mave-v2-radius-card)',
-            padding: '14px 16px',
+            background: 'rgba(18, 22, 38, 0.75)',
+            backdropFilter: 'blur(20px)',
+            WebkitBackdropFilter: 'blur(20px)',
+            border: '1px solid rgba(255, 255, 255, 0.07)',
+            borderRadius: '16px',
+            padding: '14px 18px',
+            boxShadow: '0 8px 24px rgba(0, 0, 0, 0.35)',
             display: 'flex',
             flexDirection: 'column',
             gap: '8px'
@@ -277,18 +284,21 @@ export const LanguageWorkspaceView: React.FC<LanguageWorkspaceViewProps> = ({
         {session.currentPrompt && !isCompleted && (
           <div
             style={{
-              background: 'var(--mave-v2-surface-elevated)',
-              border: '1px solid var(--mave-v2-border-subtle)',
-              borderRadius: 'var(--mave-v2-radius-card)',
-              padding: '16px',
+              background: 'rgba(18, 22, 38, 0.82)',
+              backdropFilter: 'blur(24px)',
+              WebkitBackdropFilter: 'blur(24px)',
+              border: '1px solid rgba(56, 189, 248, 0.28)',
+              borderRadius: '16px',
+              padding: '20px 24px',
+              boxShadow: '0 12px 32px rgba(0, 0, 0, 0.45)',
               display: 'flex',
               flexDirection: 'column',
-              gap: '12px'
+              gap: '14px'
             }}
             data-testid="active-practice-card"
           >
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--mave-v2-accent-listening)', textTransform: 'uppercase' }}>
+              <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--mave-v2-accent-listening)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                 MAVE Coach Prompt
               </span>
               <span
@@ -314,7 +324,7 @@ export const LanguageWorkspaceView: React.FC<LanguageWorkspaceViewProps> = ({
               </span>
             </div>
 
-            <div style={{ fontSize: '15px', lineHeight: 1.5, color: 'var(--mave-v2-text-primary)' }} data-testid="practice-prompt-text">
+            <div style={{ fontSize: '18px', lineHeight: 1.55, fontWeight: 500, color: '#f8fafc' }} data-testid="practice-prompt-text">
               {session.currentPrompt}
             </div>
 
@@ -385,39 +395,42 @@ export const LanguageWorkspaceView: React.FC<LanguageWorkspaceViewProps> = ({
       </div>
 
       {/* =========================================================================
-          CONTEXT & RECAP REGION (Right Column, 300px)
+          CONTEXT & RECAP REGION (Right Column, Collapsible when empty)
          ========================================================================= */}
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '14px',
-          overflowY: 'auto'
-        }}
-        data-testid="language-context-panel"
-      >
-        {/* Vocabulary Panel */}
-        {session.vocabulary && session.vocabulary.length > 0 && (
-          <VocabularyPanel
-            items={session.vocabulary}
-            onSaveItem={onSaveVocabularyMock}
-          />
-        )}
+      {hasRightPanel && (
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '14px',
+            overflowY: 'auto'
+          }}
+          data-testid="language-context-panel"
+        >
+          {/* Vocabulary Panel */}
+          {session.vocabulary && session.vocabulary.length > 0 && (
+            <VocabularyPanel
+              items={session.vocabulary}
+              onSaveItem={onSaveVocabularyMock}
+            />
+          )}
 
-        {/* Practice Queue / Steps Tracker (Truthful counts if known) */}
-        {state.steps && state.steps.length > 0 && (
-          <div
-            style={{
-              background: 'var(--mave-v2-surface-elevated)',
-              border: '1px solid var(--mave-v2-border-subtle)',
-              borderRadius: 'var(--mave-v2-radius-card)',
-              padding: '12px 14px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '8px'
-            }}
-            data-testid="practice-queue-container"
-          >
+          {/* Practice Queue / Steps Tracker (Truthful counts if known) */}
+          {state.steps && state.steps.length > 0 && (
+            <div
+              style={{
+                background: 'rgba(18, 22, 38, 0.75)',
+                backdropFilter: 'blur(20px)',
+                WebkitBackdropFilter: 'blur(20px)',
+                border: '1px solid rgba(255, 255, 255, 0.07)',
+                borderRadius: '14px',
+                padding: '12px 14px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '8px'
+              }}
+              data-testid="practice-queue-container"
+            >
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--mave-v2-text-secondary)', textTransform: 'uppercase' }}>
                 Practice Queue
@@ -466,6 +479,7 @@ export const LanguageWorkspaceView: React.FC<LanguageWorkspaceViewProps> = ({
           </div>
         )}
       </div>
+      )}
     </div>
   );
 };

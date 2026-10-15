@@ -50,10 +50,13 @@ export const WorkspaceResearchView: React.FC<WorkspaceResearchViewProps> = ({
       {question && (
         <div
           style={{
-            background: 'var(--mave-v2-surface-elevated)',
-            border: '1px solid var(--mave-v2-border-subtle)',
-            borderRadius: 'var(--mave-v2-radius-card)',
+            background: 'rgba(18, 22, 38, 0.75)',
+            backdropFilter: 'blur(20px)',
+            WebkitBackdropFilter: 'blur(20px)',
+            border: '1px solid rgba(255, 255, 255, 0.07)',
+            borderRadius: '16px',
             padding: '14px 18px',
+            boxShadow: '0 8px 24px rgba(0, 0, 0, 0.35)',
             display: 'flex',
             flexDirection: 'column',
             gap: '4px'
@@ -81,10 +84,13 @@ export const WorkspaceResearchView: React.FC<WorkspaceResearchViewProps> = ({
       {summary && (
         <div
           style={{
-            background: 'var(--mave-v2-surface-elevated)',
-            border: '1px solid var(--mave-v2-border-subtle)',
-            borderRadius: 'var(--mave-v2-radius-card)',
-            padding: '14px 18px',
+            background: 'rgba(18, 22, 38, 0.82)',
+            backdropFilter: 'blur(24px)',
+            WebkitBackdropFilter: 'blur(24px)',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            borderRadius: '16px',
+            padding: '16px 20px',
+            boxShadow: '0 12px 32px rgba(0, 0, 0, 0.45)',
             display: 'flex',
             flexDirection: 'column',
             gap: '10px'

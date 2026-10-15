@@ -84,9 +84,29 @@ export const WorkspaceShell: React.FC<WorkspaceShellProps> = ({
   width = '100%',
   height = '100%'
 }) => {
+  const activeConversation: ConversationState =
+    conversationState ||
+    state.conversation || {
+      status: 'idle',
+      messages: [],
+      cards: []
+    };
+
+  const hasConvMessages = Boolean(activeConversation.messages && activeConversation.messages.length > 0);
+  const isLanguageMode = state.type === 'language';
+  const contextFiles = state.files || state.targetFiles;
+  const hasContextContent = state.type !== 'language' && Boolean(
+    state.activeApproval ||
+    (state.artifacts && state.artifacts.length > 0) ||
+    (contextFiles && contextFiles.length > 0) ||
+    (state.sources && state.sources.length > 0)
+  );
+
   const [isFocusMode, setIsFocusMode] = useState<boolean>(false);
-  const [showConversation, setShowConversation] = useState<boolean>(true);
-  const [showContext, setShowContext] = useState<boolean>(true);
+  const [showConversation, setShowConversation] = useState<boolean>(
+    isLanguageMode ? false : (hasConvMessages || state.type === 'project' || state.type === 'agent')
+  );
+  const [showContext, setShowContext] = useState<boolean>(hasContextContent);
   const [activeArtifactId, setActiveArtifactId] = useState<string | undefined>(
     state.activeArtifactId || state.artifacts?.[0]?.id
   );
@@ -155,15 +175,6 @@ export const WorkspaceShell: React.FC<WorkspaceShellProps> = ({
   // Active Artifact lookup
   const currentArtifact: WorkspaceArtifact | undefined =
     state.artifacts?.find((a) => a.id === activeArtifactId) || state.artifacts?.[0];
-
-  // Effective Conversation State: uses prop or workspace-embedded state, fallback to empty
-  const activeConversation: ConversationState =
-    conversationState ||
-    state.conversation || {
-      status: 'idle',
-      messages: [],
-      cards: []
-    };
 
   return (
     <div
@@ -646,8 +657,8 @@ export const WorkspaceShell: React.FC<WorkspaceShellProps> = ({
           })()}
         </main>
 
-        {/* REGION C: Supporting Context & Activity Panel (Right, Collapsible) */}
-        {!isFocusMode && showContext && (
+        {/* REGION C: Supporting Context & Activity Panel (Right, Collapsible — Collapses when empty) */}
+        {!isFocusMode && showContext && hasContextContent && (
           <aside
             style={{
               width: '240px',

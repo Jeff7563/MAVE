@@ -90,9 +90,20 @@ export const AdaptivePresenceMark: React.FC<AdaptivePresenceMarkProps> = ({
             <stop offset="70%" stopColor={stateColor} stopOpacity="0.3" />
             <stop offset="100%" stopColor={stateColor} stopOpacity="0" />
           </radialGradient>
+          <radialGradient id={`orbCoreGrad-${size}-${state}`} cx="35%" cy="35%" r="65%">
+            <stop offset="0%" stopColor="rgba(30, 41, 59, 0.95)" />
+            <stop offset="50%" stopColor="rgba(15, 23, 42, 0.98)" />
+            <stop offset="100%" stopColor="rgba(8, 11, 20, 1.0)" />
+          </radialGradient>
+          <radialGradient id={`orbLuminousCore-${size}`} cx="40%" cy="40%" r="60%">
+            <stop offset="0%" stopColor="#ffffff" stopOpacity="0.95" />
+            <stop offset="35%" stopColor="#38bdf8" stopOpacity="0.8" />
+            <stop offset="70%" stopColor="#818cf8" stopOpacity="0.45" />
+            <stop offset="100%" stopColor="#38bdf8" stopOpacity="0" />
+          </radialGradient>
         </defs>
 
-        {/* Outer ambient glow halo (only active when live, quiet in idle) */}
+        {/* Outer ambient glow halo (strictly active only when live/working, zero outer glow in resting idle) */}
         {state !== 'idle' && (
           <circle
             cx="20"
@@ -108,6 +119,18 @@ export const AdaptivePresenceMark: React.FC<AdaptivePresenceMarkProps> = ({
                   ? 'mave-v2-restrained-thinking 2.5s ease-in-out infinite'
                   : undefined
             }}
+          />
+        )}
+
+        {/* Subtle Outer Concentric Ring in Resting Idle (Showcase v3 Spatial Presence) */}
+        {state === 'idle' && size !== 'status' && (
+          <circle
+            cx="20"
+            cy="20"
+            r={size === 'hero' ? 18 : size === 'medium' ? 16 : 15}
+            stroke="rgba(255, 255, 255, 0.12)"
+            strokeWidth="0.8"
+            fill="none"
           />
         )}
 
@@ -131,48 +154,100 @@ export const AdaptivePresenceMark: React.FC<AdaptivePresenceMarkProps> = ({
           cx="20"
           cy="20"
           r={size === 'hero' ? 14 : size === 'medium' ? 13 : 12}
-          fill="rgba(14, 20, 30, 0.88)"
-          stroke={stateColor}
-          strokeWidth={size === 'status' ? '1.2' : '1.8'}
+          fill={`url(#orbCoreGrad-${size}-${state})`}
+          stroke={state === 'idle' ? 'rgba(56, 189, 248, 0.45)' : stateColor}
+          strokeWidth={size === 'status' ? '1.2' : '1.5'}
           style={{
             animation: state === 'idle' ? 'mave-v2-breathe 4s ease-in-out infinite' : undefined
           }}
         />
 
-        {/* Acoustic Bars / State glyph inside core */}
+        {/* State-specific Content Inside Core */}
         {size !== 'status' && (
-          <g transform="translate(14, 12)">
-            {/* Left Bar */}
-            <rect
-              x="1"
-              y={8 - 8 * bar1Scale}
-              width="2.2"
-              height={16 * bar1Scale}
-              rx="1.1"
-              fill={stateColor}
-              style={{ transition: 'all 80ms ease-out' }}
-            />
-            {/* Center Bar */}
-            <rect
-              x="5"
-              y={8 - 8 * bar2Scale}
-              width="2.2"
-              height={16 * bar2Scale}
-              rx="1.1"
-              fill={stateColor}
-              style={{ transition: 'all 80ms ease-out' }}
-            />
-            {/* Right Bar */}
-            <rect
-              x="9"
-              y={8 - 8 * bar3Scale}
-              width="2.2"
-              height={16 * bar3Scale}
-              rx="1.1"
-              fill={stateColor}
-              style={{ transition: 'all 80ms ease-out' }}
-            />
-          </g>
+          <>
+            {/* 1. Acoustic Bars exclusively during active audio (listening or speaking) */}
+            {isAudioActive && (
+              <g transform="translate(14, 12)">
+                <rect
+                  x="1"
+                  y={8 - 8 * bar1Scale}
+                  width="2.2"
+                  height={16 * bar1Scale}
+                  rx="1.1"
+                  fill={stateColor}
+                  style={{ transition: 'all 80ms ease-out' }}
+                />
+                <rect
+                  x="5"
+                  y={8 - 8 * bar2Scale}
+                  width="2.2"
+                  height={16 * bar2Scale}
+                  rx="1.1"
+                  fill={stateColor}
+                  style={{ transition: 'all 80ms ease-out' }}
+                />
+                <rect
+                  x="9"
+                  y={8 - 8 * bar3Scale}
+                  width="2.2"
+                  height={16 * bar3Scale}
+                  rx="1.1"
+                  fill={stateColor}
+                  style={{ transition: 'all 80ms ease-out' }}
+                />
+              </g>
+            )}
+
+            {/* 2. Luminous MAVE Focal Orb Core (Idle & Waking states — NOT pause bars) */}
+            {(state === 'idle' || state === 'waking') && (
+              <g>
+                <circle
+                  cx="20"
+                  cy="20"
+                  r={size === 'hero' ? 5.5 : size === 'medium' ? 4.5 : 3.8}
+                  fill={`url(#orbLuminousCore-${size})`}
+                  style={{
+                    filter: 'drop-shadow(0 0 3px rgba(56, 189, 248, 0.65))'
+                  }}
+                />
+                <circle
+                  cx={size === 'hero' ? 18.6 : 18.8}
+                  cy={size === 'hero' ? 18.6 : 18.8}
+                  r={size === 'hero' ? 1.6 : 1.2}
+                  fill="#ffffff"
+                  opacity="0.9"
+                />
+              </g>
+            )}
+
+            {/* 3. Thinking Inner Core */}
+            {state === 'thinking' && (
+              <circle
+                cx="20"
+                cy="20"
+                r={size === 'hero' ? 5 : size === 'medium' ? 4 : 3.5}
+                fill="var(--mave-v2-accent-thinking)"
+                opacity="0.85"
+                style={{
+                  filter: 'drop-shadow(0 0 4px rgba(168, 85, 247, 0.7))',
+                  animation: 'mave-v2-restrained-thinking 2.5s ease-in-out infinite'
+                }}
+              />
+            )}
+
+            {/* 4. Error Alert Dot */}
+            {state === 'error' && (
+              <circle
+                cx="20"
+                cy="20"
+                r={size === 'hero' ? 5 : size === 'medium' ? 4 : 3.5}
+                fill="var(--mave-v2-accent-error)"
+                style={{
+                  filter: 'drop-shadow(0 0 4px rgba(239, 68, 68, 0.7))'
+                }}
+              />
+            )}
+          </>
         )}
 
         {/* Status dot for icon-scale */}

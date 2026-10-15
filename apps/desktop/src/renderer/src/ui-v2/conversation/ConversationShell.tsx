@@ -40,8 +40,6 @@ export interface ConversationShellProps {
   officeMode?: boolean;
 }
 
-const DEFAULT_SHORTCUTS = ['Search', 'Analyze', 'Code', 'Write', 'Translate', 'Plan'];
-
 /**
  * ConversationShell
  *
@@ -159,7 +157,7 @@ export const ConversationShell: React.FC<ConversationShellProps> = ({
     state.streamingStatus === 'streaming' ||
     Boolean(state.streamingText);
 
-  const shortcuts = state.suggestedShortcuts ?? (isSidecar ? [] : DEFAULT_SHORTCUTS);
+  const shortcuts = state.suggestedShortcuts ?? [];
   const groups: ResponseGroup[] = groupConversationTimeline(state);
 
   return (
@@ -977,8 +975,9 @@ export const ConversationShell: React.FC<ConversationShellProps> = ({
         style={{
           padding: '12px 16px',
           borderTop: '1px solid rgba(255, 255, 255, 0.06)',
-          background: 'rgba(10, 14, 26, 0.7)',
-          backdropFilter: 'blur(16px)',
+          background: 'rgba(12, 16, 28, 0.85)',
+          backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
           display: 'flex',
           flexDirection: 'column',
           gap: '8px'
@@ -992,13 +991,14 @@ export const ConversationShell: React.FC<ConversationShellProps> = ({
               title="Voice input"
               aria-label="Voice activation"
               style={{
-                background: 'rgba(255, 255, 255, 0.05)',
+                background: 'rgba(255, 255, 255, 0.04)',
                 border: '1px solid rgba(255, 255, 255, 0.08)',
                 borderRadius: '8px',
                 padding: '8px 10px',
                 color: 'var(--mave-v2-text-muted)',
                 fontSize: '14px',
-                cursor: 'pointer'
+                cursor: 'pointer',
+                transition: 'all 150ms ease'
               }}
               data-testid="conversation-voice-button"
             >
@@ -1021,9 +1021,13 @@ export const ConversationShell: React.FC<ConversationShellProps> = ({
               padding: '10px 14px',
               color: '#f8fafc',
               fontSize: '13px',
+              lineHeight: 1.45,
               resize: 'none',
               outline: 'none',
-              fontFamily: 'inherit'
+              fontFamily: 'inherit',
+              scrollbarWidth: 'none',
+              msOverflowStyle: 'none',
+              transition: 'border-color 150ms ease, background 150ms ease'
             }}
             data-testid="conversation-composer-input"
           />

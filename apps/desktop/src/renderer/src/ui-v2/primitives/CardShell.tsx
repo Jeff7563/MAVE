@@ -58,24 +58,26 @@ export const CardShell: React.FC<CardShellProps> = ({
     : intent;
 
   // Resolve styles by intent
-  let borderColor = 'var(--mave-v2-border-subtle)';
-  let bg = 'var(--mave-v2-surface-elevated)';
-  let boxShadow = '0 4px 12px rgba(0, 0, 0, 0.25)';
+  let borderColor = 'rgba(255, 255, 255, 0.07)';
+  let bg = 'rgba(18, 22, 38, 0.75)';
+  let boxShadow = '0 8px 24px rgba(0, 0, 0, 0.35)';
 
   if (effectiveIntent === 'elevated') {
-    borderColor = 'var(--mave-v2-border-focused)';
-    bg = 'var(--mave-v2-surface-elevated)';
-    boxShadow = 'var(--mave-v2-glow-active)';
+    borderColor = 'rgba(56, 189, 248, 0.35)';
+    bg = 'rgba(20, 26, 44, 0.85)';
+    boxShadow = '0 8px 30px rgba(0, 0, 0, 0.45), 0 0 16px -2px rgba(56, 189, 248, 0.25)';
   } else if (effectiveIntent === 'attention') {
-    borderColor = 'var(--mave-v2-accent-warning)';
-    bg = 'rgba(245, 158, 11, 0.04)';
-    boxShadow = 'var(--mave-v2-glow-attention)';
-  } else if (effectiveIntent === 'warning') {
-    borderColor = 'var(--mave-v2-accent-warning)';
+    borderColor = 'rgba(245, 158, 11, 0.4)';
     bg = 'rgba(245, 158, 11, 0.06)';
+    boxShadow = '0 8px 24px rgba(245, 158, 11, 0.15)';
+  } else if (effectiveIntent === 'warning') {
+    borderColor = 'rgba(245, 158, 11, 0.35)';
+    bg = 'rgba(245, 158, 11, 0.05)';
+    boxShadow = '0 4px 16px rgba(0, 0, 0, 0.25)';
   } else if (effectiveIntent === 'destructive') {
-    borderColor = 'rgba(239, 68, 68, 0.4)';
-    bg = 'rgba(239, 68, 68, 0.04)';
+    borderColor = 'rgba(239, 68, 68, 0.35)';
+    bg = 'rgba(239, 68, 68, 0.05)';
+    boxShadow = '0 4px 16px rgba(0, 0, 0, 0.25)';
   } else if (effectiveIntent === 'quiet') {
     borderColor = 'rgba(255, 255, 255, 0.04)';
     bg = 'rgba(255, 255, 255, 0.02)';
@@ -103,17 +105,19 @@ export const CardShell: React.FC<CardShellProps> = ({
       className={`mave-v2-card-shell mave-v2-card-${effectiveIntent} mave-v2-card-density-${density} ${highlighted ? 'mave-v2-card-highlighted' : ''} ${attention ? 'mave-v2-card-attention' : ''} ${className}`.trim()}
       style={{
         background: bg,
+        backdropFilter: 'blur(20px)',
+        WebkitBackdropFilter: 'blur(20px)',
         border: `1px solid ${borderColor}`,
-        borderRadius: 'var(--mave-v2-radius-card)',
+        borderRadius: '14px',
         padding,
         boxShadow,
         display: 'flex',
         flexDirection: 'column',
         gap,
-        transition: 'all var(--mave-v2-motion-normal)',
+        transition: 'all 200ms cubic-bezier(0.16, 1, 0.3, 1)',
         boxSizing: 'border-box',
         width: '100%',
-        color: 'var(--mave-v2-text-primary)'
+        color: '#f8fafc'
       }}
       data-testid="card-shell"
       data-intent={effectiveIntent}

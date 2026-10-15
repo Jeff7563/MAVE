@@ -482,4 +482,78 @@ describe('MAVE UI V2 — U0 Adaptive Surface Foundation & UI Lab', () => {
       expect(html).toContain('[MOCK PREVIEW]');
     });
   });
+
+  describe('VA1.1 Canonical Surface Visual Migration & Structural Rules', () => {
+    it('PresenceSurface in idle mode renders branded luminous orb and breathing dots with zero pause bars', () => {
+      const html = renderToStaticMarkup(<PresenceSurface state="idle" />);
+      expect(html).toContain('data-testid="presence-dots"');
+      expect(html).toContain('MAVE');
+      expect(html).toContain('data-testid="adaptive-presence-mark"');
+      // Invariant: no acoustic waveform in resting idle
+      expect(html).not.toContain('data-testid="presence-waveform"');
+    });
+
+    it('PresenceSurface in listening mode renders dynamic acoustic waveform', () => {
+      const html = renderToStaticMarkup(<PresenceSurface state="listening" audioLevel={0.7} />);
+      expect(html).toContain('data-testid="presence-waveform"');
+      expect(html).toContain('Listening…');
+      expect(html).not.toContain('data-testid="presence-dots"');
+    });
+
+    it('ConversationShell without suggestedShortcuts does NOT render permanent horizontal shortcuts bar', () => {
+      const html = renderToStaticMarkup(
+        <ConversationShell
+          state={{
+            status: 'idle',
+            messages: [],
+            cards: []
+          }}
+        />
+      );
+      // Permanent horizontal shortcuts bar is omitted
+      expect(html).not.toContain('data-testid="conversation-shortcuts-bar"');
+      expect(html).toContain('data-testid="conversation-composer-input"');
+    });
+
+    it('WorkspaceShell auto-collapses Region C when no context content exists', () => {
+      const html = renderToStaticMarkup(
+        <WorkspaceShell
+          state={{
+            type: 'project',
+            title: 'Simple Task',
+            status: 'running',
+            steps: [{ id: '1', label: 'Compiling', status: 'active' }]
+          }}
+        />
+      );
+      // Primary work area must exist
+      expect(html).toContain('data-testid="workspace-primary-work-area"');
+      // Region C must be collapsed (not rendered)
+      expect(html).not.toContain('data-testid="workspace-context-region"');
+    });
+
+    it('LanguageWorkspaceView auto-collapses right context panel when vocabulary and queue are empty', () => {
+      const html = renderToStaticMarkup(
+        <LanguageWorkspaceView
+          state={{
+            type: 'language',
+            title: 'Dialogue Practice',
+            status: 'running',
+            languageSession: {
+              sessionId: 's1',
+              targetLanguage: 'English',
+              practiceType: 'speaking',
+              topic: 'Daily Conversation',
+              currentPrompt: 'Tell me about what you plan to do this weekend.',
+              status: 'practicing'
+            }
+          }}
+        />
+      );
+      expect(html).toContain('data-testid="language-primary-practice-area"');
+      expect(html).toContain('Tell me about what you plan to do this weekend.');
+      // Empty right context panel is auto-collapsed
+      expect(html).not.toContain('data-testid="language-context-panel"');
+    });
+  });
 });
