@@ -419,14 +419,9 @@ export const PresenceSurface: React.FC<PresenceSurfaceProps> = ({
       <div
         style={{
           position: 'relative',
-          width: isIdle
-            ? '250px'
-            : isThinking
-            ? 'min(380px, 26vw)'
-            : isError
-            ? 'min(380px, 26vw)'
-            : 'min(460px, 30vw)',
-          maxWidth: 'min(480px, 92vw)',
+          width: isIdle ? '250px' : 'fit-content',
+          minWidth: isIdle ? '250px' : '260px',
+          maxWidth: 'min(500px, 92vw)',
           height: '50px',
           borderRadius: '25px',
           background: 'linear-gradient(180deg, rgba(255, 255, 255, 0.065), rgba(255, 255, 255, 0.018)), rgba(12, 14, 30, 0.60)',
@@ -436,12 +431,12 @@ export const PresenceSurface: React.FC<PresenceSurfaceProps> = ({
           WebkitBackdropFilter: 'blur(22px) saturate(140%)',
           display: 'flex',
           alignItems: 'center',
-          justifyContent: isIdle ? 'center' : 'flex-start',
+          justifyContent: 'center',
           padding: '0 18px',
           boxSizing: 'border-box',
-          gap: isIdle ? '12px' : '10px',
+          gap: '10px',
           overflow: 'hidden',
-          transition: 'width 400ms cubic-bezier(0.16, 1, 0.3, 1), max-width 400ms cubic-bezier(0.16, 1, 0.3, 1), border-radius 350ms ease, opacity 350ms ease, transform 350ms ease, background-color 350ms ease, border-color 350ms ease, box-shadow 350ms ease',
+          transition: 'width 400ms cubic-bezier(0.16, 1, 0.3, 1), min-width 400ms cubic-bezier(0.16, 1, 0.3, 1), max-width 400ms cubic-bezier(0.16, 1, 0.3, 1), border-radius 350ms ease, opacity 350ms ease, transform 350ms ease, background-color 350ms ease, border-color 350ms ease, box-shadow 350ms ease',
           animation: isIdle ? 'mave-v2-breathe 4.8s ease-in-out infinite' : undefined
         }}
         data-testid="presence-capsule"
@@ -497,16 +492,17 @@ export const PresenceSurface: React.FC<PresenceSurfaceProps> = ({
         )}
 
         {/* ------------------------------------------------------------------
-            ACTIVE LAYOUT: Left Identity, Hairline Divider, Waveform & Status
+            ACTIVE LAYOUT: Content-Aware [Wordmark] [Divider] [Activity] [Divider] [Status]
+            Zero greedily consuming space; compact natural width; zero empty gap.
             ------------------------------------------------------------------ */}
         {!isIdle && (
           <div
             style={{
               display: 'flex',
               alignItems: 'center',
-              width: '100%',
               gap: '10px',
-              minWidth: 0
+              minWidth: 0,
+              flex: '0 0 auto'
             }}
           >
             {/* Identity Orb & Wordmark */}
@@ -545,11 +541,11 @@ export const PresenceSurface: React.FC<PresenceSurfaceProps> = ({
               </span>
             </div>
 
-            {/* Vertical Hairline Divider */}
+            {/* Vertical Hairline Divider 1 */}
             <div
               style={{
                 width: '1px',
-                height: '20px',
+                height: '18px',
                 background: 'rgba(255, 255, 255, 0.12)',
                 flexShrink: 0,
                 margin: '0 2px'
@@ -561,8 +557,8 @@ export const PresenceSurface: React.FC<PresenceSurfaceProps> = ({
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                minWidth: 0,
-                overflow: 'hidden'
+                flexShrink: 0,
+                minWidth: 0
               }}
             >
               {/* Listening & Speaking: Compact Harmonic Waveform */}
@@ -570,7 +566,7 @@ export const PresenceSurface: React.FC<PresenceSurfaceProps> = ({
                 <HarmonicWaveform
                   audioLevel={audioLevel}
                   isSpeaking={isSpeaking}
-                  width={120}
+                  width={96}
                   height={20}
                 />
               )}
@@ -585,7 +581,8 @@ export const PresenceSurface: React.FC<PresenceSurfaceProps> = ({
                     fontSize: '12px',
                     color: 'var(--mave-err, #ff7a85)',
                     fontFamily: "var(--mave-font-sans, sans-serif)",
-                    paddingLeft: '4px'
+                    paddingLeft: '4px',
+                    whiteSpace: 'nowrap'
                   }}
                 >
                   {errorMessage || 'Connection interrupted'}
@@ -593,14 +590,24 @@ export const PresenceSurface: React.FC<PresenceSurfaceProps> = ({
               )}
             </div>
 
-            {/* Right Status Label & State Dot */}
+            {/* Vertical Hairline Divider 2 */}
+            <div
+              style={{
+                width: '1px',
+                height: '18px',
+                background: 'rgba(255, 255, 255, 0.12)',
+                flexShrink: 0,
+                margin: '0 2px'
+              }}
+            />
+
+            {/* Status Label & State Dot (Close inline spacing, zero dead space) */}
             <div
               style={{
                 display: 'flex',
                 alignItems: 'center',
                 gap: '6px',
-                flexShrink: 0,
-                marginLeft: 'auto'
+                flexShrink: 0
               }}
               data-testid="presence-state-label"
             >
@@ -610,7 +617,8 @@ export const PresenceSurface: React.FC<PresenceSurfaceProps> = ({
                   height: '5px',
                   borderRadius: '50%',
                   background: stateAccentColor,
-                  boxShadow: `0 0 8px ${stateAccentColor}`
+                  boxShadow: `0 0 8px ${stateAccentColor}`,
+                  flexShrink: 0
                 }}
               />
               <span
@@ -648,19 +656,21 @@ export const PresenceSurface: React.FC<PresenceSurfaceProps> = ({
                     border: '1px solid rgba(255, 122, 133, 0.35)',
                     color: 'var(--mave-err, #FF7A85)',
                     cursor: 'pointer',
-                    width: '24px',
-                    height: '24px',
-                    borderRadius: '50%',
+                    fontSize: '11px',
+                    padding: '3px 8px',
+                    borderRadius: '8px',
+                    fontFamily: "var(--mave-font-sans, sans-serif)",
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: 'center',
-                    padding: 0,
+                    gap: '4px',
+                    whiteSpace: 'nowrap',
                     transition:
                       'background-color var(--mave-v2-motion-fast), border-color var(--mave-v2-motion-fast), color var(--mave-v2-motion-fast), transform var(--mave-v2-motion-fast), opacity var(--mave-v2-motion-fast)'
                   }}
                   data-testid="presence-action-retry-error"
                 >
-                  <RetryIcon size={12} color="var(--mave-err, #FF7A85)" />
+                  <RetryIcon size={11} color="var(--mave-err, #FF7A85)" />
+                  <span>{retryDesc.label}</span>
                 </button>
               </div>
             )}

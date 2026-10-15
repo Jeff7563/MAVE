@@ -395,5 +395,32 @@ describe('MAVE UI V2 — U1.1 Presence Interaction Semantics Hardening Tests', (
       expect(htmlActiveMinimal).toContain('data-testid="presence-state-label"');
       expect(htmlActiveMinimal).toContain('Listening…');
     });
+
+    it('Visual QA P2.1 — Presence capsule uses content-bounded fit-content sizing and zero greedy dead space', () => {
+      const htmlListening = renderToStaticMarkup(<PresenceSurface state="listening" />);
+      // Capsule uses fit-content sizing with min-width stability and max-width safety
+      expect(htmlListening).toContain('width:fit-content');
+      expect(htmlListening).toContain('min-width:260px');
+      expect(htmlListening).toContain('max-width:min(500px, 92vw)');
+
+      // Must NOT contain margin-left: auto that causes the large dead space gap
+      expect(htmlListening).not.toContain('margin-left:auto');
+
+      // Harmonic waveform has compact bounded width (96px) and does not stretch
+      expect(htmlListening).toContain('width:96px');
+
+      // Compact content-aware anatomy with dividers separating regions cleanly
+      expect(htmlListening).toContain('data-testid="presence-wordmark"');
+      expect(htmlListening).toContain('data-testid="presence-waveform"');
+      expect(htmlListening).toContain('data-testid="presence-state-label"');
+    });
+
+    it('Visual QA P2.1 — Thinking state uses the exact same compact content-bounded anatomy', () => {
+      const htmlThinking = renderToStaticMarkup(<PresenceSurface state="thinking" />);
+      expect(htmlThinking).toContain('width:fit-content');
+      expect(htmlThinking).not.toContain('margin-left:auto');
+      expect(htmlThinking).toContain('data-testid="presence-thinking-indicator"');
+      expect(htmlThinking).toContain('Thinking…');
+    });
   });
 });

@@ -133,17 +133,33 @@ export const WorkspaceDiffView: React.FC<WorkspaceDiffViewProps> = ({
           background: 'rgba(18, 22, 38, 0.75)',
           backdropFilter: 'blur(16px)',
           border: '1px solid rgba(255, 255, 255, 0.08)',
-          borderRadius: '12px'
+          borderRadius: '12px',
+          minWidth: 0,
+          gap: '12px',
+          flexWrap: 'wrap'
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <span style={{ fontWeight: 600, fontSize: '13px', fontFamily: 'monospace', color: '#f8fafc' }} data-testid="diff-file-path">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0, flex: '1 1 auto', overflow: 'hidden' }}>
+          <span
+            style={{
+              fontWeight: 600,
+              fontSize: '13px',
+              fontFamily: 'monospace',
+              color: '#f8fafc',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              minWidth: 0
+            }}
+            data-testid="diff-file-path"
+            title={activeFile}
+          >
             {activeFile}
           </span>
-          <span style={{ fontSize: '11px', color: '#4ade80', fontWeight: 600 }}>
+          <span style={{ fontSize: '11px', color: '#4ade80', fontWeight: 600, flexShrink: 0 }}>
             +{additions}
           </span>
-          <span style={{ fontSize: '11px', color: '#f87171', fontWeight: 600 }}>
+          <span style={{ fontSize: '11px', color: '#f87171', fontWeight: 600, flexShrink: 0 }}>
             -{deletions}
           </span>
           <span
@@ -156,7 +172,8 @@ export const WorkspaceDiffView: React.FC<WorkspaceDiffViewProps> = ({
               padding: '2px 8px',
               display: 'inline-flex',
               alignItems: 'center',
-              gap: '4px'
+              gap: '4px',
+              flexShrink: 0
             }}
             data-testid="diff-tests-passing"
           >
@@ -165,7 +182,7 @@ export const WorkspaceDiffView: React.FC<WorkspaceDiffViewProps> = ({
         </div>
 
         {/* Review Action Intents (Prototype Mock Actions only) */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0, minWidth: 0 }}>
           <button
             onClick={() => onRequestRevision?.()}
             style={{
@@ -211,16 +228,19 @@ export const WorkspaceDiffView: React.FC<WorkspaceDiffViewProps> = ({
           borderRadius: '8px',
           padding: '8px 14px',
           fontSize: '12px',
-          color: '#fca5a5'
+          color: '#fca5a5',
+          minWidth: 0,
+          gap: '8px',
+          flexWrap: 'wrap'
         }}
         data-testid="workspace-code-diagnostic"
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ color: '#ef4444', fontWeight: 700 }}>✕</span>
-          <span style={{ fontFamily: 'monospace', fontWeight: 600 }}>TS2322:</span>
-          <span>Type &apos;string&apos; is not assignable to type &apos;number&apos;.</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: '1 1 auto' }}>
+          <span style={{ color: '#ef4444', fontWeight: 700, flexShrink: 0 }}>✕</span>
+          <span style={{ fontFamily: 'monospace', fontWeight: 600, flexShrink: 0 }}>TS2322:</span>
+          <span style={{ minWidth: 0, overflowWrap: 'anywhere' }}>Type &apos;string&apos; is not assignable to type &apos;number&apos;.</span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
           <span
             style={{
               background: 'rgba(56, 189, 248, 0.15)',
@@ -252,6 +272,7 @@ export const WorkspaceDiffView: React.FC<WorkspaceDiffViewProps> = ({
 
       {/* 3. Line-by-Line Diff Viewer */}
       <div
+        className="mave-custom-scrollbar"
         style={{
           flex: 1,
           minHeight: 0,

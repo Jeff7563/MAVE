@@ -635,6 +635,38 @@ describe('MAVE UI V2 — U2 Conversation Surface Dialogue & Composition Foundati
 
       expect(html).toContain('max-width:min(680px, 100%)');
     });
+
+    it('Visual QA P2.1 — Conversation timeline suppresses horizontal scroll while child card wrappers enforce min-width: 0', () => {
+      const html = renderToStaticMarkup(
+        <ConversationShell
+          state={{
+            status: 'result',
+            messages: [
+              { id: 'm1', type: 'message', role: 'user', content: 'Audit diff' },
+              { id: 'm2', type: 'message', role: 'assistant', content: 'Here is the diff card:' }
+            ],
+            cards: [
+              {
+                id: 'd1',
+                type: 'diff',
+                filename: 'runtime.ts',
+                path: 'src/runtime.ts',
+                additions: 2,
+                deletions: 1,
+                compactPreview: ['+ line1', '- line0']
+              }
+            ]
+          }}
+          presentationMode="sidecar"
+        />
+      );
+
+      // Timeline must never own horizontal scroll
+      expect(html).toContain('overflow-x:hidden');
+      // Response groups and card wrappers enforce shrink-safe min-width: 0
+      expect(html).toContain('data-testid="rich-cards-section"');
+      expect(html).toContain('min-width:0');
+    });
   });
 });
 

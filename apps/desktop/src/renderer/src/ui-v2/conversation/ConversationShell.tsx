@@ -586,7 +586,8 @@ export const ConversationShell: React.FC<ConversationShellProps> = ({
                 display: 'flex',
                 flexDirection: 'column',
                 gap: '10px',
-                width: '100%'
+                width: '100%',
+                minWidth: 0
               }}
               data-testid={`response-group-${group.id}`}
             >
@@ -598,7 +599,8 @@ export const ConversationShell: React.FC<ConversationShellProps> = ({
                     flexDirection: 'column',
                     alignItems: 'flex-end',
                     width: '100%',
-                    gap: '4px'
+                    gap: '4px',
+                    minWidth: 0
                   }}
                   data-testid="message-card-user"
                 >
@@ -644,7 +646,8 @@ export const ConversationShell: React.FC<ConversationShellProps> = ({
                     flexDirection: 'column',
                     alignItems: 'flex-start',
                     width: '100%',
-                    gap: '6px'
+                    gap: '6px',
+                    minWidth: 0
                   }}
                   data-testid="message-card-assistant"
                 >
@@ -850,6 +853,7 @@ export const ConversationShell: React.FC<ConversationShellProps> = ({
                         gap: '6px',
                         width: '100%',
                         maxWidth: isSidecar ? '100%' : 'min(680px, 100%)',
+                        minWidth: 0,
                         marginTop: '4px'
                       }}
                       data-testid="grouped-sources-section"
@@ -865,9 +869,11 @@ export const ConversationShell: React.FC<ConversationShellProps> = ({
                       >
                         Sources ({group.sources.length})
                       </div>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', width: '100%', minWidth: 0 }}>
                         {group.sources.map((src) => (
-                          <SourceCard key={src.id} data={isSidecar && !src.density ? { ...src, density: 'compact' } : src} />
+                          <div key={src.id} style={{ width: '100%', minWidth: 0 }}>
+                            <SourceCard data={isSidecar && !src.density ? { ...src, density: 'compact' } : src} />
+                          </div>
                         ))}
                       </div>
                     </div>
@@ -882,19 +888,21 @@ export const ConversationShell: React.FC<ConversationShellProps> = ({
                         gap: '8px',
                         width: '100%',
                         maxWidth: isSidecar ? '100%' : 'min(680px, 100%)',
+                        minWidth: 0,
                         marginTop: '4px'
                       }}
                       data-testid="rich-cards-section"
                     >
                       {group.cards.map((card) => (
-                        <CardRenderer
-                          key={card.id}
-                          card={isSidecar && !card.density ? { ...card, density: 'compact' } : card}
-                          onAllow={onAllowAction}
-                          onDeny={onDenyAction}
-                          onListen={onListen}
-                          onOpenWorkspace={onExpandToWorkspace}
-                        />
+                        <div key={card.id} style={{ width: '100%', minWidth: 0 }}>
+                          <CardRenderer
+                            card={isSidecar && !card.density ? { ...card, density: 'compact' } : card}
+                            onAllow={onAllowAction}
+                            onDeny={onDenyAction}
+                            onListen={onListen}
+                            onOpenWorkspace={onExpandToWorkspace}
+                          />
+                        </div>
                       ))}
                     </div>
                   )}

@@ -782,5 +782,82 @@ describe('MAVE UI V2 — U3 Rich Cards & Structured Information Presentation Tes
       expect(html).toContain('overflow-x:auto');
     });
   });
+
+  // -------------------------------------------------------------------------
+  // 11. Visual QA P2.1 — File + Diff Universal Shrink & Technical Viewport Confinement
+  // -------------------------------------------------------------------------
+  describe('11. Visual QA P2.1 — File + Diff Universal Shrink & Technical Viewport Confinement', () => {
+    it('CardShell enforces universal min-width: 0 and 100% max-width bounds across slots', () => {
+      const html = renderToStaticMarkup(
+        <CardShell title="Very Long Artifact Title" badge="TS">
+          <div>Content</div>
+        </CardShell>
+      );
+      expect(html).toContain('min-width:0');
+      expect(html).toContain('max-width:100%');
+    });
+
+    it('FileCard uses wrap-safe breadcrumb path and technical preview scrollbar', () => {
+      const html = renderToStaticMarkup(
+        <FileCard
+          data={{
+            id: 'fc-long',
+            type: 'file',
+            fileType: 'typescript',
+            path: 'src/modules/submodule/very/deep/nested/path/to/component/runtime-long-identifier.ts',
+            linesModified: 15,
+            previewSnippet: 'export const runtime = true;\nconst veryLongCodeLine = "testing long code text line that extends outwards";'
+          }}
+        />
+      );
+      expect(html).toContain('data-testid="file-path-breadcrumb"');
+      expect(html).toContain('overflow-wrap:anywhere');
+      expect(html).toContain('data-testid="file-preview-snippet"');
+      expect(html).toContain('overflow-x:auto');
+      expect(html).toContain('mave-custom-scrollbar');
+    });
+
+    it('DiffCard compact preview confines horizontal scroll to technical viewport with min-width: 0', () => {
+      const html = renderToStaticMarkup(
+        <DiffCard
+          data={{
+            id: 'df-compact',
+            type: 'diff',
+            filename: 'very-long-filename-for-diff-card-review.ts',
+            path: 'packages/core/src/very-long-filename-for-diff-card-review.ts',
+            defaultExpanded: false,
+            additions: 3,
+            deletions: 1,
+            compactPreview: [
+              '+ const extremelyLongDiffLineContent = { foo: "bar", deeplyNestedObjectValue: 123456789 };',
+              '- const previousValue = null;'
+            ]
+          }}
+        />
+      );
+      expect(html).toContain('data-testid="diff-compact-preview"');
+      expect(html).toContain('overflow-x:auto');
+      expect(html).toContain('mave-custom-scrollbar');
+      expect(html).toContain('min-width:0');
+    });
+
+    it('CodeCard code viewport owns technical horizontal scroll and does not leak width', () => {
+      const html = renderToStaticMarkup(
+        <CodeCard
+          data={{
+            id: 'cd-wide',
+            type: 'code',
+            filename: 'LongCode.tsx',
+            language: 'TypeScript',
+            code: 'const superLongLineOfCodeWithoutBreaks = Array.from({ length: 50 }).map((_, i) => `item_${i}`).join(", ");',
+            lineNumbers: true
+          }}
+        />
+      );
+      expect(html).toContain('data-testid="code-table-with-lines"');
+      expect(html).toContain('overflow-x:auto');
+      expect(html).toContain('mave-custom-scrollbar');
+    });
+  });
 });
 

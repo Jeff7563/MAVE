@@ -121,6 +121,8 @@ export const CardShell: React.FC<CardShellProps> = ({
         animation: 'mave-card-enter 350ms cubic-bezier(0.25, 1, 0.5, 1)',
         boxSizing: 'border-box',
         width: '100%',
+        maxWidth: '100%',
+        minWidth: 0,
         color: 'var(--mave-ink)',
         fontFamily: 'var(--mave-font-sans)'
       }}
@@ -128,18 +130,22 @@ export const CardShell: React.FC<CardShellProps> = ({
       data-intent={effectiveIntent}
       data-density={density}
     >
-      {/* Header Metadata */}
+      {/* Header Metadata (Fixed, no horizontal scroll, shrink-safe) */}
       {(badge || title || timestamp || expandable) && (
         <div
           style={{
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
+            gap: '8px',
             fontSize: density === 'compact' ? '11px' : '12px',
-            lineHeight: 1.2
+            lineHeight: 1.2,
+            minWidth: 0,
+            width: '100%',
+            flexWrap: 'wrap'
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', minWidth: 0, flex: '1 1 auto' }}>
             {badge && (
               <span
                 style={{
@@ -152,7 +158,8 @@ export const CardShell: React.FC<CardShellProps> = ({
                   fontSize: density === 'compact' ? '10px' : '11px',
                   fontWeight: 600,
                   textTransform: 'uppercase',
-                  letterSpacing: '0.08em'
+                  letterSpacing: '0.08em',
+                  flexShrink: 0
                 }}
               >
                 {badge}
@@ -162,17 +169,22 @@ export const CardShell: React.FC<CardShellProps> = ({
               <span
                 style={{
                   color: 'var(--mave-dim)',
-                  fontWeight: 500
+                  fontWeight: 500,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  minWidth: 0
                 }}
+                title={title}
               >
                 {title}
               </span>
             )}
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0, minWidth: 0 }}>
             {timestamp && (
-              <span style={{ color: 'var(--mave-faint)', fontSize: '11px', fontFamily: 'var(--mave-font-mono)' }}>
+              <span style={{ color: 'var(--mave-faint)', fontSize: '11px', fontFamily: 'var(--mave-font-mono)', whiteSpace: 'nowrap' }}>
                 {timestamp}
               </span>
             )}
@@ -189,6 +201,7 @@ export const CardShell: React.FC<CardShellProps> = ({
                   fontSize: '11px',
                   borderRadius: '6px',
                   fontFamily: 'var(--mave-font-mono)',
+                  whiteSpace: 'nowrap',
                   transition: 'color 150ms ease, border-color 150ms ease'
                 }}
                 data-testid="card-expand-toggle"
@@ -200,8 +213,17 @@ export const CardShell: React.FC<CardShellProps> = ({
         </div>
       )}
 
-      {/* Primary Content Body */}
-      <div style={{ color: 'var(--mave-ink)', fontSize: bodyFontSize, lineHeight: 1.5 }}>
+      {/* Primary Content Body (Constrained to card width) */}
+      <div
+        style={{
+          color: 'var(--mave-ink)',
+          fontSize: bodyFontSize,
+          lineHeight: 1.5,
+          minWidth: 0,
+          width: '100%',
+          boxSizing: 'border-box'
+        }}
+      >
         {children}
       </div>
 
@@ -212,7 +234,10 @@ export const CardShell: React.FC<CardShellProps> = ({
             paddingTop: '10px',
             borderTop: '1px solid var(--mave-line)',
             fontSize: density === 'compact' ? '12px' : '13px',
-            color: 'var(--mave-dim)'
+            color: 'var(--mave-dim)',
+            minWidth: 0,
+            width: '100%',
+            boxSizing: 'border-box'
           }}
           data-testid="card-details-slot"
         >
@@ -220,7 +245,7 @@ export const CardShell: React.FC<CardShellProps> = ({
         </div>
       )}
 
-      {/* Action Footer */}
+      {/* Action Footer (Fixed, no horizontal scroll) */}
       {actions && (
         <div
           style={{
@@ -231,7 +256,10 @@ export const CardShell: React.FC<CardShellProps> = ({
             paddingTop: '10px',
             borderTop: '1px solid var(--mave-line)',
             justifyContent: 'flex-end',
-            flexWrap: 'wrap'
+            flexWrap: 'wrap',
+            minWidth: 0,
+            width: '100%',
+            boxSizing: 'border-box'
           }}
         >
           {actions}

@@ -63,7 +63,7 @@ export const FileCard: React.FC<FileCardProps> = ({ data, onInspect }) => {
         ) : undefined
       }
     >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }} data-testid="file-card">
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', minWidth: 0, width: '100%', boxSizing: 'border-box' }} data-testid="file-card">
         {/* UI Kit File Row */}
         <div
           style={{
@@ -73,7 +73,11 @@ export const FileCard: React.FC<FileCardProps> = ({ data, onInspect }) => {
             padding: '10px 12px',
             borderRadius: '12px',
             background: 'var(--mave-raised)',
-            border: '1px solid var(--mave-line)'
+            border: '1px solid var(--mave-line)',
+            minWidth: 0,
+            width: '100%',
+            boxSizing: 'border-box',
+            flexWrap: 'wrap'
           }}
         >
           {/* Mini Format Badge */}
@@ -91,13 +95,14 @@ export const FileCard: React.FC<FileCardProps> = ({ data, onInspect }) => {
               fontFamily: 'var(--mave-font-mono)',
               fontSize: '8px',
               color: 'var(--mave-dim)',
-              textTransform: 'uppercase'
+              textTransform: 'uppercase',
+              flexShrink: 0
             }}
           >
             {extension.slice(0, 4)}
           </div>
 
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0 }}>
+          <div style={{ flex: '1 1 180px', display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0 }}>
             <span style={{ fontWeight: 600, fontSize: '14px', color: 'var(--mave-ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {filename}
             </span>
@@ -106,11 +111,12 @@ export const FileCard: React.FC<FileCardProps> = ({ data, onInspect }) => {
                 color: 'var(--mave-faint)',
                 fontSize: '11px',
                 fontFamily: 'var(--mave-font-mono)',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap'
+                overflowWrap: 'anywhere',
+                wordBreak: 'break-word',
+                minWidth: 0
               }}
               data-testid="file-path-breadcrumb"
+              title={data.path}
             >
               {data.path}
             </span>
@@ -122,7 +128,8 @@ export const FileCard: React.FC<FileCardProps> = ({ data, onInspect }) => {
               fontSize: '11px',
               letterSpacing: '0.12em',
               color: 'var(--mave-cyan)',
-              flexShrink: 0
+              flexShrink: 0,
+              whiteSpace: 'nowrap'
             }}
           >
             {data.linesModified ? `${data.linesModified} lines modified` : 'LATEST'}
@@ -131,6 +138,7 @@ export const FileCard: React.FC<FileCardProps> = ({ data, onInspect }) => {
 
         {data.previewSnippet && (
           <pre
+            className="mave-custom-scrollbar"
             style={{
               margin: 0,
               padding: '10px 12px',
@@ -139,6 +147,9 @@ export const FileCard: React.FC<FileCardProps> = ({ data, onInspect }) => {
               fontSize: '12px',
               color: 'var(--mave-dim)',
               overflowX: 'auto',
+              minWidth: 0,
+              maxWidth: '100%',
+              boxSizing: 'border-box',
               fontFamily: 'var(--mave-font-mono)',
               lineHeight: 1.5,
               border: '1px solid var(--mave-line)'
@@ -226,13 +237,16 @@ export const CodeCard: React.FC<CodeCardProps> = ({ data, onCopy }) => {
         </button>
       }
     >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }} data-testid="code-card">
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', minWidth: 0, width: '100%', boxSizing: 'border-box' }} data-testid="code-card">
         {data.explanation && (
           <div
             style={{
               fontSize: '13px',
               color: 'var(--mave-dim)',
-              lineHeight: 1.45
+              lineHeight: 1.45,
+              overflowWrap: 'anywhere',
+              wordBreak: 'break-word',
+              minWidth: 0
             }}
             data-testid="code-explanation"
           >
@@ -241,12 +255,16 @@ export const CodeCard: React.FC<CodeCardProps> = ({ data, onCopy }) => {
         )}
 
         <div
+          className="mave-custom-scrollbar"
           style={{
             background: '#0a0c18',
             borderRadius: '12px',
             overflowX: 'auto',
             border: '1px solid var(--mave-line)',
-            padding: '10px 0'
+            padding: '10px 0',
+            minWidth: 0,
+            maxWidth: '100%',
+            boxSizing: 'border-box'
           }}
         >
           <pre
@@ -255,11 +273,14 @@ export const CodeCard: React.FC<CodeCardProps> = ({ data, onCopy }) => {
               fontSize: '13px',
               fontFamily: 'var(--mave-font-mono)',
               lineHeight: 1.55,
-              color: '#c9cde8'
+              color: '#c9cde8',
+              minWidth: 0,
+              maxWidth: '100%',
+              boxSizing: 'border-box'
             }}
           >
             {data.lineNumbers ? (
-              <table style={{ borderCollapse: 'collapse', width: '100%' }} data-testid="code-table-with-lines">
+              <table style={{ borderCollapse: 'collapse', width: '100%', minWidth: 'fit-content' }} data-testid="code-table-with-lines">
                 <tbody>
                   {codeLines.map((line, idx) => (
                     <tr key={idx} style={{ height: '24px' }}>
@@ -270,13 +291,14 @@ export const CodeCard: React.FC<CodeCardProps> = ({ data, onCopy }) => {
                           userSelect: 'none',
                           textAlign: 'right',
                           paddingRight: '14px',
-                          fontSize: '12px'
+                          fontSize: '12px',
+                          flexShrink: 0
                         }}
                         data-testid="line-number"
                       >
                         {idx + 1}
                       </td>
-                      <td style={{ whiteSpace: 'pre', color: '#c9cde8', paddingRight: '14px' }}>
+                      <td style={{ whiteSpace: 'pre', color: '#c9cde8', paddingRight: '14px', minWidth: 0 }}>
                         <code>{line}</code>
                       </td>
                     </tr>
@@ -284,7 +306,7 @@ export const CodeCard: React.FC<CodeCardProps> = ({ data, onCopy }) => {
                 </tbody>
               </table>
             ) : (
-              <div style={{ padding: '0 14px' }}>
+              <div style={{ padding: '0 14px', whiteSpace: 'pre', minWidth: 'fit-content' }}>
                 <code>{data.code}</code>
               </div>
             )}
@@ -322,6 +344,7 @@ export const DiffCard: React.FC<DiffCardProps> = ({ data, onInspect, onOpenWorks
   const renderLines = (lines: DiffLine[]) => {
     return (
       <div
+        className="mave-custom-scrollbar"
         style={{
           display: 'flex',
           flexDirection: 'column',
@@ -331,6 +354,9 @@ export const DiffCard: React.FC<DiffCardProps> = ({ data, onInspect, onOpenWorks
           background: '#0a0c18',
           borderRadius: '12px',
           overflowX: 'auto',
+          minWidth: 0,
+          maxWidth: '100%',
+          boxSizing: 'border-box',
           border: '1px solid var(--mave-line)'
         }}
         data-testid="diff-lines-container"
@@ -360,7 +386,10 @@ export const DiffCard: React.FC<DiffCardProps> = ({ data, onInspect, onOpenWorks
                 alignItems: 'center',
                 background: lineBg,
                 padding: '3px 12px',
-                borderBottom: '1px solid rgba(255, 255, 255, 0.02)'
+                borderBottom: '1px solid rgba(255, 255, 255, 0.02)',
+                minWidth: 'fit-content',
+                width: '100%',
+                boxSizing: 'border-box'
               }}
             >
               <div
@@ -368,6 +397,7 @@ export const DiffCard: React.FC<DiffCardProps> = ({ data, onInspect, onOpenWorks
                   display: 'flex',
                   gap: '8px',
                   width: '60px',
+                  flexShrink: 0,
                   color: 'var(--mave-faint)',
                   userSelect: 'none',
                   fontSize: '11px'
@@ -383,6 +413,7 @@ export const DiffCard: React.FC<DiffCardProps> = ({ data, onInspect, onOpenWorks
               <span
                 style={{
                   width: '16px',
+                  flexShrink: 0,
                   textAlign: 'center',
                   color: textColor,
                   fontWeight: 700,
@@ -391,7 +422,7 @@ export const DiffCard: React.FC<DiffCardProps> = ({ data, onInspect, onOpenWorks
               >
                 {prefix}
               </span>
-              <span style={{ color: textColor, whiteSpace: 'pre' }}>
+              <span style={{ color: textColor, whiteSpace: 'pre', minWidth: 0 }}>
                 {line.text}
               </span>
             </div>
@@ -410,7 +441,7 @@ export const DiffCard: React.FC<DiffCardProps> = ({ data, onInspect, onOpenWorks
       intent={data.intent || 'default'}
       density={data.density || 'standard'}
       actions={
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', minWidth: 0 }}>
           {isLargeDiff && onOpenWorkspace && (
             <button
               onClick={onOpenWorkspace}
@@ -490,21 +521,32 @@ export const DiffCard: React.FC<DiffCardProps> = ({ data, onInspect, onOpenWorks
         </div>
       }
     >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }} data-testid="diff-card">
-        {/* Metric summary header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '13px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontWeight: 600, color: 'var(--mave-ink)' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', minWidth: 0, width: '100%', boxSizing: 'border-box' }} data-testid="diff-card">
+        {/* Metric summary header (Fixed, wrap-safe, no horizontal overflow) */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '13px', minWidth: 0, width: '100%', gap: '8px', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: '1 1 auto', overflow: 'hidden' }}>
+            <span style={{ fontWeight: 600, color: 'var(--mave-ink)', whiteSpace: 'nowrap' }}>
               {data.filename}
             </span>
             {data.path && (
-              <span style={{ color: 'var(--mave-faint)', fontSize: '11px', fontFamily: 'var(--mave-font-mono)' }}>
+              <span
+                style={{
+                  color: 'var(--mave-faint)',
+                  fontSize: '11px',
+                  fontFamily: 'var(--mave-font-mono)',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  minWidth: 0
+                }}
+                title={data.path}
+              >
                 ({data.path})
               </span>
             )}
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600, fontSize: '11px', fontFamily: 'var(--mave-font-mono)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600, fontSize: '11px', fontFamily: 'var(--mave-font-mono)', flexShrink: 0 }}>
             <span
               style={{
                 color: '#5fe0a8',
@@ -530,9 +572,10 @@ export const DiffCard: React.FC<DiffCardProps> = ({ data, onInspect, onOpenWorks
           </div>
         </div>
 
-        {/* Compact preview (rendered when collapsed) */}
+        {/* Compact preview (rendered when collapsed, technical viewport only scrolls) */}
         {!isExpanded && data.compactPreview && data.compactPreview.length > 0 && (
           <div
+            className="mave-custom-scrollbar"
             style={{
               padding: '8px 12px',
               background: '#0a0c18',
@@ -540,19 +583,23 @@ export const DiffCard: React.FC<DiffCardProps> = ({ data, onInspect, onOpenWorks
               fontSize: '12px',
               fontFamily: 'var(--mave-font-mono)',
               color: 'var(--mave-dim)',
-              border: '1px solid var(--mave-line)'
+              border: '1px solid var(--mave-line)',
+              overflowX: 'auto',
+              minWidth: 0,
+              maxWidth: '100%',
+              boxSizing: 'border-box'
             }}
             data-testid="diff-compact-preview"
           >
             {data.compactPreview.map((line, idx) => (
-              <div key={idx} style={{ whiteSpace: 'pre' }}>
+              <div key={idx} style={{ whiteSpace: 'pre', minWidth: 'fit-content' }}>
                 {line}
               </div>
             ))}
           </div>
         )}
 
-        {/* Full diff lines (rendered when expanded) */}
+        {/* Full diff lines (rendered when expanded, technical viewport only scrolls) */}
         {isExpanded && data.lines && data.lines.length > 0 && renderLines(data.lines)}
       </div>
     </CardShell>
