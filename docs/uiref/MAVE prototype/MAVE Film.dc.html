@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400&family=Manrope:wght@300;400;500;600&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+<style>html,body{margin:0;height:100%;background:#000;overflow:hidden} a{color:#9fb3ff} a:hover{color:#c9d4ff}</style>
+<script>window.OM_SCENES = '[{"name":"Idle","dur":4,"desc":"Near-empty dark screen; only the MAVE wordmark breathes at center"},{"name":"Voice","dur":6.5,"desc":"MAVE wakes, the pill widens into a waveform and the question is transcribed"},{"name":"Chat","dur":6,"desc":"The question lifts up and MAVE answers with three priorities for today"},{"name":"Info","dur":7.5,"desc":"User asks for an explanation; video and reference cards slide in beside the conversation"},{"name":"Workspace","dur":7.5,"desc":"Everything reorganizes into the Aurora Launch project: tasks, notes, references, progress"},{"name":"Connected","dur":6,"desc":"Camera pulls back; files, calendar, messages and more connect quietly around the workspace"},{"name":"Create","dur":7.5,"desc":"User asks MAVE to create; a launch deck assembles slide by slide"},{"name":"End","dur":6,"desc":"Everything dissolves back to the wordmark, tagline appears, quiet fade"}]';</script>
+<script>window.OM_PLAYBACK = '{"mode":"loop"}';</script>
+<script>window.TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{"motionEditor":true,"palette":"Indigo","glow":1.4}/*EDITMODE-END*/;</script>
+</helmet>
+<div style="position: fixed; inset: 0; background: #000;">
+  <x-import component-from-global-scope="MaveFilm" from="./animations-v3.jsx ./tweaks-panel.jsx ./mave-film.jsx" hint-size="100%,100%" style="position: absolute; inset: 0;"></x-import>
+</div>
+</x-dc>
+</body>
+</html>

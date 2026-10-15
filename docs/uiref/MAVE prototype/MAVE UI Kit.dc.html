@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400&family=Manrope:wght@300;400;500;600&family=IBM+Plex+Sans+Thai:wght@300;400;500&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+<style>
+html,body{margin:0;background:#05060d;color:#eef0fb;font-family:Manrope,'IBM Plex Sans Thai',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#9fb3ff}a:hover{color:#c9d4ff}
+@keyframes maveSpin{to{transform:rotate(360deg)}}
+@keyframes maveLive{0%,100%{opacity:.55}50%{opacity:1}}
+@keyframes maveBar{0%,100%{transform:scaleY(.25)}50%{transform:scaleY(1)}}
+</style>
+</helmet>
+<div style="min-height: 100vh; background: radial-gradient(1200px circle at 10% 100%, rgba(154,114,255,0.18), transparent 60%), radial-gradient(1000px circle at 95% 100%, rgba(91,132,255,0.18), transparent 60%), #05060d; padding: 96px 120px 160px; box-sizing: border-box;">
+<div style="max-width: 1600px; margin: 0 auto; display: flex; flex-direction: column; gap: 120px;">
+
+  <header style="display: flex; flex-direction: column; gap: 20px;">
+    <div style="font-family: 'JetBrains Mono', monospace; font-size: 13px; letter-spacing: 0.18em; color: rgba(222,226,255,0.38);">MAVE · UI KIT · v0.1 · DESKTOP 1920</div>
+    <div style="font-family: Jost, sans-serif; font-weight: 300; font-size: 96px; letter-spacing: 0.42em; line-height: 1;">MAVE</div>
+    <div style="font-size: 24px; line-height: 1.5; color: rgba(222,226,255,0.6); max-width: 900px; text-wrap: pretty;">Foundations, components and specs for the renderer in <span style="font-family: 'JetBrains Mono', monospace; font-size: 19px; color: #eef0fb;">apps/desktop</span>. Every value maps to a token in <span style="font-family: 'JetBrains Mono', monospace; font-size: 19px; color: #eef0fb;">handoff/tailwind.config.js</span>.<br>องค์ประกอบ ค่าสี ตัวอักษร และระยะ สำหรับนำไปเขียนโค้ดจริง</div>
+    <div style="display: flex; gap: 12px; margin-top: 12px; flex-wrap: wrap;">
+      <a href="MAVE Prototype.dc.html" style="height: 44px; padding: 0 22px; border-radius: 22px; background: #5b84ff; color: #fff; text-decoration: none; display: flex; align-items: center; font-size: 16px; font-weight: 500;">Open prototype →</a>
+      <div style="height: 44px; padding: 0 22px; border-radius: 22px; border: 1px solid rgba(255,255,255,0.14); color: rgba(222,226,255,0.6); display: flex; align-items: center; font-size: 15px; font-family: 'JetBrains Mono', monospace;">handoff/ · tailwind.config.js · mave.css · HANDOFF.md</div>
+    </div>
+  </header>
+
+  <!-- 01 COLOR -->
+  <section style="display: flex; flex-direction: column; gap: 40px;">
+    <div style="display: flex; align-items: baseline; gap: 24px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 20px;"><span style="font-family: 'JetBrains Mono', monospace; font-size: 15px; color: #5fd2ff;">01</span><span style="font-size: 36px; font-weight: 500; letter-spacing: -0.02em;">Color</span><span style="font-size: 18px; color: rgba(222,226,255,0.38);">สี</span></div>
+    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 20px;">
+      <sc-for list="{{ colors }}" as="c" hint-placeholder-count="14">
+        <div style="display: flex; flex-direction: column; gap: 14px;">
+          <div style="height: 120px; border-radius: 18px; background: {{ c.v }}; border: 1px solid rgba(255,255,255,0.1);"></div>
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <div style="font-size: 18px;">{{ c.n }}</div>
+            <div style="font-family: 'JetBrains Mono', monospace; font-size: 13px; color: rgba(222,226,255,0.6);">{{ c.tw }}</div>
+            <div style="font-family: 'JetBrains Mono', monospace; font-size: 13px; color: rgba(222,226,255,0.38);">{{ c.v }}</div>
+            <div style="font-size: 14px; color: rgba(222,226,255,0.38); margin-top: 4px;">{{ c.u }}</div>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+    <div style="font-size: 17px; color: rgba(222,226,255,0.6); line-height: 1.6; max-width: 1100px;">Rules — cyan means <b style="color:#eef0fb;font-weight:500;">live / MAVE is acting</b>; blue means <b style="color:#eef0fb;font-weight:500;">selected or primary</b>; violet is ambient only, never text. Status colors appear only on status (a dot, a chip, a diff), never as large fills. Text is always ink, dim or faint — no colored body copy.</div>
+  </section>
+
+  <!-- 02 TYPE -->
+  <section style="display: flex; flex-direction: column; gap: 40px;">
+    <div style="display: flex; align-items: baseline; gap: 24px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 20px;"><span style="font-family: 'JetBrains Mono', monospace; font-size: 15px; color: #5fd2ff;">02</span><span style="font-size: 36px; font-weight: 500; letter-spacing: -0.02em;">Typography</span><span style="font-size: 18px; color: rgba(222,226,255,0.38);">ตัวอักษร</span></div>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px;">
+      <div style="display: flex; flex-direction: column; gap: 10px; padding: 28px; border-radius: 18px; background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.08);"><div style="font-family: Jost, sans-serif; font-weight: 300; font-size: 48px; letter-spacing: 0.42em;">MAVE</div><div style="font-family: 'JetBrains Mono', monospace; font-size: 13px; color: rgba(222,226,255,0.6);">Jost 300 · wordmark only · tracking .42em</div></div>
+      <div style="display: flex; flex-direction: column; gap: 10px; padding: 28px; border-radius: 18px; background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.08);"><div style="font-size: 40px; font-weight: 400;">Manrope Aa กขค</div><div style="font-family: 'JetBrains Mono', monospace; font-size: 13px; color: rgba(222,226,255,0.6);">Manrope 300–600 · UI · Thai falls back to IBM Plex Sans Thai</div></div>
+      <div style="display: flex; flex-direction: column; gap: 10px; padding: 28px; border-radius: 18px; background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.08);"><div style="font-family: 'JetBrains Mono', monospace; font-size: 34px;">{ code }</div><div style="font-family: 'JetBrains Mono', monospace; font-size: 13px; color: rgba(222,226,255,0.6);">JetBrains Mono 400 · code, labels, numbers, paths</div></div>
+    </div>
+    <div style="display: flex; flex-direction: column;">
+      <sc-for list="{{ type }}" as="t" hint-placeholder-count="10">
+        <div style="display: grid; grid-template-columns: 200px minmax(0, 1fr) 360px; align-items: center; gap: 32px; padding: 22px 0; border-top: 1px solid rgba(255,255,255,0.08);">
+          <div style="font-family: 'JetBrains Mono', monospace; font-size: 14px; color: #5fd2ff;">{{ t.tw }}</div>
+          <div style="font-family: {{ t.ff }}; font-size: {{ t.fs }}px; font-weight: {{ t.fw }}; letter-spacing: {{ t.ls }}; line-height: 1.25; color: #eef0fb; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ t.sample }}</div>
+          <div style="font-family: 'JetBrains Mono', monospace; font-size: 13px; color: rgba(222,226,255,0.6); line-height: 1.6;">{{ t.spec }}</div>
+        </div>
+      </sc-for>
+    </div>
+  </section>
+
+  <!-- 03 SPACE, RADIUS, SURFACE, MOTION -->
+  <section style="display: flex; flex-direction: column; gap: 40px;">
+    <div style="display: flex; align-items: baseline; gap: 24px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 20px;"><span style="font-family: 'JetBrains Mono', monospace; font-size: 15px; color: #5fd2ff;">03</span><span style="font-size: 36px; font-weight: 500; letter-spacing: -0.02em;">Space, radius, surface, motion</span><span style="font-size: 18px; color: rgba(222,226,255,0.38);">ระยะ · มุม · พื้นผิว · การเคลื่อนไหว</span></div>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(460px, 1fr)); gap: 48px;">
+      <div style="display: flex; flex-direction: column; gap: 16px;">
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 13px; letter-spacing: 0.18em; color: rgba(222,226,255,0.38);">SPACING · 4PX BASE</div>
+        <sc-for list="{{ space }}" as="s" hint-placeholder-count="9">
+          <div style="display: flex; align-items: center; gap: 20px;">
+            <div style="width: 60px; font-family: 'JetBrains Mono', monospace; font-size: 13px; color: rgba(222,226,255,0.6);">{{ s.n }}</div>
+            <div style="height: 14px; width: {{ s.v }}px; border-radius: 3px; background: linear-gradient(90deg, #5fd2ff, #5b84ff);"></div>
+            <div style="font-size: 15px; color: rgba(222,226,255,0.38);">{{ s.u }}</div>
+          </div>
+        </sc-for>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 16px;">
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 13px; letter-spacing: 0.18em; color: rgba(222,226,255,0.38);">RADIUS</div>
+        <div style="display: flex; flex-wrap: wrap; gap: 20px;">
+          <sc-for list="{{ radii }}" as="r" hint-placeholder-count="6">
+            <div style="display: flex; flex-direction: column; gap: 10px; align-items: flex-start;">
+              <div style="width: 110px; height: 80px; border-radius: {{ r.v }}px; border: 1px solid rgba(180,190,255,0.3); background: rgba(255,255,255,0.04);"></div>
+              <div style="font-family: 'JetBrains Mono', monospace; font-size: 13px; color: #eef0fb;">{{ r.n }} · {{ r.v }}</div>
+              <div style="font-size: 14px; color: rgba(222,226,255,0.38); width: 120px;">{{ r.u }}</div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 16px;">
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 13px; letter-spacing: 0.18em; color: rgba(222,226,255,0.38);">SURFACES</div>
+        <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+          <div style="width: 220px; height: 160px; border-radius: 24px; background: linear-gradient(180deg, rgba(255,255,255,0.065), rgba(255,255,255,0.018)), rgba(12,14,30,0.6); border: 1px solid rgba(180,190,255,0.14); box-shadow: inset 0 1px 0 rgba(255,255,255,0.07), 0 30px 70px -24px rgba(0,0,0,0.7); backdrop-filter: blur(22px); padding: 20px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: flex-end; gap: 4px;"><div style="font-size: 17px;">Glass</div><div style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: rgba(222,226,255,0.38);">.mave-glass</div></div>
+          <div style="width: 220px; height: 160px; border-radius: 18px; background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.08); padding: 20px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: flex-end; gap: 4px;"><div style="font-size: 17px;">Inner</div><div style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: rgba(222,226,255,0.38);">.mave-inner</div></div>
+          <div style="width: 220px; height: 160px; border-radius: 22px; background: linear-gradient(180deg, rgba(255,255,255,0.065), rgba(255,255,255,0.018)), rgba(12,14,30,0.6); border: 1px solid rgba(91,132,255,0.55); box-shadow: 0 0 36px -6px rgba(91,132,255,0.35); padding: 20px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: flex-end; gap: 4px;"><div style="font-size: 17px;">Active</div><div style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: rgba(222,226,255,0.38);">border-mave-blue/55 shadow-active</div></div>
+        </div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 16px;">
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 13px; letter-spacing: 0.18em; color: rgba(222,226,255,0.38);">MOTION</div>
+        <sc-for list="{{ motion }}" as="m" hint-placeholder-count="4">
+          <div style="display: grid; grid-template-columns: 140px minmax(0, 1fr); gap: 20px; padding: 14px 0; border-top: 1px solid rgba(255,255,255,0.08);">
+            <div style="font-family: 'JetBrains Mono', monospace; font-size: 14px; color: #5fd2ff;">{{ m.n }}</div>
+            <div style="display: flex; flex-direction: column; gap: 4px;"><div style="font-family: 'JetBrains Mono', monospace; font-size: 13px; color: #eef0fb;">{{ m.v }}</div><div style="font-size: 15px; color: rgba(222,226,255,0.6);">{{ m.u }}</div></div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </section>
+
+  <!-- 04 VOICE PILL -->
+  <section style="display: flex; flex-direction: column; gap: 40px;">
+    <div style="display: flex; align-items: baseline; gap: 24px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 20px;"><span style="font-family: 'JetBrains Mono', monospace; font-size: 15px; color: #5fd2ff;">04</span><span style="font-size: 36px; font-weight: 500; letter-spacing: -0.02em;">MAVE bar</span><span style="font-size: 18px; color: rgba(222,226,255,0.38);">แถบ MAVE · Orb / Mini Surface</span></div>
+    <div style="font-size: 18px; color: rgba(222,226,255,0.6); line-height: 1.6; max-width: 1100px;">The one persistent element. Sleeping: centered wordmark 300×96. Any wake (voice, hotkey, click) morphs it to the bottom bar 760×72 — the wordmark slides left, divider + waveform + status fade in (glide 800ms). States map 1:1 to <span style="font-family: 'JetBrains Mono', monospace; font-size: 15px; color: #eef0fb;">AssistantStateSnapshot.state</span>.</div>
+    <div style="display: flex; flex-direction: column; gap: 28px;">
+      <div style="display: flex; align-items: center; gap: 40px;">
+        <div style="width: 300px; height: 96px; border-radius: 48px; position: relative; flex: none; background: linear-gradient(180deg, rgba(255,255,255,0.065), rgba(255,255,255,0.018)), rgba(12,14,30,0.6); border: 1px solid rgba(91,132,255,0.32); box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 0 46px rgba(91,132,255,0.16); display: flex; align-items: center; justify-content: center;">
+          <div style="position: absolute; top: -1px; left: 20%; width: 60%; height: 1px; background: linear-gradient(90deg, transparent, rgba(95,210,255,0.85), transparent);"></div>
+          <div style="font-family: Jost, sans-serif; font-weight: 300; font-size: 30px; letter-spacing: 0.42em; padding-left: 0.42em;">MAVE</div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 6px;"><div style="font-size: 20px;">sleeping</div><div style="font-family: 'JetBrains Mono', monospace; font-size: 13px; color: rgba(222,226,255,0.38);">300×96 · r48 · wordmark 30px · breathe scale 1→1.006, 4.8s</div></div>
+      </div>
+      <sc-for list="{{ pills }}" as="p" hint-placeholder-count="5">
+        <div style="display: flex; align-items: center; gap: 40px;">
+          <div style="width: 760px; height: 72px; border-radius: 36px; position: relative; flex: none; background: linear-gradient(180deg, rgba(255,255,255,0.065), rgba(255,255,255,0.018)), rgba(12,14,30,0.6); border: 1px solid {{ p.edge }}; box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 0 46px rgba(91,132,255,0.16); display: flex; align-items: center; padding: 0 34px; box-sizing: border-box; gap: 22px;">
+            <div style="position: absolute; top: -1px; left: 30%; width: 60%; height: 1px; background: linear-gradient(90deg, transparent, rgba(95,210,255,0.85), transparent);"></div>
+            <div style="font-family: Jost, sans-serif; font-weight: 300; font-size: 19px; letter-spacing: 0.42em; padding-left: 0.42em; flex: none;">MAVE</div>
+            <div style="width: 1px; height: 30px; background: rgba(255,255,255,0.14); flex: none;"></div>
+            <div style="flex: 1; height: 40px; display: flex; align-items: center; justify-content: space-between;">
+              <sc-for list="{{ p.bars }}" as="b" hint-placeholder-count="34">
+                <div style="width: 3px; height: {{ b.h }}px; border-radius: 2px; background: {{ b.c }}; opacity: {{ b.o }}; animation: maveBar {{ b.d }}s ease-in-out {{ b.dl }}s infinite;"></div>
+              </sc-for>
+            </div>
+            <div style="width: 130px; display: flex; align-items: center; justify-content: flex-end; gap: 9px; font-size: 16px; color: {{ p.tc }}; flex: none; white-space: nowrap;"><div style="width: 6px; height: 6px; border-radius: 3px; background: {{ p.dot }}; animation: maveLive 1.6s ease-in-out infinite;"></div>{{ p.label }}</div>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 6px;"><div style="font-size: 20px;">{{ p.state }} <span style="color: rgba(222,226,255,0.38); font-size: 16px;">{{ p.th }}</span></div><div style="font-family: 'JetBrains Mono', monospace; font-size: 13px; color: rgba(222,226,255,0.38);">{{ p.spec }}</div></div>
+        </div>
+      </sc-for>
+      <div style="display: flex; align-items: center; gap: 40px;">
+        <div style="width: 760px; height: 72px; border-radius: 36px; flex: none; background: linear-gradient(180deg, rgba(255,255,255,0.065), rgba(255,255,255,0.018)), rgba(12,14,30,0.6); border: 1px solid rgba(91,132,255,0.32); display: flex; align-items: center; padding: 0 12px 0 34px; box-sizing: border-box; gap: 22px;">
+          <div style="font-family: Jost, sans-serif; font-weight: 300; font-size: 19px; letter-spacing: 0.42em; padding-left: 0.42em; flex: none;">MAVE</div>
+          <div style="width: 1px; height: 30px; background: rgba(255,255,255,0.14); flex: none;"></div>
+          <div style="flex: 1; font-size: 19px; color: rgba(222,226,255,0.38);">Ask MAVE anything… <span style="font-size: 16px;">· ถาม MAVE ได้ทุกอย่าง</span></div>
+          <div style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: rgba(222,226,255,0.38); border: 1px solid rgba(255,255,255,0.14); border-radius: 6px; padding: 4px 8px;">⌥ Space</div>
+          <div style="width: 48px; height: 48px; border-radius: 24px; background: #5b84ff; display: flex; align-items: center; justify-content: center; flex: none;"><div style="width: 10px; height: 18px; border-radius: 5px; border: 2px solid #fff; box-sizing: border-box;"></div></div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 6px;"><div style="font-size: 20px;">office mode · text <span style="color: rgba(222,226,255,0.38); font-size: 16px;">โหมดพิมพ์</span></div><div style="font-family: 'JetBrains Mono', monospace; font-size: 13px; color: rgba(222,226,255,0.38);">input replaces waveform · mic 48 round · hotkey hint</div></div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 40px;">
+        <div style="width: 760px; display: flex; justify-content: center; gap: 10px; flex: none;">
+          <div style="height: 40px; padding: 0 18px; border-radius: 20px; display: flex; align-items: center; font-size: 16px; color: #eef0fb; background: linear-gradient(180deg, rgba(255,255,255,0.065), rgba(255,255,255,0.018)), rgba(12,14,30,0.6); border: 1px solid rgba(180,190,255,0.14);">Why did the build fail?</div>
+          <div style="height: 40px; padding: 0 18px; border-radius: 20px; display: flex; align-items: center; font-size: 16px; color: #eef0fb; background: linear-gradient(180deg, rgba(255,255,255,0.065), rgba(255,255,255,0.018)), rgba(12,14,30,0.6); border: 1px solid rgba(180,190,255,0.14);">ทำไม build ถึงพัง</div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 6px;"><div style="font-size: 20px;">suggestions</div><div style="font-family: 'JetBrains Mono', monospace; font-size: 13px; color: rgba(222,226,255,0.38);">h40 · r20 · 16px · 18px above bar · max 3 · context-driven</div></div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 40px;">
+        <div style="width: 760px; text-align: center; font-size: 36px; letter-spacing: -0.01em; flex: none;">“What's going on?”</div>
+        <div style="display: flex; flex-direction: column; gap: 6px;"><div style="font-size: 20px;">live transcript</div><div style="font-family: 'JetBrains Mono', monospace; font-size: 13px; color: rgba(222,226,255,0.38);">36px ink · 26px above bar · typed per char · fades 1.2s after end</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 05 CORE COMPONENTS -->
+  <section style="display: flex; flex-direction: column; gap: 40px;">
+    <div style="display: flex; align-items: baseline; gap: 24px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 20px;"><span style="font-family: 'JetBrains Mono', monospace; font-size: 15px; color: #5fd2ff;">05</span><span style="font-size: 36px; font-weight: 500; letter-spacing: -0.02em;">Core components</span><span style="font-size: 18px; color: rgba(222,226,255,0.38);">องค์ประกอบหลัก</span></div>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(480px, 1fr)); gap: 32px;">
+
+      <div style="display: flex; flex-direction: column; gap: 22px; padding: 32px; border-radius: 24px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06);">
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 13px; letter-spacing: 0.18em; color: rgba(222,226,255,0.38);">STATUS ICON · &lt;Status s size /&gt;</div>
+        <div style="display: flex; gap: 32px; flex-wrap: wrap;">
+          <sc-for list="{{ statuses }}" as="s" hint-placeholder-count="6">
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 10px;">
+              <dc-import name="Status" s="{{ s.k }}" size="{{ 22 }}" hint-size="22px,22px"></dc-import>
+              <div style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: rgba(222,226,255,0.6);">{{ s.k }}</div>
+              <div style="font-size: 13px; color: rgba(222,226,255,0.38);">{{ s.u }}</div>
+            </div>
+          </sc-for>
+        </div>
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: rgba(222,226,255,0.38); line-height: 1.6;">16 in rows · 20 in lists · 22 in activity · spinner 0.9s linear · live dot pulse 1.6s</div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 22px; padding: 32px; border-radius: 24px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06);">
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 13px; letter-spacing: 0.18em; color: rgba(222,226,255,0.38);">BUTTONS &amp; CHIPS</div>
+        <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center;">
+          <div style="height: 44px; padding: 0 22px; border-radius: 22px; background: #5b84ff; color: #fff; display: flex; align-items: center; font-size: 17px; font-weight: 500;">Send</div>
+          <div style="height: 44px; padding: 0 22px; border-radius: 22px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.14); box-sizing: border-box; color: rgba(222,226,255,0.6); display: flex; align-items: center; font-size: 17px;">Show diff</div>
+          <div style="height: 44px; padding: 0 22px; border-radius: 22px; background: rgba(95,224,168,0.12); border: 1px solid rgba(95,224,168,0.4); box-sizing: border-box; color: #5fe0a8; display: flex; align-items: center; gap: 8px; font-size: 17px;"><dc-import name="Status" s="done" size="{{ 16 }}" hint-size="16px,16px"></dc-import>Sent</div>
+        </div>
+        <div style="display: flex; flex-wrap: wrap; gap: 10px;">
+          <div style="height: 34px; padding: 0 14px; border-radius: 17px; display: flex; align-items: center; font-size: 15px; color: #eef0fb; background: rgba(91,132,255,0.2); border: 1px solid rgba(91,132,255,0.5); box-sizing: border-box;">Fix it</div>
+          <div style="height: 34px; padding: 0 14px; border-radius: 17px; display: flex; align-items: center; font-size: 14px; color: rgba(222,226,255,0.6); background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.12); box-sizing: border-box; font-family: 'JetBrains Mono', monospace;">navigation.tsx</div>
+          <div style="height: 34px; padding: 0 14px; border-radius: 17px; display: flex; align-items: center; font-size: 15px; color: #5fe0a8; background: rgba(95,224,168,0.1); border: 1px solid rgba(95,224,168,0.4); box-sizing: border-box;">Build successful</div>
+          <div style="height: 34px; padding: 0 14px; border-radius: 17px; display: flex; align-items: center; font-size: 15px; color: #ff7a85; background: rgba(255,122,133,0.1); border: 1px solid rgba(255,122,133,0.4); box-sizing: border-box;">2 errors</div>
+          <div style="height: 34px; padding: 0 14px; border-radius: 17px; display: flex; align-items: center; font-size: 15px; color: #ffc46b; background: rgba(255,196,107,0.1); border: 1px solid rgba(255,196,107,0.4); box-sizing: border-box;">Review</div>
+        </div>
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: rgba(222,226,255,0.38); line-height: 1.6;">button h44 r22 px22 17/500 · chip h34 r17 px14 15 · attachment chip uses mono for file names · press scale .93 (200ms)</div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 22px; padding: 32px; border-radius: 24px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06);">
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 13px; letter-spacing: 0.18em; color: rgba(222,226,255,0.38);">THREAD MESSAGE · persistent conversation</div>
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+          <div style="font-family: 'JetBrains Mono', monospace; font-size: 13px; letter-spacing: 0.18em; color: rgba(222,226,255,0.38);">YOU · คุณ</div>
+          <div style="font-size: 24px; line-height: 1.4; color: rgba(222,226,255,0.6);">Why did the build fail?</div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+          <div style="display: flex; align-items: center; gap: 10px;"><div style="width: 12px; height: 12px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #5fd2ff, #9a72ff 70%); box-shadow: 0 0 12px rgba(154,114,255,0.5);"></div><div style="font-family: Jost, sans-serif; font-size: 14px; letter-spacing: 0.32em; color: rgba(222,226,255,0.6);">MAVE</div></div>
+          <div style="font-size: 26px; line-height: 1.38;">The latest navigation change introduced two TypeScript errors.</div>
+          <div style="font-size: 22px; line-height: 1.4; color: rgba(222,226,255,0.6);">การแก้ไข navigation ล่าสุดทำให้เกิด TypeScript error 2 จุด</div>
+          <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 6px;">
+            <div style="height: 34px; padding: 0 14px; border-radius: 17px; display: flex; align-items: center; font-size: 14px; color: rgba(222,226,255,0.6); background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.12); box-sizing: border-box; font-family: 'JetBrains Mono', monospace;">navigation.tsx</div>
+            <div style="height: 34px; padding: 0 14px; border-radius: 17px; display: flex; align-items: center; font-size: 14px; color: rgba(222,226,255,0.6); background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.12); box-sizing: border-box;">Build logs</div>
+            <div style="height: 34px; padding: 0 14px; border-radius: 17px; display: flex; align-items: center; font-size: 14px; color: #ff7a85; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.12); box-sizing: border-box;">2 errors</div>
+          </div>
+        </div>
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: rgba(222,226,255,0.38); line-height: 1.6;">No bubbles. User 24 dim · MAVE 26 ink · 34px between messages · words fade in 35ms stagger · centered 760w in chat, docked 420w left in tool modes · top mask 160px</div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 22px; padding: 32px; border-radius: 24px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06);">
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 13px; letter-spacing: 0.18em; color: rgba(222,226,255,0.38);">CONTEXT CHIP · glance</div>
+        <div style="display: flex; flex-wrap: wrap; gap: 12px;">
+          <div style="height: 48px; padding: 0 20px; border-radius: 24px; display: flex; align-items: center; gap: 12px; font-size: 17px; white-space: nowrap; background: linear-gradient(180deg, rgba(255,255,255,0.065), rgba(255,255,255,0.018)), rgba(12,14,30,0.6); border: 1px solid rgba(180,190,255,0.14);"><div style="width: 7px; height: 7px; border-radius: 4px; background: #ff7a85;"></div>MAVE UI V2<span style="color: rgba(222,226,255,0.6);">Build failed</span></div>
+          <div style="height: 48px; padding: 0 20px; border-radius: 24px; display: flex; align-items: center; gap: 12px; font-size: 17px; white-space: nowrap; background: linear-gradient(180deg, rgba(255,255,255,0.065), rgba(255,255,255,0.018)), rgba(12,14,30,0.6); border: 1px solid rgba(180,190,255,0.14);"><div style="width: 7px; height: 7px; border-radius: 4px; background: #5fd2ff;"></div>Product Review<span style="color: rgba(222,226,255,0.6);">14:00</span></div>
+          <div style="height: 48px; padding: 0 20px; border-radius: 24px; display: flex; align-items: center; gap: 12px; font-size: 17px; white-space: nowrap; background: linear-gradient(180deg, rgba(255,255,255,0.065), rgba(255,255,255,0.018)), rgba(12,14,30,0.6); border: 1px solid rgba(180,190,255,0.14);"><div style="width: 7px; height: 7px; border-radius: 4px; background: #5fe0a8;"></div>งานวิจัย Navigation<span style="color: rgba(222,226,255,0.6);">พร้อมแล้ว</span></div>
+        </div>
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: rgba(222,226,255,0.38); line-height: 1.6;">h48 r24 px20 gap12 · 7px status dot · title ink, value dim · enter: y+10 → 0, 180ms stagger</div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 22px; padding: 32px; border-radius: 24px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06);">
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 13px; letter-spacing: 0.18em; color: rgba(222,226,255,0.38);">BACKGROUND INDICATOR · task running</div>
+        <div style="width: 320px; height: 70px; border-radius: 35px; display: flex; align-items: center; gap: 14px; padding: 0 22px; box-sizing: border-box; background: linear-gradient(180deg, rgba(255,255,255,0.065), rgba(255,255,255,0.018)), rgba(12,14,30,0.6); border: 1px solid rgba(91,132,255,0.3); box-shadow: inset 0 1px 0 rgba(255,255,255,0.07), 0 30px 70px -24px rgba(0,0,0,0.7);">
+          <dc-import name="Status" s="run" size="{{ 18 }}" hint-size="18px,18px"></dc-import>
+          <div style="display: flex; flex-direction: column; gap: 2px;"><div style="font-size: 15px;">Navigation redesign</div><div style="font-size: 13px; color: rgba(222,226,255,0.6);">Working · 3 of 5</div></div>
+        </div>
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: rgba(222,226,255,0.38); line-height: 1.6;">320×70 · r35 · fixed bottom-right 40/60 · born by morphing the agent panel (glide 800ms) · click → Activity · stacks up to 3, then "+N"</div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 22px; padding: 32px; border-radius: 24px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06);">
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 13px; letter-spacing: 0.18em; color: rgba(222,226,255,0.38);">APPROVAL CARD · from UI surface spec</div>
+        <div style="width: 440px; border-radius: 24px; padding: 26px 28px; box-sizing: border-box; display: flex; flex-direction: column; gap: 16px; background: linear-gradient(180deg, rgba(255,255,255,0.065), rgba(255,255,255,0.018)), rgba(12,14,30,0.6); border: 1px solid rgba(255,196,107,0.35);">
+          <div style="display: flex; align-items: center; gap: 12px;"><dc-import name="Status" s="hold" size="{{ 18 }}" hint-size="18px,18px"></dc-import><div style="font-size: 18px;">MAVE wants to run</div></div>
+          <div style="font-family: 'JetBrains Mono', monospace; font-size: 17px; padding: 14px 16px; border-radius: 12px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.08);">pnpm test</div>
+          <div style="display: grid; grid-template-columns: 100px 1fr; gap: 8px 12px; font-size: 15px;"><div style="color: rgba(222,226,255,0.38);">Directory</div><div style="font-family: 'JetBrains Mono', monospace; font-size: 14px; color: rgba(222,226,255,0.6);">D:\project\MAVE</div><div style="color: rgba(222,226,255,0.38);">Risk</div><div style="color: #5fe0a8;">Safe local action</div></div>
+          <div style="display: flex; gap: 10px; justify-content: flex-end;"><div style="height: 40px; padding: 0 20px; border-radius: 20px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.14); box-sizing: border-box; color: rgba(222,226,255,0.6); display: flex; align-items: center; font-size: 16px;">Deny</div><div style="height: 40px; padding: 0 20px; border-radius: 20px; background: #5b84ff; color: #fff; display: flex; align-items: center; font-size: 16px; font-weight: 500;">Allow</div></div>
+        </div>
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: rgba(222,226,255,0.38); line-height: 1.6;">440w · warn edge 35% · command block mono 17 · risk: ok / warn / err tone · Allow is the only filled button</div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 22px; padding: 32px; border-radius: 24px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06);">
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 13px; letter-spacing: 0.18em; color: rgba(222,226,255,0.38);">STEP LIST · TaskCard / ProgressCard</div>
+        <div style="display: flex; flex-direction: column;">
+          <sc-for list="{{ steps }}" as="s" hint-placeholder-count="5">
+            <div style="height: 64px; display: flex; align-items: center; gap: 16px; border-top: 1px solid rgba(255,255,255,0.08);">
+              <dc-import name="Status" s="{{ s.s }}" size="{{ 20 }}" hint-size="20px,20px"></dc-import>
+              <div style="display: flex; flex-direction: column; gap: 3px;"><div style="font-size: 20px; color: {{ s.c }};">{{ s.n }}</div><sc-if value="{{ s.sub }}" hint-placeholder-val="{{ false }}"><div style="font-size: 14px; color: rgba(222,226,255,0.6);">{{ s.sub }}</div></sc-if></div>
+            </div>
+          </sc-for>
+          <div style="height: 4px; border-radius: 4px; background: rgba(255,255,255,0.08); overflow: hidden; margin-top: 18px;"><div style="width: 48%; height: 100%; background: linear-gradient(90deg, #5fd2ff, #5b84ff, #9a72ff);"></div></div>
+        </div>
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: rgba(222,226,255,0.38); line-height: 1.6;">row h64 · hairline top · wait rows use faint text · progress bar h4 full-round cyan→blue→violet</div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 22px; padding: 32px; border-radius: 24px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06);">
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 13px; letter-spacing: 0.18em; color: rgba(222,226,255,0.38);">CODE CARD · inline error + edit</div>
+        <div style="border-radius: 18px; background: #0a0c18; border: 1px solid rgba(255,255,255,0.08); padding: 14px 0; font-family: 'JetBrains Mono', monospace; font-size: 15px; white-space: pre; overflow: hidden;">
+          <div style="height: 34px; display: flex; align-items: center;"><span style="width: 44px; text-align: right; padding-right: 16px; color: rgba(222,226,255,0.38); font-size: 13px;">7</span><span style="color: #c9cde8;">  </span><span style="color: #b79bff;">const</span><span style="color: #c9cde8;"> go = (item: </span><span style="color: #ffd29a;">NavItem</span><span style="color: #c9cde8;">) =&gt; {</span></div>
+          <div style="height: 34px; display: flex; align-items: center; background: rgba(255,122,133,0.08);"><span style="width: 44px; text-align: right; padding-right: 16px; color: rgba(222,226,255,0.38); font-size: 13px;">8</span><span style="color: #c9cde8;">    </span><span style="color: #b79bff;">const</span><span style="color: #c9cde8;"> target: </span><span style="color: #ffd29a;">Route</span><span style="color: #c9cde8;"> = </span><span style="color: #c9cde8; text-decoration: underline wavy #ff7a85; text-underline-offset: 6px;">item.route</span><span style="color: #c9cde8;">;</span></div>
+          <div style="height: 34px; display: flex; align-items: center; background: rgba(95,224,168,0.09);"><span style="width: 44px; text-align: right; padding-right: 16px; color: rgba(222,226,255,0.38); font-size: 13px;">8</span><span style="color: #c9cde8;">    </span><span style="color: #b79bff;">const</span><span style="color: #c9cde8;"> target: </span><span style="color: #ffd29a;">Route</span><span style="color: #c9cde8;"> = item.route</span><span style="color: #9be3c0; background: rgba(95,224,168,0.18);"> ?? 'home'</span><span style="color: #c9cde8;">;</span></div>
+        </div>
+        <div style="display: inline-flex; align-self: flex-start; padding: 10px 14px; border-radius: 12px; font-family: 'JetBrains Mono', monospace; font-size: 13px; color: rgba(222,226,255,0.6); background: rgba(20,14,26,0.94); border: 1px solid rgba(255,122,133,0.4);"><span style="color: #ff7a85;">TS2322</span>&nbsp;&nbsp;'string | undefined' is not assignable to 'Route'</div>
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: rgba(222,226,255,0.38); line-height: 1.6;">mono 15 / line 34 · err row 8% · added row 9% + token highlight 18% · keyword #b79bff · type #ffd29a · string #9be3c0 · tag #7fc8ff</div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 22px; padding: 32px; border-radius: 24px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06);">
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 13px; letter-spacing: 0.18em; color: rgba(222,226,255,0.38);">FILE ROW · SOURCE NOTE · DIFF BLOCK</div>
+        <div style="height: 72px; border-radius: 14px; padding: 0 16px; box-sizing: border-box; display: flex; align-items: center; gap: 14px; background: rgba(91,132,255,0.14); border: 1px solid rgba(91,132,255,0.4);">
+          <div style="width: 32px; height: 40px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.15); display: flex; align-items: flex-end; justify-content: center; padding-bottom: 4px; box-sizing: border-box; font-family: 'JetBrains Mono', monospace; font-size: 8px; color: rgba(222,226,255,0.6);">PDF</div>
+          <div style="flex: 1; display: flex; flex-direction: column; gap: 3px;"><div style="font-size: 16px;">MAVE_Architecture_v4.pdf</div><div style="font-size: 13px; color: rgba(222,226,255,0.38);">Drive · edited yesterday</div></div>
+          <div style="font-family: 'JetBrains Mono', monospace; font-size: 12px; letter-spacing: 0.12em; color: #5fd2ff;">LATEST</div>
+        </div>
+        <div style="border-radius: 18px; padding: 16px 18px; background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.08); display: flex; flex-direction: column; gap: 8px;"><div style="font-size: 17px; line-height: 1.4;">Reveal controls only when the task needs them</div><div style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: rgba(222,226,255,0.38);">hci.review</div></div>
+        <div style="border-radius: 14px; padding: 16px 14px; background: rgba(91,132,255,0.1); display: flex; flex-direction: column; gap: 12px;">
+          <div style="display: flex; align-items: center; gap: 12px; font-size: 20px;"><span style="font-family: 'JetBrains Mono', monospace; font-size: 13px; color: rgba(222,226,255,0.38);">4</span>Context Router<span style="margin-left: auto; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #5fd2ff; padding: 4px 10px; border-radius: 10px; background: rgba(91,132,255,0.18);">New</span></div>
+          <div style="display: flex; align-items: center; gap: 10px;"><span style="width: 10px; font-family: 'JetBrains Mono', monospace; font-size: 13px; color: #5fe0a8;">+</span><div style="width: 80%; height: 7px; border-radius: 4px; background: rgba(95,224,168,0.45);"></div></div>
+          <div style="display: flex; align-items: center; gap: 10px;"><span style="width: 10px; font-family: 'JetBrains Mono', monospace; font-size: 13px; color: #ff7a85;">−</span><div style="width: 62%; height: 7px; border-radius: 4px; background: rgba(255,122,133,0.4);"></div></div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- 06 LAYOUT -->
+  <section style="display: flex; flex-direction: column; gap: 40px;">
+    <div style="display: flex; align-items: baseline; gap: 24px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 20px;"><span style="font-family: 'JetBrains Mono', monospace; font-size: 15px; color: #5fd2ff;">06</span><span style="font-size: 36px; font-weight: 500; letter-spacing: -0.02em;">Layout · 1920 × 1080</span><span style="font-size: 18px; color: rgba(222,226,255,0.38);">โครงหน้าจอ</span></div>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(440px, 1fr)); gap: 32px;">
+      <sc-for list="{{ layouts }}" as="l" hint-placeholder-count="4">
+        <div style="display: flex; flex-direction: column; gap: 14px;">
+          <div style="aspect-ratio: 16 / 9; border-radius: 16px; background: #080a14; border: 1px solid rgba(255,255,255,0.1); position: relative; overflow: hidden;">
+            <sc-for list="{{ l.boxes }}" as="b" hint-placeholder-count="3">
+              <div style="position: absolute; left: {{ b.x }}%; top: {{ b.y }}%; width: {{ b.w }}%; height: {{ b.h }}%; border-radius: {{ b.r }}px; background: {{ b.bg }}; border: 1px solid {{ b.bd }}; box-sizing: border-box; display: flex; align-items: center; justify-content: center; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: rgba(222,226,255,0.6);">{{ b.t }}</div>
+            </sc-for>
+          </div>
+          <div style="font-size: 19px;">{{ l.n }}</div>
+          <div style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: rgba(222,226,255,0.38); line-height: 1.6;">{{ l.spec }}</div>
+        </div>
+      </sc-for>
+    </div>
+  </section>
+
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  renderVals() {
+    const colors = [
+      ['Background', 'mave-bg', '#05060D', 'App canvas'], ['Surface', 'mave-surface', 'rgba(12,14,30,0.60)', 'Glass fill under gradient'],
+      ['Raised', 'mave-raised', 'rgba(255,255,255,0.035)', 'Inset blocks'], ['Line', 'mave-line', 'rgba(255,255,255,0.08)', 'Hairlines, dividers'],
+      ['Edge', 'mave-edge', 'rgba(180,190,255,0.14)', 'Glass border'], ['Ink', 'mave-ink', '#EEF0FB', 'Primary text'],
+      ['Dim', 'mave-dim', 'rgba(222,226,255,0.60)', 'Secondary text, user lines'], ['Faint', 'mave-faint', 'rgba(222,226,255,0.38)', 'Labels, meta, waiting'],
+      ['Blue', 'mave-blue', '#5B84FF', 'Primary, selection'], ['Violet', 'mave-violet', '#9A72FF', 'Ambient only'],
+      ['Cyan', 'mave-cyan', '#5FD2FF', 'Live, MAVE acting'], ['OK', 'mave-ok', '#5FE0A8', 'Done, passed, sent'],
+      ['Error', 'mave-err', '#FF7A85', 'Failed, removed'], ['Warn', 'mave-warn', '#FFC46B', 'Needs approval'],
+    ].map(([n, tw, v, u]) => ({ n, tw, v, u }));
+    const M = "'JetBrains Mono', monospace", J = 'Jost, sans-serif', S = "Manrope, 'IBM Plex Sans Thai', sans-serif";
+    const type = [
+      ['font-wordmark', J, 30, 300, '0.42em', 'MAVE', 'Jost 300 · 30 idle / 19 bar · .42em'],
+      ['text-display', S, 64, 300, '-0.02em', 'Good afternoon. สวัสดีตอนบ่าย', '64 / 1.1 / 300 · Home greeting'],
+      ['text-time', J, 52, 300, '0', '14:00', 'Jost 52 / 1 / 300 · times, big numbers'],
+      ['text-h1', S, 36, 500, '-0.02em', 'Navigation Redesign', '36 / 1.2 / 500 · panel titles'],
+      ['text-h2', S, 28, 400, '-0.01em', '3 patterns appear consistently', '28 / 1.3 / 400 · section answers'],
+      ['text-body-lg', S, 26, 400, '0', 'The build is green again. Build ผ่านแล้ว', '26 / 1.38 · MAVE reply · 24 dim for user'],
+      ['text-body', S, 20, 400, '0', 'Researching contextual AI interfaces', '20 / 1.45 · rows, list items'],
+      ['text-small', S, 16, 400, '0', 'Starts in 42 minutes · อีก 42 นาที', '16 / 1.45 · meta, secondary'],
+      ['text-caption', S, 14, 400, '0', 'Drafted by MAVE', '14 / 1.4 · hints'],
+      ['text-label', M, 13, 400, '0.18em', 'NEEDS YOU · MAVE IS DOING', 'Mono 13 · .18em · uppercase · faint'],
+    ].map(([tw, ff, fs, fw, ls, sample, spec]) => ({ tw, ff, fs, fw, ls, sample, spec }));
+    const space = [[1, 4, 'icon gap'], [2, 8, 'chip gap'], [3, 12, 'inline gap'], [4, 16, 'row inner'], [6, 24, 'card padding'], [8, 32, 'section inner'], [10, 40, 'panel padding'], [16, 64, 'screen margin'], [50, 200, 'Home left margin']].map(([n, v, u]) => ({ n: n + '', v, u: v + 'px · ' + u }));
+    const radii = [['chip', 17, 'chips, small pills'], ['sm', 12, 'events, tooltips'], ['inner', 18, 'inset blocks'], ['card', 24, 'compact cards'], ['panel', 30, 'workspaces'], ['pill', 36, 'h/2 · MAVE bar']].map(([n, v, u]) => ({ n, v, u }));
+    const motion = [['enter', 'cubic-bezier(.25,1,.5,1) · 450ms', 'Things arriving: cards, rows, words (y +10→0)'], ['glide', 'cubic-bezier(.65,0,.35,1) · 800ms', 'Surfaces morphing: pill, thread dock, panel → indicator'],
+      ['pop', 'cubic-bezier(.34,1.56,.64,1) · 450ms', 'A value changes in place: 18:00 → 19:00'], ['spring', 'framer-motion { stiffness: 260, damping: 30 }', 'Drag / resize of the floating panel']].map(([n, v, u]) => ({ n, v, u }));
+    const mkBars = (amp, seed) => Array.from({ length: 34 }, (_, i) => { const x = i / 33, env = Math.pow(Math.sin(Math.PI * x), 1.3);
+      const mix = 1 - Math.abs(x - 0.5) * 2; return { h: Math.max(3, Math.round(40 * (0.08 + amp * env))), c: mix > 0.5 ? '#9a72ff' : '#5fd2ff', o: (0.3 + 0.7 * env).toFixed(2), d: (0.7 + ((i * 37 + seed) % 9) / 10).toFixed(2), dl: (-((i * 53) % 11) / 10).toFixed(2) }; });
+    const pills = [
+      ['listening', 'กำลังฟัง', 'Listening', 0.95, 'waveform reacts to mic level · edge blue 32%'],
+      ['thinking', 'กำลังคิด', 'Thinking', 0.16, 'low steady wave · no spinner'],
+      ['speaking', 'กำลังพูด', 'Speaking', 0.6, 'TTS level drives bars'],
+      ['task running', 'กำลังทำงาน', 'Working', 0.1, 'idle wave + background indicator appears'],
+      ['error', 'ผิดพลาด', 'Mic unavailable', 0.06, 'edge err 40% · status text err · never red fill'],
+    ].map(([state, th, label, amp, spec], i) => ({ state, th, label, spec, bars: mkBars(amp, i * 7), edge: state === 'error' ? 'rgba(255,122,133,0.4)' : 'rgba(91,132,255,0.32)', tc: state === 'error' ? '#ff7a85' : 'rgba(222,226,255,0.6)', dot: state === 'error' ? '#ff7a85' : '#5fd2ff' }));
+    const statuses = [['done', 'complete'], ['run', 'in progress'], ['live', 'background'], ['hold', 'needs you'], ['err', 'failed'], ['wait', 'queued']].map(([k, u]) => ({ k, u }));
+    const steps = [['done', 'Reviewed current implementation'], ['done', 'Researched 14 references'], ['live', 'Updating prototype', 'Editing navigation behavior…'], ['wait', 'Run usability checks'], ['wait', 'Prepare comparison']]
+      .map(([s, n, sub]) => ({ s, n, sub: sub || '', c: s === 'wait' ? 'rgba(222,226,255,0.38)' : '#eef0fb' }));
+    const G = 'rgba(255,255,255,0.05)', E = 'rgba(180,190,255,0.25)', B = (x, y, w, h, t, r = 10, bg = G, bd = E) => ({ x, y, w, h, t, r, bg, bd });
+    const bar = B(30, 87, 40, 7, 'MAVE bar', 20, 'rgba(91,132,255,0.15)', 'rgba(91,132,255,0.5)');
+    const layouts = [
+      { n: 'Ambient · Home', spec: 'No container. Type on background. Left margin 200, columns at 200 / 780 / 1340. Bar bottom-center (y 949).', boxes: [B(10, 13, 40, 8, 'Good afternoon.', 4, 'transparent', 'transparent'), B(10, 38, 26, 32, 'NEEDS YOU', 6, 'transparent', 'rgba(255,255,255,0.08)'), B(40, 38, 26, 32, 'MAVE IS DOING', 6, 'transparent', 'rgba(255,255,255,0.08)'), B(70, 38, 20, 32, 'NEXT', 6, 'transparent', 'rgba(255,255,255,0.08)'), bar] },
+      { n: 'Conversation', spec: 'Thread centered 760w (x 580). No panel behind it. Suggestions sit 18px above the bar.', boxes: [B(30, 14, 40, 64, 'thread', 6, 'transparent', 'rgba(255,255,255,0.1)'), bar] },
+      { n: 'Workspace · Code / Web / Files', spec: 'Thread docks left (x 64, 420w, scale .56 feel). Workspace glass x 500 → 1880, y 60, h 800, r30.', boxes: [B(3, 6, 21, 80, 'thread', 6, 'transparent', 'rgba(255,255,255,0.1)'), B(26, 6, 72, 74, 'workspace', 14), bar] },
+      { n: 'Side panel → indicator', spec: 'Agent panel 680w on the right (x 1140). On "keep going" it morphs to the 320×70 indicator bottom-right.', boxes: [B(3, 14, 40, 64, 'thread', 6, 'transparent', 'rgba(255,255,255,0.1)'), B(59, 14, 36, 65, 'agent', 14), B(81, 88, 17, 7, 'indicator', 20, 'rgba(91,132,255,0.12)'), bar] },
+    ];
+    return { colors, type, space, radii, motion, pills, statuses, steps, layouts };
+  }
+}
+</script>
+</body>
+</html>

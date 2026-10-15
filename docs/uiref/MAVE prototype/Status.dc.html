@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet><style>@keyframes maveSpin{to{transform:rotate(360deg)}}@keyframes maveLive{0%,100%{opacity:.55}50%{opacity:1}}</style></helmet>
+<div style="width: {{ px }}px; height: {{ px }}px; position: relative; flex: none; display: flex; align-items: center; justify-content: center;">
+  <sc-if value="{{ isDone }}" hint-placeholder-val="{{ true }}">
+    <div style="position: absolute; inset: 0; border-radius: 50%; box-sizing: border-box; background: rgba(95,224,168,0.16); border: 1.5px solid rgba(95,224,168,0.85);">
+      <div style="position: absolute; left: 34%; top: 17%; width: 20%; height: 40%; border-right: 2px solid #5fe0a8; border-bottom: 2px solid #5fe0a8; transform: rotate(45deg);"></div>
+    </div>
+  </sc-if>
+  <sc-if value="{{ isRun }}" hint-placeholder-val="{{ false }}">
+    <div style="position: absolute; inset: 0; border-radius: 50%; box-sizing: border-box; border: 2px solid rgba(255,255,255,0.14); border-top-color: #5fd2ff; animation: maveSpin 0.9s linear infinite;"></div>
+  </sc-if>
+  <sc-if value="{{ isLive }}" hint-placeholder-val="{{ false }}">
+    <div style="width: 45%; height: 45%; border-radius: 50%; background: #5fd2ff; box-shadow: 0 0 10px #5fd2ff; animation: maveLive 1.6s ease-in-out infinite;"></div>
+  </sc-if>
+  <sc-if value="{{ isHold }}" hint-placeholder-val="{{ false }}">
+    <div style="position: absolute; inset: 0; border-radius: 50%; box-sizing: border-box; border: 1.5px solid rgba(255,196,107,0.85);"></div>
+  </sc-if>
+  <sc-if value="{{ isErr }}" hint-placeholder-val="{{ false }}">
+    <div style="position: absolute; inset: 0; border-radius: 50%; box-sizing: border-box; background: rgba(255,122,133,0.14); border: 1.5px solid rgba(255,122,133,0.85); display: flex; align-items: center; justify-content: center; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #ff7a85;">!</div>
+  </sc-if>
+  <sc-if value="{{ isWait }}" hint-placeholder-val="{{ false }}">
+    <div style="position: absolute; inset: 0; border-radius: 50%; box-sizing: border-box; border: 1.5px solid rgba(255,255,255,0.22);"></div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:40,&quot;height&quot;:40},&quot;s&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;done&quot;,&quot;run&quot;,&quot;live&quot;,&quot;hold&quot;,&quot;err&quot;,&quot;wait&quot;],&quot;default&quot;:&quot;done&quot;,&quot;tsType&quot;:&quot;'done'|'run'|'live'|'hold'|'err'|'wait'&quot;},&quot;size&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:20,&quot;min&quot;:12,&quot;max&quot;:40,&quot;tsType&quot;:&quot;number&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    const s = this.props.s || 'wait';
+    return { px: this.props.size || 20, isDone: s === 'done', isRun: s === 'run', isLive: s === 'live', isHold: s === 'hold', isErr: s === 'err', isWait: s === 'wait' };
+  }
+}
+</script>
+</body>
+</html>

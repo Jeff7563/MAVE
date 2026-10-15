@@ -1,0 +1,44 @@
+/* MAVE base layer — import once in renderer (after @tailwind base). Self-host font files in /fonts. */
+@font-face { font-family: 'Jost'; font-weight: 300 400; src: url('./fonts/Jost.woff2') format('woff2'); }
+@font-face { font-family: 'Manrope'; font-weight: 300 600; src: url('./fonts/Manrope.woff2') format('woff2'); }
+@font-face { font-family: 'IBM Plex Sans Thai'; font-weight: 300 500; src: url('./fonts/IBMPlexSansThai.woff2') format('woff2'); }
+@font-face { font-family: 'JetBrains Mono'; font-weight: 400; src: url('./fonts/JetBrainsMono.woff2') format('woff2'); }
+
+:root {
+  --mave-bg: #05060d;
+  --mave-ink: #eef0fb;
+  --mave-dim: rgba(222,226,255,.6);
+  --mave-faint: rgba(222,226,255,.38);
+  --mave-line: rgba(255,255,255,.08);
+  --mave-edge: rgba(180,190,255,.14);
+  --mave-blue: #5b84ff; --mave-violet: #9a72ff; --mave-cyan: #5fd2ff;
+  --mave-ok: #5fe0a8; --mave-err: #ff7a85; --mave-warn: #ffc46b;
+}
+html, body { background: var(--mave-bg); color: var(--mave-ink); font-family: Manrope, 'IBM Plex Sans Thai', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+
+@layer components {
+  /* glass surface — panels, cards, pill */
+  .mave-glass {
+    background: linear-gradient(180deg, rgba(255,255,255,.065), rgba(255,255,255,.018)), rgba(12,14,30,.6);
+    border: 1px solid var(--mave-edge);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.07), 0 30px 70px -24px rgba(0,0,0,.7);
+    backdrop-filter: blur(22px) saturate(140%);
+  }
+  /* inset block inside a glass surface */
+  .mave-inner { background: rgba(255,255,255,.035); border: 1px solid var(--mave-line); border-radius: 18px; }
+  .mave-label { font-family: 'JetBrains Mono', monospace; font-size: 13px; letter-spacing: .18em; text-transform: uppercase; color: var(--mave-faint); }
+  .mave-wordmark { font-family: Jost, sans-serif; font-weight: 300; letter-spacing: .42em; padding-left: .42em; }
+  /* fade-out top edge for the persistent thread */
+  .mave-thread-mask { -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 160px); mask-image: linear-gradient(180deg, transparent 0, #000 160px); }
+}
+
+/* Ambient background: two radial blobs + one blurred band at the bottom. Keep total motion < 120px over 20s. */
+.mave-ambient {
+  background:
+    radial-gradient(950px circle at 14% 89%, rgba(154,114,255,.34), transparent 62%),
+    radial-gradient(820px circle at 88% 91%, rgba(91,132,255,.34), transparent 62%),
+    radial-gradient(720px circle at 17% 11%, rgba(91,132,255,.16), transparent 62%),
+    var(--mave-bg);
+}
+
+@media (prefers-reduced-motion: reduce) { * { animation-duration: 0s !important; transition-duration: 0s !important; } }

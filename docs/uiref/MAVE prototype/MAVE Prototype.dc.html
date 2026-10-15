@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400&family=Manrope:wght@300;400;500;600&family=IBM+Plex+Sans+Thai:wght@300;400;500&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+<style>
+html,body{margin:0;height:100%;background:#000;overflow:hidden;color:#eef0fb;font-family:Manrope,'IBM Plex Sans Thai',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#9fb3ff}a:hover{color:#c9d4ff}
+input::placeholder{color:rgba(222,226,255,0.38)}
+@keyframes maveSpin{to{transform:rotate(360deg)}}
+@keyframes maveLive{0%,100%{opacity:.55}50%{opacity:1}}
+@keyframes maveIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@keyframes maveDriftA{from{transform:translate(0,0)}to{transform:translate(90px,-30px)}}
+@keyframes maveDriftB{from{transform:translate(0,0)}to{transform:translate(-70px,20px)}}
+</style>
+</helmet>
+<div style="position: fixed; inset: 0; background: #000; overflow: hidden;">
+<div style="position: absolute; left: {{ stage.l }}px; top: {{ stage.t }}px; width: 1920px; height: 1080px; transform: scale({{ stage.s }}); transform-origin: 0 0; overflow: hidden; background: #05060d;">
+
+  <!-- ambient -->
+  <div style="position: absolute; left: -690px; top: 10px; width: 1900px; height: 1900px; border-radius: 50%; background: radial-gradient(circle, rgba(154,114,255,0.42) 0%, rgba(154,114,255,0) 62%); animation: maveDriftA 22s ease-in-out infinite alternate;"></div>
+  <div style="position: absolute; left: 860px; top: 160px; width: 1640px; height: 1640px; border-radius: 50%; background: radial-gradient(circle, rgba(91,132,255,0.42) 0%, rgba(91,132,255,0) 62%); animation: maveDriftB 26s ease-in-out infinite alternate;"></div>
+  <div style="position: absolute; left: -400px; top: -600px; width: 1440px; height: 1440px; border-radius: 50%; background: radial-gradient(circle, rgba(91,132,255,0.2) 0%, rgba(91,132,255,0) 62%);"></div>
+  <div style="position: absolute; left: -300px; top: 860px; width: 2600px; height: 150px; border-radius: 50%; filter: blur(46px); transform: rotate(-6deg); background: linear-gradient(90deg, transparent 5%, rgba(154,114,255,0.4) 30%, rgba(91,132,255,0.46) 55%, rgba(95,210,255,0.2) 75%, transparent 95%); animation: maveDriftA 30s ease-in-out infinite alternate;"></div>
+  <div style="position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 45%, transparent 35%, rgba(2,3,8,0.78) 100%);"></div>
+
+  <!-- top chrome -->
+  <div style="position: absolute; left: 64px; top: 30px; display: flex; align-items: center; gap: 10px; opacity: {{ chrome.o }}; transition: opacity .5s;">
+    <div style="width: 6px; height: 6px; border-radius: 3px; background: #5fd2ff;"></div>
+    <div style="font-family: 'JetBrains Mono', monospace; font-size: 13px; letter-spacing: 0.18em; color: rgba(222,226,255,0.38);">{{ chrome.mode }}</div>
+  </div>
+  <div style="position: absolute; right: 64px; top: 22px; display: flex; gap: 4px; padding: 4px; border-radius: 18px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); z-index: 5;">
+    <div onClick="{{ setEN }}" style="height: 28px; padding: 0 14px; border-radius: 14px; display: flex; align-items: center; cursor: pointer; font-family: 'JetBrains Mono', monospace; font-size: 12px; letter-spacing: 0.1em; color: {{ langUI.enC }}; background: {{ langUI.enBg }};">EN</div>
+    <div onClick="{{ setTH }}" style="height: 28px; padding: 0 14px; border-radius: 14px; display: flex; align-items: center; cursor: pointer; font-size: 13px; color: {{ langUI.thC }}; background: {{ langUI.thBg }};">ไทย</div>
+  </div>
+
+  <!-- IDLE glance -->
+  <div style="position: absolute; left: 0; top: 620px; width: 1920px; display: flex; flex-direction: column; align-items: center; gap: 6px; opacity: {{ v.glance.o }}; transform: translateY({{ v.glance.y }}px); pointer-events: none; transition: opacity .5s cubic-bezier(.25,1,.5,1), transform .6s cubic-bezier(.25,1,.5,1);">
+    <div style="font-size: 26px;">{{ t.needs }}</div>
+    <div style="font-size: 26px; color: rgba(222,226,255,0.6);">{{ t.runningStill }}</div>
+    <div style="display: flex; gap: 12px; margin-top: 24px;">
+      <sc-for list="{{ glance }}" as="g" hint-placeholder-count="3">
+        <div style="height: 48px; padding: 0 20px; border-radius: 24px; display: flex; align-items: center; gap: 12px; font-size: 17px; white-space: nowrap; background: linear-gradient(180deg, rgba(255,255,255,0.065), rgba(255,255,255,0.018)), rgba(12,14,30,0.6); border: 1px solid rgba(180,190,255,0.14); backdrop-filter: blur(22px);">
+          <div style="width: 7px; height: 7px; border-radius: 4px; background: {{ g.c }};"></div><span>{{ g.t }}</span><span style="color: rgba(222,226,255,0.6);">{{ g.s }}</span>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+  <div style="position: absolute; left: 0; top: 610px; width: 1920px; text-align: center; font-size: 16px; color: rgba(222,226,255,0.38); opacity: {{ v.hint.o }}; transition: opacity .5s;">{{ t.hint }}</div>
+
+  <!-- HOME -->
+  <div style="position: absolute; inset: 0; opacity: {{ v.home.o }}; transform: translateY({{ v.home.y }}px); pointer-events: {{ v.home.pe }}; transition: opacity .6s cubic-bezier(.25,1,.5,1), transform .8s cubic-bezier(.65,0,.35,1);">
+    <div style="position: absolute; left: 200px; top: 140px; font-weight: 300; font-size: 64px; letter-spacing: -0.02em;">{{ t.greeting }}</div>
+    <div style="position: absolute; left: 200px; top: 236px; font-size: 28px; line-height: 1.45;">{{ home.l1 }}<br><span style="color: rgba(222,226,255,0.6);">{{ home.l2 }}</span></div>
+    <div style="position: absolute; left: 200px; top: 380px; width: 1520px; height: 1px; background: rgba(255,255,255,0.08);"></div>
+    <div style="position: absolute; left: 200px; top: 418px; width: 520px; display: flex; flex-direction: column; gap: 34px;">
+      <div style="font-family: 'JetBrains Mono', monospace; font-size: 13px; letter-spacing: 0.18em; color: rgba(222,226,255,0.38);">{{ t.needsYou }}</div>
+      <sc-for list="{{ home.needs }}" as="n" hint-placeholder-count="2">
+        <div onClick="{{ n.go }}" style="display: flex; flex-direction: column; gap: 8px; cursor: pointer;">
+          <div style="display: flex; align-items: center; gap: 14px; font-size: 27px; color: {{ n.tc }};"><sc-if value="{{ n.done }}" hint-placeholder-val="{{ false }}"><dc-import name="Status" s="done" size="{{ 20 }}" hint-size="20px,20px"></dc-import></sc-if>{{ n.t }}</div>
+          <div style="font-size: 17px; color: {{ n.sc }};">{{ n.s }}</div>
+        </div>
+      </sc-for>
+    </div>
+    <div style="position: absolute; left: 780px; top: 418px; width: 520px; display: flex; flex-direction: column; gap: 34px;">
+      <div style="font-family: 'JetBrains Mono', monospace; font-size: 13px; letter-spacing: 0.18em; color: rgba(222,226,255,0.38);">{{ t.doing }}</div>
+      <sc-for list="{{ home.doing }}" as="d" hint-placeholder-count="2">
+        <div style="display: flex; flex-direction: column; gap: 14px;">
+          <div style="display: flex; align-items: center; gap: 12px; font-size: 24px;"><dc-import name="Status" s="live" size="{{ 16 }}" hint-size="16px,16px"></dc-import>{{ d.t }}</div>
+          <div style="display: flex; align-items: center; gap: 14px; margin-left: 28px;"><div style="width: 300px; height: 4px; border-radius: 4px; background: rgba(255,255,255,0.08); overflow: hidden;"><div style="width: {{ d.p }}%; height: 100%; background: linear-gradient(90deg, #5fd2ff, #5b84ff, #9a72ff); transition: width 1s;"></div></div><span style="font-family: 'JetBrains Mono', monospace; font-size: 14px; color: rgba(222,226,255,0.6);">{{ d.p }}%</span></div>
+        </div>
+      </sc-for>
+    </div>
+    <div style="position: absolute; left: 1340px; top: 418px; display: flex; flex-direction: column; gap: 8px;">
+      <div style="font-family: 'JetBrains Mono', monospace; font-size: 13px; letter-spacing: 0.18em; color: rgba(222,226,255,0.38); margin-bottom: 26px;">{{ t.next }}</div>
+      <div style="font-size: 27px;">Product Review</div>
+      <div style="font-family: Jost, sans-serif; font-weight: 300; font-size: 72px; line-height: 1;">14:00</div>
+      <div style="font-size: 17px; color: #5fd2ff; margin-top: 4px;">{{ t.in42 }}</div>
+    </div>
+    <div style="position: absolute; left: 200px; top: 726px; display: flex; flex-direction: column; gap: 22px;">
+      <div style="font-family: 'JetBrains Mono', monospace; font-size: 13px; letter-spacing: 0.18em; color: rgba(222,226,255,0.38);">{{ t.cont }}</div>
+      <div style="display: flex; gap: 56px; font-size: 24px; color: rgba(222,226,255,0.6);"><span>MAVE Core</span><span>Drone Game</span><span>Affiliate Pipeline</span></div>
+    </div>
+  </div>
+
+  <!-- shared workspace glass -->
+  <div style="position: absolute; left: 500px; top: 60px; width: 1380px; height: 800px; border-radius: 30px; box-sizing: border-box; background: linear-gradient(180deg, rgba(255,255,255,0.065), rgba(255,255,255,0.018)), rgba(12,14,30,0.6); border: 1px solid rgba(180,190,255,0.14); box-shadow: inset 0 1px 0 rgba(255,255,255,0.07), 0 30px 70px -24px rgba(0,0,0,0.7); backdrop-filter: blur(22px) saturate(140%); opacity: {{ v.ws.o }}; transform: scale({{ v.ws.s }}); transition: opacity .6s cubic-bezier(.25,1,.5,1), transform .8s cubic-bezier(.65,0,.35,1);"></div>
+
+  <!-- CODE -->
+  <div style="position: absolute; left: 500px; top: 60px; width: 1380px; height: 800px; opacity: {{ v.code.o }}; transform: translateX({{ v.code.y }}px); pointer-events: {{ v.code.pe }}; transition: opacity .5s cubic-bezier(.25,1,.5,1), transform .8s cubic-bezier(.65,0,.35,1);">
+    <div style="position: absolute; left: 24px; top: 20px; font-family: 'JetBrains Mono', monospace; font-size: 14px; color: rgba(222,226,255,0.38);">mave-ui-v2 / src / components / <span style="color: #eef0fb;">navigation.tsx</span></div>
+    <div style="position: absolute; right: 20px; top: 14px; display: flex; gap: 10px;">
+      <div style="height: 34px; padding: 0 14px; border-radius: 17px; display: flex; align-items: center; font-family: 'JetBrains Mono', monospace; font-size: 13px; color: rgba(222,226,255,0.6); background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.12); box-sizing: border-box;">fix/navigation-types</div>
+      <div style="height: 34px; padding: 0 14px; border-radius: 17px; display: flex; align-items: center; font-size: 15px; color: {{ code.buildC }}; background: {{ code.buildBg }}; border: 1px solid {{ code.buildBd }}; box-sizing: border-box; transition: all .4s;">{{ code.build }}</div>
+    </div>
+    <div style="position: absolute; left: 0; top: 62px; width: 1380px; height: 1px; background: rgba(255,255,255,0.08);"></div>
+    <div style="position: absolute; left: 10px; top: 78px; width: 210px; display: flex; flex-direction: column; gap: 4px;">
+      <sc-for list="{{ code.tree }}" as="f" hint-placeholder-count="11">
+        <div style="height: 32px; border-radius: 8px; display: flex; align-items: center; padding-left: {{ f.pl }}px; padding-right: 10px; box-sizing: border-box; background: {{ f.bg }}; font-family: 'JetBrains Mono', monospace; font-size: 13px; color: {{ f.c }}; transition: background .3s;">
+          <span style="flex: 1; white-space: nowrap;">{{ f.n }}</span><span style="font-size: 12px; color: {{ f.mc }};">{{ f.m }}</span>
+        </div>
+      </sc-for>
+    </div>
+    <div style="position: absolute; left: 230px; top: 62px; width: 1px; height: 738px; background: rgba(255,255,255,0.08);"></div>
+    <div style="position: absolute; left: 231px; top: 90px; width: 740px; display: flex; flex-direction: column;">
+      <sc-for list="{{ code.lines }}" as="l" hint-placeholder-count="15">
+        <div style="height: 34px; display: flex; align-items: center; background: {{ l.bg }}; font-family: 'JetBrains Mono', monospace; font-size: 15px; white-space: pre; transition: background .4s;">
+          <div style="width: 44px; text-align: right; padding-right: 16px; color: rgba(222,226,255,0.38); font-size: 13px; flex: none;">{{ l.n }}</div>
+          <sc-for list="{{ l.toks }}" as="k" hint-placeholder-count="4"><span style="color: {{ k.c }}; background: {{ k.bg }}; text-decoration: {{ k.d }}; text-underline-offset: 6px;">{{ k.s }}</span></sc-for>
+        </div>
+      </sc-for>
+    </div>
+    <div style="position: absolute; left: 520px; top: 368px; padding: 10px 14px; border-radius: 12px; font-family: 'JetBrains Mono', monospace; font-size: 13px; color: rgba(222,226,255,0.6); white-space: nowrap; background: rgba(20,14,26,0.94); border: 1px solid rgba(255,122,133,0.4); opacity: {{ code.tipO }}; transition: opacity .3s;"><span style="color: #ff7a85;">TS2322</span>  'string | undefined' is not assignable to 'Route'</div>
+    <div style="position: absolute; left: 970px; top: 62px; width: 1px; height: 738px; background: rgba(255,255,255,0.08);"></div>
+    <div style="position: absolute; left: 998px; top: 88px; width: 354px; display: flex; flex-direction: column;">
+      <div style="display: flex; align-items: center; gap: 10px;"><div style="width: 12px; height: 12px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #5fd2ff, #9a72ff 70%); box-shadow: 0 0 12px rgba(154,114,255,0.5);"></div><div style="font-family: Jost, sans-serif; font-size: 14px; letter-spacing: 0.32em; color: rgba(222,226,255,0.6);">MAVE</div></div>
+      <div style="font-size: 22px; margin-top: 12px;">{{ code.title }}</div>
+      <div style="display: flex; flex-direction: column; margin-top: 20px; opacity: {{ code.opsO }}; transition: opacity .4s;">
+        <sc-for list="{{ code.ops }}" as="o" hint-placeholder-count="4">
+          <div style="height: 40px; display: flex; align-items: center; gap: 12px; font-size: 17px; color: {{ o.c }};"><dc-import name="Status" s="{{ o.s }}" size="{{ 16 }}" hint-size="16px,16px"></dc-import>{{ o.n }}</div>
+        </sc-for>
+        <div style="display: flex; justify-content: space-between; margin-top: 18px; opacity: {{ code.testO }};"><span style="font-family: 'JetBrains Mono', monospace; font-size: 13px; letter-spacing: 0.18em; color: rgba(222,226,255,0.38);">{{ t.tests }}</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 13px; color: {{ code.testC }};">{{ code.testN }} / 12</span></div>
+        <div style="margin-top: 10px; height: 4px; border-radius: 4px; background: rgba(255,255,255,0.08); overflow: hidden; opacity: {{ code.testO }};"><div style="width: {{ code.testP }}%; height: 100%; background: linear-gradient(90deg, #5fd2ff, #5b84ff, #9a72ff);"></div></div>
+      </div>
+      <div style="display: flex; flex-direction: column; margin-top: 26px; opacity: {{ code.resO }}; transform: translateY({{ code.resY }}px); transition: opacity .45s, transform .45s;">
+        <div style="height: 46px; display: flex; align-items: center; justify-content: space-between; border-top: 1px solid rgba(255,255,255,0.08); font-size: 19px;"><span style="font-family: 'JetBrains Mono', monospace; font-size: 13px; letter-spacing: 0.18em; color: rgba(222,226,255,0.38);">{{ t.tests }}</span>12 / 12 {{ t.passed }}</div>
+        <div style="height: 46px; display: flex; align-items: center; justify-content: space-between; border-top: 1px solid rgba(255,255,255,0.08); font-size: 19px;"><span style="font-family: 'JetBrains Mono', monospace; font-size: 13px; letter-spacing: 0.18em; color: rgba(222,226,255,0.38);">BUILD</span><span style="color: #5fe0a8;">{{ t.successful }}</span></div>
+        <div style="height: 46px; display: flex; align-items: center; justify-content: space-between; border-top: 1px solid rgba(255,255,255,0.08); font-size: 19px;"><span style="font-family: 'JetBrains Mono', monospace; font-size: 13px; letter-spacing: 0.18em; color: rgba(222,226,255,0.38);">{{ t.changed }}</span><span>3 files  <span style="font-family: 'JetBrains Mono', monospace; font-size: 15px; color: #5fe0a8;">+42</span> <span style="font-family: 'JetBrains Mono', monospace; font-size: 15px; color: #ff7a85;">−18</span></span></div>
+      </div>
+      <div style="display: flex; flex-direction: column; margin-top: 22px; opacity: {{ code.shipO }}; transition: opacity .4s;">
+        <sc-for list="{{ code.ship }}" as="o" hint-placeholder-count="3">
+          <div style="height: 40px; display: flex; align-items: center; gap: 12px; font-size: 17px; color: {{ o.c }};"><dc-import name="Status" s="{{ o.s }}" size="{{ 16 }}" hint-size="16px,16px"></dc-import>{{ o.n }}</div>
+        </sc-for>
+      </div>
+      <div style="display: flex; align-items: center; gap: 14px; margin-top: 18px; opacity: {{ code.doneO }}; transition: opacity .4s;"><span style="font-size: 22px;">{{ t.done }}</span><div style="height: 34px; padding: 0 14px; border-radius: 17px; display: flex; align-items: center; font-size: 15px; color: #5fe0a8; background: rgba(95,224,168,0.1); border: 1px solid rgba(95,224,168,0.4); box-sizing: border-box;">PR #128 open</div></div>
+    </div>
+  </div>
+
+  <!-- WEB -->
+  <div style="position: absolute; left: 500px; top: 60px; width: 1380px; height: 800px; opacity: {{ v.web.o }}; transform: translateX({{ v.web.y }}px); pointer-events: {{ v.web.pe }}; transition: opacity .5s cubic-bezier(.25,1,.5,1), transform .8s cubic-bezier(.65,0,.35,1);">
+    <div style="position: absolute; left: 24px; top: 16px; height: 32px; display: flex; align-items: center; gap: 12px; font-size: 18px;"><dc-import name="Status" s="{{ web.st }}" size="{{ 16 }}" hint-size="16px,16px"></dc-import>{{ t.researching }}</div>
+    <div style="position: absolute; right: 24px; top: 22px; font-family: 'JetBrains Mono', monospace; font-size: 14px; color: rgba(222,226,255,0.6);">{{ web.count }}</div>
+    <div style="position: absolute; left: 0; top: 62px; width: 1380px; height: 1px; background: rgba(255,255,255,0.08);"></div>
+    <div style="position: absolute; inset: 0; opacity: {{ web.bodyO }}; filter: blur({{ web.blur }}px); transition: opacity .6s, filter .6s;">
+      <div style="position: absolute; left: 24px; top: 76px; display: flex; gap: 8px;">
+        <sc-for list="{{ web.tabs }}" as="b" hint-placeholder-count="4">
+          <div style="width: 230px; height: 40px; border-radius: 12px; box-sizing: border-box; display: flex; align-items: center; gap: 10px; padding: 0 14px; font-size: 14px; color: {{ b.c }}; background: {{ b.bg }}; border: 1px solid {{ b.bd }}; transition: all .3s;"><div style="width: 13px; height: 13px; border-radius: 4px; background: {{ b.dot }};"></div>{{ b.d }}</div>
+        </sc-for>
+      </div>
+      <div style="position: absolute; left: 24px; top: 124px; width: 986px; height: 38px; border-radius: 19px; box-sizing: border-box; padding: 0 18px; display: flex; align-items: center; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); font-family: 'JetBrains Mono', monospace; font-size: 13px; color: rgba(222,226,255,0.6); white-space: pre;">{{ web.url }}</div>
+      <div style="position: absolute; left: 24px; top: 174px; width: 986px; height: 602px; border-radius: 16px; overflow: hidden; background: #0a0c18; border: 1px solid rgba(255,255,255,0.08);">
+        <sc-for list="{{ web.pages }}" as="p" hint-placeholder-count="1">
+          <div style="position: absolute; left: {{ p.x }}px; top: 30px; width: {{ p.cw }}px; height: 560px; overflow: hidden;">
+            <div style="width: 800px; transform-origin: 0 0; transform: scale({{ p.s }}) translateY({{ p.y }}px); transition: transform 1.2s cubic-bezier(.65,0,.35,1);">
+              <div style="font-family: 'JetBrains Mono', monospace; font-size: 13px; letter-spacing: 0.12em; color: rgba(222,226,255,0.38); margin-top: 14px;">{{ p.dU }}</div>
+              <div style="font-size: 36px; font-weight: 500; letter-spacing: -0.02em; line-height: 1.2; margin-top: 14px;">{{ p.t }}</div>
+              <div style="font-size: 15px; color: rgba(222,226,255,0.38); margin-top: 12px;">{{ p.m }}</div>
+              <div style="margin-top: 26px; height: 190px; border-radius: 12px; background: radial-gradient(circle at 28% 38%, rgba(154,114,255,0.55), transparent 58%), radial-gradient(circle at 78% 72%, rgba(91,132,255,0.5), transparent 55%), #0b0d1c;"></div>
+              <sc-for list="{{ p.paras }}" as="q" hint-placeholder-count="3">
+                <p style="font-size: 20px; line-height: 1.65; color: {{ q.c }}; margin: 24px 0 0; text-wrap: pretty;"><span style="background-image: linear-gradient(rgba(91,132,255,0.42), rgba(91,132,255,0.42)); background-size: {{ q.hw }}% 100%; background-repeat: no-repeat; -webkit-box-decoration-break: clone; box-decoration-break: clone; padding: 2px 0; transition: background-size .8s linear;">{{ q.s }}</span></p>
+              </sc-for>
+            </div>
+          </div>
+        </sc-for>
+        <div style="position: absolute; left: 492px; top: 0; width: 1px; height: 602px; background: rgba(255,255,255,0.1); opacity: {{ web.cmpO }};"></div>
+        <div style="position: absolute; left: 393px; top: 16px; height: 32px; padding: 0 14px; border-radius: 16px; display: flex; align-items: center; font-size: 14px; background: rgba(14,16,34,0.9); border: 1px solid rgba(180,190,255,0.14); opacity: {{ web.cmpO }};">{{ t.comparing }}</div>
+      </div>
+      <div style="position: absolute; left: 1034px; top: 88px; width: 322px; display: flex; flex-direction: column; gap: 14px;">
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 13px; letter-spacing: 0.18em; color: rgba(222,226,255,0.38); margin-bottom: 8px;">{{ t.notes }}</div>
+        <sc-for list="{{ web.notes }}" as="n" hint-placeholder-count="3">
+          <div style="border-radius: 18px; padding: 16px 18px; background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.08); display: flex; flex-direction: column; gap: 8px; animation: maveIn .5s cubic-bezier(.25,1,.5,1);"><div style="font-size: 17px; line-height: 1.4;">{{ n.t }}</div><div style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: rgba(222,226,255,0.38);">{{ n.d }}</div></div>
+        </sc-for>
+      </div>
+    </div>
+    <div style="position: absolute; left: 330px; top: 170px; width: 720px; padding: 36px 40px; box-sizing: border-box; border-radius: 26px; background: linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02)), rgba(14,16,34,0.82); border: 1px solid rgba(180,190,255,0.14); box-shadow: 0 30px 70px -24px rgba(0,0,0,0.7); backdrop-filter: blur(22px); opacity: {{ web.sumO }}; transform: translateY({{ web.sumY }}px); transition: opacity .6s, transform .6s cubic-bezier(.25,1,.5,1);">
+      <div style="font-family: 'JetBrains Mono', monospace; font-size: 13px; letter-spacing: 0.18em; color: rgba(222,226,255,0.38);">{{ t.reviewed14 }}</div>
+      <div style="font-size: 30px; margin-top: 14px; margin-bottom: 24px;">{{ t.patterns }}</div>
+      <sc-for list="{{ patterns }}" as="pt" hint-placeholder-count="3">
+        <div style="display: flex; align-items: center; gap: 20px; height: 66px; border-top: 1px solid rgba(255,255,255,0.08); font-size: 24px;"><span style="font-family: 'JetBrains Mono', monospace; font-size: 15px; color: #5fd2ff;">{{ pt.n }}</span>{{ pt.t }}</div>
+      </sc-for>
+      <div style="display: flex; align-items: center; gap: 12px; margin-top: 22px;"><div style="display: flex;"><div style="width: 22px; height: 22px; border-radius: 7px; border: 2px solid #10121f; background: #5b84ff;"></div><div style="width: 22px; height: 22px; border-radius: 7px; margin-left: -6px; border: 2px solid #10121f; background: #9a72ff;"></div><div style="width: 22px; height: 22px; border-radius: 7px; margin-left: -6px; border: 2px solid #10121f; background: #5fd2ff;"></div><div style="width: 22px; height: 22px; border-radius: 7px; margin-left: -6px; border: 2px solid #10121f; background: #8a90b8;"></div></div><span style="font-size: 16px; color: rgba(222,226,255,0.6);">Sources · 14</span></div>
+    </div>
+  </div>
+
+  <!-- FILES -->
+  <div style="position: absolute; left: 500px; top: 60px; width: 1380px; height: 800px; opacity: {{ v.files.o }}; transform: translateX({{ v.files.y }}px); pointer-events: {{ v.files.pe }}; transition: opacity .5s cubic-bezier(.25,1,.5,1), transform .8s cubic-bezier(.65,0,.35,1);">
+    <div style="position: absolute; left: 24px; top: 24px; width: 400px; height: 52px; border-radius: 26px; box-sizing: border-box; padding: 0 20px; display: flex; align-items: center; gap: 12px; background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.08); font-size: 18px;"><div style="width: 13px; height: 13px; border-radius: 7px; border: 2px solid rgba(222,226,255,0.6); box-sizing: border-box;"></div>{{ files.q }}</div>
+    <div style="position: absolute; left: 24px; top: 96px; width: 400px; display: flex; flex-direction: column; gap: 8px; opacity: {{ files.listO }}; transition: opacity .5s;">
+      <div style="height: 28px; display: flex; align-items: center; gap: 10px; font-size: 14px; color: rgba(222,226,255,0.38);"><sc-if value="{{ files.searching }}" hint-placeholder-val="{{ false }}"><dc-import name="Status" s="run" size="{{ 13 }}" hint-size="13px,13px"></dc-import></sc-if>{{ files.status }}</div>
+      <sc-for list="{{ files.list }}" as="f" hint-placeholder-count="4">
+        <div style="height: 72px; border-radius: 14px; padding: 0 16px; box-sizing: border-box; display: flex; align-items: center; gap: 14px; background: {{ f.bg }}; border: 1px solid {{ f.bd }}; animation: maveIn .45s cubic-bezier(.25,1,.5,1); transition: all .3s;">
+          <div style="width: 32px; height: 40px; flex: none; border-radius: 6px; border: 1px solid rgba(255,255,255,0.15); display: flex; align-items: flex-end; justify-content: center; padding-bottom: 4px; box-sizing: border-box; font-family: 'JetBrains Mono', monospace; font-size: 8px; color: rgba(222,226,255,0.6);">{{ f.ext }}</div>
+          <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px;"><div style="font-size: 16px; white-space: nowrap;">{{ f.n }}</div><div style="font-size: 13px; color: rgba(222,226,255,0.38);">{{ f.m }}</div></div>
+          <div style="font-family: 'JetBrains Mono', monospace; font-size: 12px; letter-spacing: 0.12em; color: #5fd2ff;">{{ f.tag }}</div>
+        </div>
+      </sc-for>
+    </div>
+    <div style="position: absolute; left: 24px; top: 110px; width: 400px; display: flex; flex-direction: column; opacity: {{ files.difO }}; transform: translateY({{ files.difY }}px); transition: opacity .5s, transform .5s;">
+      <div style="font-family: 'JetBrains Mono', monospace; font-size: 13px; letter-spacing: 0.18em; color: rgba(222,226,255,0.38);">{{ t.comparedV3 }}</div>
+      <div style="font-size: 30px; margin-top: 14px; margin-bottom: 22px;">{{ t.majorChanges }}</div>
+      <sc-for list="{{ files.changes }}" as="c" hint-placeholder-count="3">
+        <div style="height: 62px; display: flex; align-items: center; justify-content: space-between; border-top: 1px solid rgba(255,255,255,0.08); font-size: 19px;">{{ c.t }}<span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #5fd2ff;">{{ c.ch }}</span></div>
+      </sc-for>
+    </div>
+    <div style="position: absolute; left: 448px; top: 24px; width: 908px; height: 752px; border-radius: 20px; box-sizing: border-box; background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.08); opacity: {{ files.docO }}; transform: translateX({{ files.docX }}px); transition: opacity .5s, transform .6s cubic-bezier(.25,1,.5,1);">
+      <div style="position: absolute; left: 30px; top: 24px; font-family: 'JetBrains Mono', monospace; font-size: 13px; color: rgba(222,226,255,0.38);">MAVE_Architecture_v4.pdf · 24 pages</div>
+      <div style="position: absolute; right: 24px; top: 16px; height: 34px; padding: 0 14px; border-radius: 17px; display: flex; align-items: center; font-size: 15px; background: rgba(91,132,255,0.2); border: 1px solid rgba(91,132,255,0.5); box-sizing: border-box; opacity: {{ files.difO }}; transition: opacity .4s;">v3 → v4 · 3</div>
+      <div style="position: absolute; left: 30px; top: 62px; font-weight: 500; font-size: 34px; letter-spacing: -0.02em;">MAVE Architecture</div>
+      <div style="position: absolute; left: 18px; top: 128px; width: 872px; display: flex; flex-direction: column; gap: 12px;">
+        <sc-for list="{{ files.secs }}" as="s" hint-placeholder-count="4">
+          <div style="height: 140px; border-radius: 14px; padding: 16px 14px; box-sizing: border-box; background: {{ s.bg }}; display: flex; flex-direction: column; gap: 13px; transition: background .5s;">
+            <div style="display: flex; align-items: center; gap: 12px; font-size: 21px;"><span style="font-family: 'JetBrains Mono', monospace; font-size: 13px; color: rgba(222,226,255,0.38);">{{ s.n }}</span>{{ s.t }}<span style="margin-left: auto; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #5fd2ff; padding: 4px 10px; border-radius: 10px; background: rgba(91,132,255,0.18); opacity: {{ s.chO }}; transition: opacity .4s;">{{ s.ch }}</span></div>
+            <sc-for list="{{ s.bars }}" as="b" hint-placeholder-count="3">
+              <div style="display: flex; align-items: center; gap: 10px;"><span style="width: 10px; font-family: 'JetBrains Mono', monospace; font-size: 13px; color: {{ b.sc }};">{{ b.sym }}</span><div style="width: {{ b.w }}px; height: 7px; border-radius: 4px; background: {{ b.c }}; transition: background .5s;"></div></div>
+            </sc-for>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+
+  <!-- AGENT -->
+  <div style="position: absolute; left: 1140px; top: 150px; width: 680px; height: 700px; border-radius: 30px; box-sizing: border-box; background: linear-gradient(180deg, rgba(255,255,255,0.065), rgba(255,255,255,0.018)), rgba(12,14,30,0.6); border: 1px solid rgba(91,132,255,0.3); box-shadow: inset 0 1px 0 rgba(255,255,255,0.07), 0 30px 70px -24px rgba(0,0,0,0.7); backdrop-filter: blur(22px); opacity: {{ v.agent.o }}; transform: translate({{ v.agent.x }}px, {{ v.agent.y }}px) scale({{ v.agent.s }}); transform-origin: 100% 100%; pointer-events: {{ v.agent.pe }}; transition: opacity .6s cubic-bezier(.25,1,.5,1), transform .8s cubic-bezier(.65,0,.35,1);">
+    <div style="position: absolute; left: 40px; top: 40px; display: flex; align-items: center; gap: 12px;"><dc-import name="Status" s="run" size="{{ 16 }}" hint-size="16px,16px"></dc-import><span style="font-family: 'JetBrains Mono', monospace; font-size: 13px; letter-spacing: 0.18em; color: #5fd2ff;">{{ t.working }}</span></div>
+    <div style="position: absolute; right: 40px; top: 40px; font-family: 'JetBrains Mono', monospace; font-size: 15px; color: rgba(222,226,255,0.6);">{{ agent.clock }}</div>
+    <div style="position: absolute; left: 40px; top: 76px; font-weight: 500; font-size: 36px; letter-spacing: -0.02em;">Navigation Redesign</div>
+    <div style="position: absolute; left: 40px; top: 158px; width: 600px; display: flex; flex-direction: column;">
+      <sc-for list="{{ agent.steps }}" as="s" hint-placeholder-count="5">
+        <div style="height: 78px; border-top: 1px solid rgba(255,255,255,0.08); display: flex; align-items: center; gap: 18px;">
+          <dc-import name="Status" s="{{ s.s }}" size="{{ 20 }}" hint-size="20px,20px"></dc-import>
+          <div style="display: flex; flex-direction: column; gap: 4px;"><div style="font-size: 21px; color: {{ s.c }};">{{ s.n }}</div><div style="font-size: 15px; color: rgba(222,226,255,0.6);">{{ s.sub }}</div></div>
+        </div>
+      </sc-for>
+    </div>
+    <div style="position: absolute; left: 40px; top: 576px; width: 600px; height: 4px; border-radius: 4px; background: rgba(255,255,255,0.08); overflow: hidden;"><div style="width: {{ agent.p }}%; height: 100%; background: linear-gradient(90deg, #5fd2ff, #5b84ff, #9a72ff); transition: width .5s;"></div></div>
+    <div style="position: absolute; left: 40px; top: 600px; display: flex; align-items: center; gap: 16px;"><span style="font-size: 15px; color: rgba(222,226,255,0.38);">{{ t.bgHint }}</span><div onClick="{{ collapse }}" style="height: 34px; padding: 0 14px; border-radius: 17px; display: flex; align-items: center; cursor: pointer; font-size: 14px; color: rgba(222,226,255,0.6); background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.12); box-sizing: border-box;">{{ t.minimize }}</div></div>
+  </div>
+
+  <!-- DAILY cards -->
+  <div style="position: absolute; left: 200px; top: 640px; width: 380px; height: 220px; border-radius: 24px; box-sizing: border-box; background: linear-gradient(180deg, rgba(255,255,255,0.065), rgba(255,255,255,0.018)), rgba(12,14,30,0.6); border: 1px solid rgba(180,190,255,0.14); backdrop-filter: blur(22px); padding: 26px 28px; display: flex; flex-direction: column; gap: 8px; opacity: {{ daily.meetO }}; transform: translateY({{ daily.meetY }}px); pointer-events: none; transition: opacity .5s, transform .6s cubic-bezier(.25,1,.5,1);">
+    <div style="font-family: 'JetBrains Mono', monospace; font-size: 13px; letter-spacing: 0.18em; color: rgba(222,226,255,0.38);">{{ t.nextMeeting }}</div>
+    <div style="font-family: Jost, sans-serif; font-weight: 300; font-size: 52px; line-height: 1; margin-top: 6px;">14:00</div>
+    <div style="font-size: 20px; margin-top: 8px;">MAVE Product Review</div>
+    <div style="font-size: 16px; color: #5fd2ff;">{{ t.startsIn }}</div>
+  </div>
+  <div style="position: absolute; left: 610px; top: 700px; width: 360px; height: 160px; border-radius: 24px; box-sizing: border-box; background: linear-gradient(180deg, rgba(255,255,255,0.065), rgba(255,255,255,0.018)), rgba(12,14,30,0.6); border: 1px solid rgba(180,190,255,0.14); backdrop-filter: blur(22px); padding: 26px 28px; opacity: {{ daily.gymO }}; transform: translateY({{ daily.gymY }}px); pointer-events: none; transition: opacity .5s, transform .6s cubic-bezier(.25,1,.5,1);">
+    <div style="font-family: 'JetBrains Mono', monospace; font-size: 13px; letter-spacing: 0.18em; color: rgba(222,226,255,0.38);">{{ t.calendar }}</div>
+    <div style="font-size: 22px; margin-top: 10px;">Gym</div>
+    <div style="display: flex; align-items: center; gap: 14px; margin-top: 14px; font-family: 'JetBrains Mono', monospace; font-size: 22px;">
+      <span style="color: {{ daily.oldC }}; text-decoration: {{ daily.oldD }}; transition: color .3s;">18:00</span>
+      <span style="color: rgba(222,226,255,0.38); opacity: {{ daily.movedO }}; transition: opacity .3s;">→</span>
+      <span style="opacity: {{ daily.movedO }}; transform: translateX({{ daily.newX }}px); display: inline-block; transition: opacity .45s, transform .45s cubic-bezier(.34,1.56,.64,1);">19:00</span>
+      <span style="margin-left: auto; display: flex; align-items: center; gap: 8px; font-family: Manrope, 'IBM Plex Sans Thai', sans-serif; font-size: 15px; color: #5fe0a8; opacity: {{ daily.updO }}; transition: opacity .4s;"><dc-import name="Status" s="done" size="{{ 16 }}" hint-size="16px,16px"></dc-import>{{ t.updated }}</span>
+    </div>
+  </div>
+  <div style="position: absolute; left: 1000px; top: 620px; width: 460px; height: 240px; border-radius: 24px; box-sizing: border-box; background: linear-gradient(180deg, rgba(255,255,255,0.065), rgba(255,255,255,0.018)), rgba(12,14,30,0.6); border: 1px solid rgba(180,190,255,0.14); backdrop-filter: blur(22px); opacity: {{ daily.msgO }}; transform: translateY({{ daily.msgY }}px); pointer-events: {{ daily.msgPe }}; transition: opacity .5s, transform .6s cubic-bezier(.25,1,.5,1);">
+    <div style="position: absolute; left: 26px; top: 22px; display: flex; align-items: center; gap: 12px;"><div style="width: 38px; height: 38px; border-radius: 19px; background: linear-gradient(135deg, #5b84ff, #9a72ff); display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 600; color: #fff;">JC</div><div style="display: flex; flex-direction: column;"><span style="font-size: 18px;">James</span><span style="font-size: 13px; color: rgba(222,226,255,0.38);">Messages</span></div></div>
+    <div style="position: absolute; left: 26px; top: 80px; width: 408px; height: 92px; border-radius: 14px; box-sizing: border-box; padding: 12px 16px; background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.08); font-size: 19px; line-height: 1.45;">{{ daily.draft }}</div>
+    <div style="position: absolute; left: 26px; top: 194px; font-size: 13px; color: rgba(222,226,255,0.38);">{{ t.drafted }}</div>
+    <div onClick="{{ send }}" style="position: absolute; right: 26px; top: 184px; height: 38px; padding: 0 20px; border-radius: 19px; box-sizing: border-box; display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 16px; font-weight: 500; color: {{ daily.sendC }}; background: {{ daily.sendBg }}; border: 1px solid {{ daily.sendBd }}; transition: all .3s;" style-active="transform: scale(0.93);"><sc-if value="{{ daily.sent }}" hint-placeholder-val="{{ false }}"><dc-import name="Status" s="done" size="{{ 15 }}" hint-size="15px,15px"></dc-import></sc-if>{{ daily.sendL }}</div>
+  </div>
+
+  <!-- ORCHESTRATION -->
+  <div style="position: absolute; inset: 0; opacity: {{ v.orch.o }}; transform: translateY({{ v.orch.y }}px); pointer-events: none; transition: opacity .6s cubic-bezier(.25,1,.5,1), transform .8s cubic-bezier(.65,0,.35,1);">
+    <div style="position: absolute; left: 210px; top: 270px; font-family: 'JetBrains Mono', monospace; font-size: 13px; letter-spacing: 0.18em; color: rgba(222,226,255,0.38);">{{ t.oneInstr }}</div>
+    <div style="position: absolute; left: 210px; top: 330px; display: flex; gap: 90px;">
+      <sc-for list="{{ orch.nodes }}" as="n" hint-placeholder-count="4">
+        <div style="width: 300px; display: flex; flex-direction: column; gap: 26px; opacity: {{ n.o }}; transform: translateY({{ n.y }}px); transition: opacity .45s, transform .45s cubic-bezier(.25,1,.5,1);">
+          <div style="height: 110px; border-radius: 22px; box-sizing: border-box; padding: 24px; display: flex; flex-direction: column; gap: 14px; background: linear-gradient(180deg, rgba(255,255,255,0.065), rgba(255,255,255,0.018)), rgba(12,14,30,0.6); border: 1px solid {{ n.bd }}; box-shadow: {{ n.sh }}; backdrop-filter: blur(22px); transition: border .4s, box-shadow .4s;">
+            <div style="display: flex; align-items: center; gap: 12px; font-size: 22px;"><dc-import name="Status" s="{{ n.s }}" size="{{ 18 }}" hint-size="18px,18px"></dc-import>{{ n.n }}</div>
+            <div style="font-size: 15px; color: {{ n.dc }}; white-space: nowrap;">{{ n.d }}</div>
+          </div>
+          <div style="height: 180px; border-radius: 18px; box-sizing: border-box; padding: 20px 22px; background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.08); display: flex; flex-direction: column; gap: 10px; opacity: {{ n.ao }}; transition: opacity .4s;">
+            <sc-for list="{{ n.art }}" as="a" hint-placeholder-count="3">
+              <div style="font-size: {{ a.fs }}px; color: {{ a.c }}; font-family: {{ a.ff }}; line-height: 1.4;">{{ a.t }}</div>
+            </sc-for>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+    <div style="position: absolute; left: 210px; top: 690px; display: flex; align-items: center; gap: 14px; font-size: 26px; opacity: {{ orch.doneO }}; transition: opacity .5s;"><dc-import name="Status" s="done" size="{{ 22 }}" hint-size="22px,22px"></dc-import>{{ t.completed }}</div>
+  </div>
+
+  <!-- ACTIVITY -->
+  <div style="position: absolute; left: 260px; top: 120px; width: 1100px; opacity: {{ v.activity.o }}; transform: translateY({{ v.activity.y }}px); pointer-events: none; transition: opacity .6s cubic-bezier(.25,1,.5,1), transform .8s cubic-bezier(.65,0,.35,1); display: flex; flex-direction: column;">
+    <div style="display: flex; align-items: center; gap: 14px; margin-bottom: 26px;"><div style="width: 14px; height: 14px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #5fd2ff, #9a72ff 70%); box-shadow: 0 0 12px rgba(154,114,255,0.5);"></div><span style="font-family: 'JetBrains Mono', monospace; font-size: 13px; letter-spacing: 0.18em;">{{ t.activity }}</span></div>
+    <sc-for list="{{ activity }}" as="r" hint-placeholder-count="7">
+      <div style="height: 84px; display: flex; align-items: center; gap: 22px; border-top: 1px solid rgba(255,255,255,0.08);">
+        <dc-import name="Status" s="{{ r.s }}" size="{{ 22 }}" hint-size="22px,22px"></dc-import>
+        <div style="flex: 1; font-size: 26px; color: {{ r.c }};">{{ r.n }}</div>
+        <span style="font-size: 17px; color: {{ r.sc }};">{{ r.sub }}</span>
+        <sc-if value="{{ r.live }}" hint-placeholder-val="{{ false }}"><div style="width: 220px; height: 4px; border-radius: 4px; background: rgba(255,255,255,0.08); overflow: hidden;"><div style="width: {{ r.p }}%; height: 100%; background: linear-gradient(90deg, #5fd2ff, #5b84ff, #9a72ff); transition: width 1s;"></div></div></sc-if>
+      </div>
+    </sc-for>
+  </div>
+
+  <!-- persistent thread -->
+  <div style="position: absolute; left: {{ th.x }}px; top: {{ th.y }}px; width: 760px; height: {{ th.h }}px; transform: scale({{ th.s }}); transform-origin: 0 0; opacity: {{ th.o }}; pointer-events: none; transition: left .8s cubic-bezier(.65,0,.35,1), top .8s cubic-bezier(.65,0,.35,1), transform .8s cubic-bezier(.65,0,.35,1), opacity .5s, height .8s; display: flex; flex-direction: column; justify-content: flex-end; overflow: hidden; -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 160px); mask-image: linear-gradient(180deg, transparent 0, #000 160px);">
+    <sc-for list="{{ msgs }}" as="m" hint-placeholder-count="0">
+      <div style="flex: none; padding-top: 34px; display: flex; flex-direction: column; gap: 10px; animation: maveIn .55s cubic-bezier(.25,1,.5,1);">
+        <sc-if value="{{ m.u }}" hint-placeholder-val="{{ true }}">
+          <div style="font-family: 'JetBrains Mono', monospace; font-size: 13px; letter-spacing: 0.18em; color: rgba(222,226,255,0.38);">{{ t.you }}</div>
+          <div style="font-size: 24px; line-height: 1.4; color: rgba(222,226,255,0.6);">{{ m.text }}</div>
+        </sc-if>
+        <sc-if value="{{ m.mave }}" hint-placeholder-val="{{ false }}">
+          <div style="display: flex; align-items: center; gap: 10px;"><div style="width: 12px; height: 12px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #5fd2ff, #9a72ff 70%); box-shadow: 0 0 12px rgba(154,114,255,0.5);"></div><div style="font-family: Jost, sans-serif; font-size: 14px; letter-spacing: 0.32em; color: rgba(222,226,255,0.6);">MAVE</div></div>
+          <div style="font-size: 26px; line-height: 1.38;">{{ m.text }}</div>
+          <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 6px;">
+            <sc-for list="{{ m.att }}" as="a" hint-placeholder-count="0">
+              <div style="height: 34px; padding: 0 14px; border-radius: 17px; display: flex; align-items: center; font-size: 14px; font-family: {{ a.ff }}; color: {{ a.c }}; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.12); box-sizing: border-box;">{{ a.l }}</div>
+            </sc-for>
+          </div>
+        </sc-if>
+      </div>
+    </sc-for>
+  </div>
+
+  <!-- background indicator -->
+  <div onClick="{{ openActivity }}" style="position: absolute; left: 1560px; top: 950px; width: 320px; height: 70px; border-radius: 35px; box-sizing: border-box; display: flex; align-items: center; gap: 14px; padding: 0 22px; cursor: pointer; background: linear-gradient(180deg, rgba(255,255,255,0.065), rgba(255,255,255,0.018)), rgba(12,14,30,0.6); border: 1px solid rgba(91,132,255,0.3); box-shadow: inset 0 1px 0 rgba(255,255,255,0.07), 0 30px 70px -24px rgba(0,0,0,0.7); backdrop-filter: blur(22px); opacity: {{ ind.o }}; transform: scale({{ ind.s }}); transform-origin: 100% 100%; pointer-events: {{ ind.pe }}; transition: opacity .5s, transform .8s cubic-bezier(.65,0,.35,1);" style-hover="border-color: rgba(91,132,255,0.6);">
+    <dc-import name="Status" s="run" size="{{ 18 }}" hint-size="18px,18px"></dc-import>
+    <div style="display: flex; flex-direction: column; gap: 2px; white-space: nowrap;"><span style="font-size: 15px;">Navigation redesign</span><span style="font-size: 13px; color: rgba(222,226,255,0.6);">{{ ind.sub }}</span></div>
+  </div>
+
+  <!-- suggestions -->
+  <div style="position: absolute; left: 0; top: {{ sg.y }}px; width: 1920px; display: flex; justify-content: center; gap: 10px; transition: top .8s cubic-bezier(.65,0,.35,1);">
+    <sc-for list="{{ sugg }}" as="s" hint-placeholder-count="0">
+      <div onClick="{{ s.go }}" style="height: 40px; padding: 0 18px; border-radius: 20px; display: flex; align-items: center; cursor: pointer; font-size: 16px; white-space: nowrap; background: linear-gradient(180deg, rgba(255,255,255,0.065), rgba(255,255,255,0.018)), rgba(12,14,30,0.6); border: 1px solid rgba(180,190,255,0.14); backdrop-filter: blur(22px); animation: maveIn .45s cubic-bezier(.25,1,.5,1); transition: border-color .2s, background .2s;" style-hover="border-color: rgba(91,132,255,0.6); background: rgba(91,132,255,0.16);">{{ s.l }}</div>
+    </sc-for>
+  </div>
+
+  <!-- transcript -->
+  <div style="position: absolute; left: 310px; top: {{ cap.y }}px; width: 1300px; transform: translateY(-100%); text-align: center; font-size: 34px; line-height: 1.3; letter-spacing: -0.01em; text-wrap: balance; opacity: {{ cap.o }}; transition: opacity .35s; pointer-events: none;">{{ cap.text }}</div>
+
+  <!-- MAVE bar -->
+  <div onClick="{{ wake }}" style="position: absolute; left: {{ pill.l }}px; top: {{ pill.t }}px; width: {{ pill.w }}px; height: {{ pill.h }}px; border-radius: {{ pill.r }}px; box-sizing: border-box; padding: 0 {{ pill.pad }}px; display: flex; align-items: center; gap: 22px; cursor: {{ pill.cur }}; background: linear-gradient(180deg, rgba(255,255,255,0.065), rgba(255,255,255,0.018)), rgba(12,14,30,0.6); border: 1px solid rgba(91,132,255,0.32); box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 0 46px rgba(91,132,255,0.18), 0 24px 60px -20px rgba(0,0,0,0.7); backdrop-filter: blur(22px) saturate(140%); transition: left .8s cubic-bezier(.65,0,.35,1), top .8s cubic-bezier(.65,0,.35,1), width .8s cubic-bezier(.65,0,.35,1), height .8s cubic-bezier(.65,0,.35,1), border-radius .8s, padding .8s;">
+    <div style="position: absolute; top: -1px; left: 25%; width: 50%; height: 1px; background: linear-gradient(90deg, transparent, rgba(95,210,255,0.85), transparent);"></div>
+    <div style="font-family: Jost, sans-serif; font-weight: 300; font-size: {{ pill.fs }}px; letter-spacing: 0.42em; padding-left: 0.42em; white-space: nowrap; flex: none; transition: font-size .8s;">MAVE</div>
+    <div style="width: 1px; height: 30px; background: rgba(255,255,255,0.14); flex: none; opacity: {{ pill.act }}; transition: opacity .5s;"></div>
+    <div style="flex: {{ pill.flex }}; position: relative; height: 44px; opacity: {{ pill.act }}; transition: opacity .5s; min-width: 0;">
+      <div style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: space-between; opacity: {{ voice.waveO }}; transition: opacity .3s;">
+        <sc-for list="{{ voice.bars }}" as="b" hint-placeholder-count="0"><div style="width: 3px; height: {{ b.h }}px; border-radius: 2px; background: {{ b.c }}; opacity: {{ b.o }};"></div></sc-for>
+      </div>
+      <input value="{{ input }}" onChange="{{ onInput }}" onKeyDown="{{ onKey }}" placeholder="{{ t.placeholder }}" style="position: absolute; inset: 0; width: 100%; background: transparent; border: 0; outline: none; color: #eef0fb; font-family: Manrope, 'IBM Plex Sans Thai', sans-serif; font-size: 19px; opacity: {{ voice.inO }}; pointer-events: {{ voice.inPe }}; transition: opacity .3s;">
+    </div>
+    <div style="width: {{ pill.stW }}px; flex: none; display: flex; align-items: center; justify-content: flex-end; gap: 9px; font-size: 16px; color: rgba(222,226,255,0.6); white-space: nowrap; opacity: {{ pill.act }}; transition: opacity .5s; overflow: hidden;"><div style="width: 6px; height: 6px; border-radius: 3px; background: #5fd2ff; animation: maveLive 1.6s ease-in-out infinite;"></div>{{ voice.label }}</div>
+  </div>
+
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;screen&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;idle&quot;,&quot;home&quot;,&quot;chat&quot;,&quot;code&quot;,&quot;web&quot;,&quot;agent&quot;,&quot;daily&quot;,&quot;files&quot;,&quot;orch&quot;,&quot;activity&quot;],&quot;default&quot;:&quot;idle&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Prototype&quot;},&quot;lang&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;EN&quot;,&quot;TH&quot;],&quot;default&quot;:&quot;EN&quot;,&quot;tsType&quot;:&quot;'EN'|'TH'&quot;,&quot;section&quot;:&quot;Prototype&quot;}}">
+const STR = {
+  en: {
+    modes: { idle: '', home: 'HOME', chat: 'CONVERSATION', code: 'CODE', web: 'WEB', agent: 'AGENT', daily: 'CALENDAR · MESSAGES', files: 'FILES', orch: 'ORCHESTRATION', activity: 'ACTIVITY' },
+    hint: 'Click MAVE, or press ⌥ Space', placeholder: 'Ask MAVE anything…', listening: 'Listening', thinking: 'Thinking', speaking: 'Speaking', ready: 'Ready',
+    needs: '2 things need you.', runningStill: '3 tasks are still running.', greeting: 'Good afternoon.', running: '3 tasks are running.', nothing: 'Nothing needs you.', finishing: 'MAVE is finishing 2 tasks.',
+    needsYou: 'NEEDS YOU', doing: 'MAVE IS DOING', next: 'NEXT', cont: 'CONTINUE', in42: 'in 42 minutes', buildFailed: 'Build failed · 6 min ago', waiting: 'Waiting on you', resolved: 'Resolved',
+    approve: 'Approve MAVE navigation', research: 'Contextual UI research', pres: 'Presentation generation',
+    fixing: 'Fixing the build', shipping: 'Shipping the fix', ops: ['Analyzing dependency', 'Editing navigation.tsx', 'Updating route state', 'Running tests'], ship: ['Creating commit', 'Pushing branch', 'Opening pull request'],
+    tests: 'TESTS', passed: 'passed', successful: 'Successful', changed: 'CHANGED', done: 'Done.', buildOk: 'Build successful', buildBad: 'Build failed',
+    researching: 'Researching contextual AI interfaces', source: 'Source', reviewed: 'sources reviewed', notes: 'NOTES', comparing: 'Comparing 2 sources', reviewed14: '14 SOURCES REVIEWED', patterns: '3 patterns appear consistently',
+    pat: ['Context first', 'Progressive disclosure', 'Persistent conversation'], note: ["Start from the user's current context", 'Reveal controls only when the task needs them', 'Keep one persistent conversation'],
+    working: 'MAVE IS WORKING', steps: ['Reviewed current implementation', 'Researched 14 references', 'Updating prototype', 'Run usability checks', 'Prepare comparison'], editing: 'Editing navigation behavior…', bgHint: 'Runs in the background.', minimize: 'Keep going',
+    nextMeeting: 'NEXT MEETING', startsIn: 'Starts in 42 minutes', calendar: 'CALENDAR', updated: 'Updated', drafted: 'Drafted by MAVE', send: 'Send', sent: 'Sent',
+    draft: "Hey James, I'll send the MAVE prototype tonight.", searching: 'Searching 2,418 files', results: '4 results · newest first', comparedV3: 'COMPARED WITH V3', majorChanges: '3 major changes',
+    oneInstr: 'ONE INSTRUCTION · FOUR TOOLS', nodes: ['Research', 'Document', 'Message', 'Calendar'], run: ['Gathering…', 'Updating…', 'Sending…', 'Attaching…'], det: ['14 sources', 'Architecture v5', 'Sent to James', "Attached to tomorrow's review"], queued: 'Queued', completed: 'Completed.',
+    activity: 'MAVE ACTIVITY', you: 'YOU', indWork: 'Working · 3 of 5', indPrep: 'Preparing comparison',
+    act: [['Fixed navigation build', '12 / 12 tests'], ['Created pull request', '#128'], ['Completed interface research', '14 sources'], ['Updated calendar', 'Gym → 19:00'], ['Sent message to James', 'Architecture v5'], ['Navigation concept', 'Preparing comparison'], ['Presentation', 'Generating']],
+  },
+  th: {
+    modes: { idle: '', home: 'หน้าหลัก', chat: 'สนทนา', code: 'โค้ด', web: 'เว็บ', agent: 'เอเจนต์', daily: 'ปฏิทิน · ข้อความ', files: 'ไฟล์', orch: 'ประสานงาน', activity: 'กิจกรรม' },
+    hint: 'คลิก MAVE หรือกด ⌥ Space', placeholder: 'ถาม MAVE ได้ทุกอย่าง…', listening: 'กำลังฟัง', thinking: 'กำลังคิด', speaking: 'กำลังพูด', ready: 'พร้อม',
+    needs: 'มี 2 เรื่องที่รอคุณอยู่', runningStill: 'และอีก 3 งานที่กำลังทำ', greeting: 'สวัสดีตอนบ่าย', running: 'กำลังทำงานอยู่ 3 งาน', nothing: 'ไม่มีเรื่องที่รอคุณ', finishing: 'MAVE กำลังปิดงานอีก 2 งาน',
+    needsYou: 'รอคุณ', doing: 'MAVE กำลังทำ', next: 'ถัดไป', cont: 'ทำต่อ', in42: 'อีก 42 นาที', buildFailed: 'Build ล้มเหลว · 6 นาทีที่แล้ว', waiting: 'รอคุณอนุมัติ', resolved: 'เรียบร้อยแล้ว',
+    approve: 'อนุมัติ MAVE navigation', research: 'วิจัย Contextual UI', pres: 'สร้างพรีเซนเทชัน',
+    fixing: 'กำลังแก้ build', shipping: 'กำลังส่งงาน', ops: ['วิเคราะห์ dependency', 'แก้ navigation.tsx', 'อัปเดต route state', 'รันเทสต์'], ship: ['สร้าง commit', 'push branch', 'เปิด pull request'],
+    tests: 'เทสต์', passed: 'ผ่าน', successful: 'สำเร็จ', changed: 'แก้ไข', done: 'เรียบร้อย', buildOk: 'Build สำเร็จ', buildBad: 'Build ล้มเหลว',
+    researching: 'กำลังค้นคว้า contextual AI interface', source: 'แหล่งที่', reviewed: 'แหล่งที่อ่านแล้ว', notes: 'บันทึก', comparing: 'เทียบ 2 แหล่ง', reviewed14: 'อ่านแล้ว 14 แหล่ง', patterns: 'พบ 3 รูปแบบที่ตรงกัน',
+    pat: ['เริ่มจากบริบท', 'เผยทีละขั้น', 'บทสนทนาต่อเนื่อง'], note: ['เริ่มจากบริบทที่ผู้ใช้อยู่ตอนนี้', 'แสดงปุ่มควบคุมเฉพาะเมื่องานต้องใช้', 'คงบทสนทนาเดียวไว้ตลอด'],
+    working: 'MAVE กำลังทำงาน', steps: ['ตรวจ implementation ปัจจุบันแล้ว', 'ค้นคว้า 14 แหล่งแล้ว', 'กำลังอัปเดต prototype', 'ทดสอบ usability', 'เตรียมเปรียบเทียบ'], editing: 'กำลังแก้พฤติกรรม navigation…', bgHint: 'ทำงานต่อเบื้องหลังได้', minimize: 'ทำต่อเบื้องหลัง',
+    nextMeeting: 'ประชุมถัดไป', startsIn: 'เริ่มในอีก 42 นาที', calendar: 'ปฏิทิน', updated: 'อัปเดตแล้ว', drafted: 'ร่างโดย MAVE', send: 'ส่ง', sent: 'ส่งแล้ว',
+    draft: 'หวัดดี James คืนนี้จะส่ง MAVE prototype ให้นะ', searching: 'กำลังค้น 2,418 ไฟล์', results: '4 ผลลัพธ์ · ใหม่สุดก่อน', comparedV3: 'เทียบกับ V3', majorChanges: '3 การเปลี่ยนแปลงหลัก',
+    oneInstr: 'คำสั่งเดียว · สี่เครื่องมือ', nodes: ['ค้นคว้า', 'เอกสาร', 'ข้อความ', 'ปฏิทิน'], run: ['กำลังรวบรวม…', 'กำลังอัปเดต…', 'กำลังส่ง…', 'กำลังแนบ…'], det: ['14 แหล่ง', 'Architecture v5', 'ส่งให้ James แล้ว', 'แนบในประชุมพรุ่งนี้แล้ว'], queued: 'รอคิว', completed: 'เสร็จทั้งหมด',
+    activity: 'กิจกรรมของ MAVE', you: 'คุณ', indWork: 'กำลังทำ · 3 จาก 5', indPrep: 'กำลังเตรียมเปรียบเทียบ',
+    act: [['แก้ navigation build แล้ว', '12 / 12 เทสต์'], ['เปิด pull request แล้ว', '#128'], ['ค้นคว้า interface เสร็จแล้ว', '14 แหล่ง'], ['อัปเดตปฏิทินแล้ว', 'ยิม → 19:00'], ['ส่งข้อความหา James แล้ว', 'Architecture v5'], ['Navigation concept', 'กำลังเตรียมเปรียบเทียบ'], ['พรีเซนเทชัน', 'กำลังสร้าง']],
+  },
+};
+const MSG = {
+  u_going: ["What's going on?", 'วันนี้มีอะไรบ้าง'], m_going: ['2 things need you. 3 tasks are still running.', 'มี 2 เรื่องที่รอคุณ และอีก 3 งานที่กำลังทำ'],
+  u_show: ['Show me.', 'ขอดูหน่อย'],
+  u_why: ['Why did the build fail?', 'ทำไม build ถึงพัง'], m_why: ['The latest navigation change introduced two TypeScript errors. Both are inside the navigation component.', 'การแก้ navigation ล่าสุดทำให้เกิด TypeScript error 2 จุด ทั้งคู่อยู่ใน navigation component'],
+  m_offer: ['I can fix them.', 'ผมแก้ให้ได้'], u_fix: ['Fix it.', 'แก้เลย'], m_fixed: ['Fixed. The build is green again.', 'แก้แล้ว build ผ่านแล้ว'],
+  u_ship: ['Ship it.', 'ส่งขึ้นเลย'], m_ship: ['Done. Pull request #128 is open.', 'เรียบร้อย เปิด Pull request #128 แล้ว'],
+  u_research: ['Before we continue, check how other AI assistants handle contextual navigation.', 'ก่อนไปต่อ ช่วยดูว่า AI assistant ตัวอื่นจัดการ contextual navigation ยังไง'],
+  m_research: ['14 sources reviewed. Three patterns appear consistently.', 'อ่านไป 14 แหล่ง พบ 3 รูปแบบที่ใช้ตรงกัน'],
+  u_choose: ['Which approach would you choose?', 'ถ้าเป็นคุณจะเลือกแบบไหน'], m_choose: ["The second approach. It scales better with the architecture we're already using, while keeping the interface lightweight.", 'แบบที่สอง เพราะต่อยอดกับสถาปัตยกรรมที่เราใช้อยู่ได้ดีกว่า และยังทำให้หน้าจอเบา'],
+  u_update: ['Use this research and update our navigation concept.', 'เอางานวิจัยนี้ไปอัปเดต navigation concept ของเรา'], m_bg: ["On it. I'll keep working in the background.", 'รับทราบ ผมจะทำต่อเบื้องหลังนะ'],
+  u_meeting: ["When's my next meeting?", 'ประชุมถัดไปกี่โมง'], m_meeting: ['MAVE Product Review at 14:00 — in 42 minutes.', 'MAVE Product Review เวลา 14:00 อีก 42 นาที'],
+  u_gym: ['Move my gym session to seven.', 'เลื่อนเข้ายิมไปทุ่มนึง'], m_gym: ['Moved to 19:00.', 'เลื่อนเป็น 19:00 แล้ว'],
+  u_james: ["Tell James I'll send the prototype tonight.", 'บอก James ว่าคืนนี้จะส่ง prototype ให้'], m_james: ['Draft is ready. Send it?', 'ร่างข้อความไว้แล้ว ส่งเลยไหม'], m_sent: ['Sent.', 'ส่งแล้ว'],
+  u_doc: ['Find the latest MAVE architecture document.', 'หาเอกสาร MAVE architecture ฉบับล่าสุด'], m_doc: ['Found v4, edited yesterday.', 'เจอ v4 แก้ล่าสุดเมื่อวาน'],
+  u_diff: ['What changed from the previous version?', 'เปลี่ยนอะไรจากเวอร์ชันก่อน'], m_diff: ['Three major changes since v3.', 'มี 3 การเปลี่ยนแปลงหลักจาก v3'],
+  u_orch: ["Take the research, update the architecture document, send it to James, and attach it to tomorrow's review.", 'เอางานวิจัยไปอัปเดตเอกสาร architecture ส่งให้ James แล้วแนบไว้ในประชุมรีวิวพรุ่งนี้'],
+  u_activity: ['What have you done so far?', 'ทำอะไรไปแล้วบ้าง'], u_quiet: ["That's all for now.", 'แค่นี้ก่อน'],
+};
+const ATT = { why: [['navigation.tsx', 'mono'], ['Build logs'], ['2 errors', 'err']], choose: [['Architecture'], ['14 Sources'], ['Current UI']] };
+const ACT = {
+  going: { to: 'idle', m: [['m_going', 0.9]] }, show: { to: 'home' }, why: { to: 'chat', m: [['m_why', 1.0, 'why'], ['m_offer', 2.6]] },
+  fix: { to: 'code', m: [['m_fixed', 6.2]] }, ship: { to: 'code', m: [['m_ship', 1.7]] }, research: { to: 'web', m: [['m_research', 5.8]] },
+  choose: { to: 'chat', m: [['m_choose', 1.0, 'choose']] }, update: { to: 'agent' }, meeting: { to: 'daily', m: [['m_meeting', 0.9]] },
+  gym: { to: 'daily', m: [['m_gym', 0.9]] }, james: { to: 'daily', m: [['m_james', 0.9]] }, doc: { to: 'files', m: [['m_doc', 2.2]] },
+  diff: { to: 'files', m: [['m_diff', 1.0]] }, orch: { to: 'orch' }, activity: { to: 'activity' }, quiet: { to: 'idle' },
+};
+const FLOW = ['going', 'show', 'why', 'fix', 'ship', 'research', 'choose', 'update', 'meeting', 'gym', 'james', 'doc', 'diff', 'orch', 'activity'];
+const JUMP = { idle: -1, home: 1, chat: 2, code: 4, web: 5, agent: 7, daily: 10, files: 12, orch: 13, activity: 14 };
+const SRC = [
+  { d: 'interfacenotes.io', slug: 'assistants-context', t: 'Designing assistants that know where you are', m: 'Interface Notes · 7 min read', p: ['Most assistants still open on a blank prompt. The user has to explain where they are, what they were doing and what they need.', "The strongest systems begin from the user's current context, not from an empty input.", 'Assistants that surfaced the active document first cut setup turns by more than half.'] },
+  { d: 'hci.review', slug: 'progressive-disclosure', t: 'Progressive disclosure in conversational systems', m: 'HCI Review · 11 min read', p: ['Conversational interfaces tend to fail in one of two ways: they hide everything behind language, or they bring back every menu at once.', "Reveal controls only when the task calls for them, and let them recede the moment it doesn't.", 'Participants described the best prototypes as quiet.'] },
+  { d: 'productfield.co', slug: 'keep-the-thread', t: 'Why the thread should never disappear', m: 'Product Field · 6 min read', p: ['When an assistant switches into a tool, users often lose the conversation that brought them there.', 'People trust systems that keep one persistent conversation across every surface they open.', 'Switching apps resets attention. Switching modes inside one layer does not.'] },
+];
+const CODE = ["import { useRouter } from './router';", "import type { NavItem, Route } from './types';", '', 'export function Navigation({ items }: Props) {', '  const router = useRouter();', '', '  const go = (item: NavItem) => {', null, '    router.push(target);', '  };', '', '  return items.map((item) => (', null, '  ));', '}'];
+const TREE = [[0, 'mave-ui-v2', 'dir'], [1, 'src', 'dir'], [2, 'components', 'dir'], [3, 'navigation.tsx', 'active'], [3, 'sidebar.tsx'], [3, 'panel.tsx'], [2, 'router.ts'], [2, 'types.ts'], [1, 'tests', 'dir'], [2, 'navigation.test.tsx'], [1, 'package.json']];
+const KW = /^(import|from|export|function|const|return|type)$/;
+const INK = '#eef0fb', DIM = 'rgba(222,226,255,0.6)', FAINT = 'rgba(222,226,255,0.38)', OK = '#5fe0a8', ERR = '#ff7a85';
+const MONO = "'JetBrains Mono', monospace", SANS = "Manrope, 'IBM Plex Sans Thai', sans-serif";
+function hl(str, extra = {}) {
+  return str.split(/('[^']*'|\b[A-Za-z_]+\b|<\/?[A-Za-z]+|[{}()=>;:,.\[\]?])/g).filter(p => p !== '').map(p => {
+    let c = '#c9cde8';
+    if (p[0] === "'") c = '#9be3c0'; else if (KW.test(p)) c = '#b79bff'; else if (/^<\/?[A-Za-z]/.test(p)) c = '#7fc8ff'; else if (/^[A-Z]/.test(p)) c = '#ffd29a'; else if (/^[{}()=>;:,.\[\]?]$/.test(p)) c = 'rgba(200,205,235,0.5)';
+    return { s: p, c, bg: 'transparent', d: 'none', ...extra };
+  });
+}
+const clamp = v => Math.max(0, Math.min(1, v));
+const st = (e, a, b) => e < a ? 'wait' : e < b ? 'run' : 'done';
+
+class Component extends DCLogic {
+  state = { mode: 'idle', active: false, glance: false, msgs: [], at: {}, now: Date.now(), last: 0, agent: false, sent: false, input: '', lang: null, vw: window.innerWidth, vh: window.innerHeight };
+  timers = [];
+  componentDidMount() {
+    this.iv = setInterval(() => this.setState({ now: Date.now() }), 100);
+    this.onR = () => this.setState({ vw: window.innerWidth, vh: window.innerHeight });
+    this.onK = e => { if (e.altKey && e.code === 'Space') { e.preventDefault(); this.wake(); } };
+    window.addEventListener('resize', this.onR); window.addEventListener('keydown', this.onK);
+    if (this.props.screen && this.props.screen !== 'idle') this.jump(this.props.screen);
+  }
+  componentWillUnmount() { clearInterval(this.iv); this.timers.forEach(clearTimeout); window.removeEventListener('resize', this.onR); window.removeEventListener('keydown', this.onK); }
+  componentDidUpdate(pp) { if (pp.screen !== this.props.screen && this.props.screen) this.jump(this.props.screen); }
+  later(fn, ms) { this.timers.push(setTimeout(fn, ms)); }
+  push(who, key, att) { this.setState(s => ({ msgs: [...s.msgs, { who, key, att }] })); }
+  wake = () => { if (!this.state.active) this.setState({ active: true, last: Date.now() - 3400 }); };
+  run(k) {
+    const a = ACT[k], now = Date.now();
+    this.timers.forEach(clearTimeout); this.timers = [];
+    if (k === 'quiet') { this.setState({ mode: 'idle', active: false, glance: false, msgs: [], at: {}, agent: false, sent: false, input: '', last: now }); return; }
+    this.setState(s => ({ mode: a.to, active: true, last: now, at: { ...s.at, [k]: now }, glance: k === 'going' ? true : s.glance, input: '' }));
+    this.push('u', 'u_' + k);
+    (a.m || []).forEach(([key, d, att]) => this.later(() => this.push('m', key, att), d * 1000));
+    if (k === 'update') this.later(() => this.collapse(), 4200);
+  }
+  collapse = () => { if (this.state.mode !== 'agent') return; this.timers.forEach(clearTimeout); this.timers = []; this.setState({ mode: 'chat', agent: true, last: Date.now() }); this.push('m', 'm_bg'); };
+  send = () => { if (this.state.sent || !this.state.at.james) return; this.setState({ sent: true, last: Date.now() }); this.push('m', 'm_sent'); };
+  jump(screen) {
+    const idx = JUMP[screen] ?? -1, past = Date.now() - 60000, at = {}, msgs = [];
+    for (let i = 0; i <= idx; i++) { const k = FLOW[i]; at[k] = past; msgs.push({ who: 'u', key: 'u_' + k }); (ACT[k].m || []).forEach(([key, , att]) => msgs.push({ who: 'm', key, att })); if (k === 'update' && screen !== 'agent') msgs.push({ who: 'm', key: 'm_bg' }); }
+    const sent = idx >= 10; if (sent) msgs.push({ who: 'm', key: 'm_sent' });
+    this.timers.forEach(clearTimeout); this.timers = [];
+    this.setState({ mode: screen, active: idx >= 0, glance: idx >= 0, at, msgs, agent: idx >= 7 && screen !== 'agent', sent, last: past, input: '' });
+  }
+  suggKeys() {
+    const { mode, at, glance, agent, sent, active, now } = this.state, e = k => at[k] ? (now - at[k]) / 1000 : -1;
+    switch (mode) {
+      case 'idle': return active ? (glance ? ['show'] : ['going']) : [];
+      case 'home': return ['why'];
+      case 'chat': return agent ? ['meeting'] : at.choose ? ['update'] : ['fix'];
+      case 'code': return at.ship ? (e('ship') > 1.7 ? ['research'] : []) : (e('fix') > 6.2 ? ['ship', 'research'] : []);
+      case 'web': return e('research') > 6 ? ['choose'] : [];
+      case 'daily': return at.james ? (sent ? ['doc'] : []) : at.gym ? ['james'] : ['gym'];
+      case 'files': return at.diff ? ['orch'] : (e('doc') > 2.4 ? ['diff'] : []);
+      case 'orch': return e('orch') > 5.5 ? ['activity'] : [];
+      case 'activity': return ['quiet'];
+      default: return [];
+    }
+  }
+  renderVals() {
+    const S = this.state, L = S.lang || (this.props.lang === 'TH' ? 'th' : 'en'), li = L === 'th' ? 1 : 0, t = STR[L], now = S.now;
+    const e = k => S.at[k] ? (now - S.at[k]) / 1000 : -1, M = S.mode;
+    const sc = Math.min(S.vw / 1920, S.vh / 1080);
+    const stage = { s: sc, l: (S.vw - 1920 * sc) / 2, t: (S.vh - 1080 * sc) / 2 };
+    const tool = ['code', 'web', 'files'].includes(M);
+    const vis = (on, off = 16) => ({ o: on ? 1 : 0, y: on ? 0 : off, pe: on ? 'auto' : 'none' });
+    const v = {
+      glance: { o: M === 'idle' && S.glance ? 1 : 0, y: M === 'idle' && S.glance ? 0 : 12 },
+      hint: { o: M === 'idle' && !S.active ? 1 : 0 },
+      home: vis(M === 'home'), code: vis(M === 'code', 40), web: vis(M === 'web', 40), files: vis(M === 'files', 40),
+      ws: { o: tool ? 1 : 0, s: tool ? 1 : 0.97 },
+      agent: { o: M === 'agent' ? 1 : 0, x: M === 'agent' ? 0 : (S.agent ? 60 : 40), y: M === 'agent' ? 0 : (S.agent ? 170 : 0), s: M === 'agent' ? 1 : (S.agent ? 0.47 : 0.98), pe: M === 'agent' ? 'auto' : 'none' },
+      orch: vis(M === 'orch'), activity: vis(M === 'activity'),
+    };
+    // voice
+    const ve = (now - S.last) / 1000, lastMsg = S.msgs[S.msgs.length - 1];
+    let vs = !S.active ? 'sleep' : ve < 0.7 ? 'listen' : ve < 1.4 ? 'think' : ve < 3.2 ? 'speak' : 'ready';
+    const amp = { sleep: 0, listen: 0.95, think: 0.16, speak: 0.6, ready: 0.1 }[vs];
+    const T = now / 1000, bars = [];
+    for (let i = 0; i < 34; i++) { const x = i / 33, env = Math.pow(Math.sin(Math.PI * x), 1.3), osc = Math.abs(Math.sin(T * 6.1 + i * 0.83) * Math.sin(T * 2.7 + i * 0.41 + 1.3));
+      bars.push({ h: Math.max(3, Math.round(40 * (0.06 + amp * env * (0.2 + 0.8 * osc)))), c: Math.abs(x - 0.5) < 0.25 ? '#9a72ff' : '#5fd2ff', o: (0.3 + 0.7 * env).toFixed(2) }); }
+    const voice = { bars, waveO: vs === 'ready' || vs === 'sleep' ? 0 : 1, inO: vs === 'ready' ? 1 : 0, inPe: vs === 'ready' ? 'auto' : 'none', label: { sleep: '', listen: t.listening, think: t.thinking, speak: t.speaking, ready: t.ready }[vs] };
+    const idleC = M === 'idle';
+    const pill = !S.active ? { l: 810, t: 492, w: 300, h: 96, r: 48, fs: 30, pad: 0, act: 0, flex: '0 0 0px', stW: 0, cur: 'pointer' }
+      : idleC ? { l: 580, t: 488, w: 760, h: 104, r: 52, fs: 23, pad: 40, act: 1, flex: '1', stW: 138, cur: 'default' }
+      : { l: 640, t: 949, w: 640, h: 72, r: 36, fs: 19, pad: 34, act: 1, flex: '1', stW: 120, cur: 'default' };
+    if (!S.active) pill.l = 810;
+    const capY = pill.t - 26, lastU = [...S.msgs].reverse().find(m => m.who === 'u');
+    const cap = { y: capY, o: lastU && ve < 1.8 && M !== 'chat' ? 1 : 0, text: lastU ? '“' + MSG[lastU.key][li] + '”' : '' };
+    // thread
+    const th = M === 'chat' ? { x: 580, y: 100, h: 740, s: 1, o: 1 } : tool ? { x: 44, y: 64, h: 1410, s: 0.56, o: 1 } : M === 'agent' ? { x: 150, y: 150, h: 640, s: 1.1, o: 1 } : M === 'daily' ? { x: 580, y: 60, h: 520, s: 1, o: 1 } : { x: 580, y: 100, h: 740, s: 1, o: 0 };
+    const msgs = S.msgs.map(m => ({ u: m.who === 'u', mave: m.who === 'm', text: MSG[m.key][li], att: (ATT[m.att] || []).map(([l, k]) => ({ l, ff: k === 'mono' ? MONO : SANS, c: k === 'err' ? ERR : DIM })) }));
+    // home
+    const fixed = !!S.at.ship || e('fix') > 6;
+    const home = { l1: fixed ? t.nothing : t.needs, l2: fixed ? t.finishing : t.running,
+      needs: [['MAVE UI V2', t.buildFailed, ERR, fixed], [t.approve, t.waiting, '#ffc46b', fixed]].map(([tt, s, c, d], i) => ({ t: tt, s: d ? t.resolved : s, sc: d ? FAINT : c, tc: d ? DIM : INK, done: d, go: () => i === 0 && !d ? this.run('why') : null })),
+      doing: [[t.research, 82], [t.pres, 46]].map(([tt, p]) => ({ t: tt, p })) };
+    // code
+    const ef = e('fix'), es = e('ship'), sh = !!S.at.ship;
+    const cf = sh ? 99 : ef;
+    const errOn = cf > 0.9, f8 = cf > 2.4, f13 = cf > 3.1, allFix = cf > 3.6, green = cf > 5.8;
+    const okBg = cf < 7 ? 'rgba(95,224,168,0.09)' : 'transparent';
+    const lines = CODE.map((l, i) => {
+      if (i === 7) return { n: 8, bg: f8 ? okBg : errOn ? 'rgba(255,122,133,0.08)' : 'transparent', toks: [...hl('    const target: Route = '), ...hl('item.route', { d: errOn && !f8 ? 'underline wavy ' + ERR : 'none' }), ...(f8 ? hl(" ?? 'home'", { bg: 'rgba(95,224,168,0.18)' }) : []), ...hl(';')] };
+      if (i === 12) return { n: 13, bg: f13 ? okBg : errOn ? 'rgba(255,122,133,0.08)' : 'transparent', toks: [...hl('    <NavLink key={item.id} '), ...(f13 ? hl('glyph={item.glyph}', { bg: 'rgba(95,224,168,0.18)' }) : hl('icon={item.icon}', { d: errOn ? 'underline wavy ' + ERR : 'none' })), ...hl(' onSelect={() => go(item)} />')] };
+      return { n: i + 1, bg: 'transparent', toks: l ? hl(l) : [{ s: ' ', c: INK, bg: 'transparent', d: 'none' }] };
+    });
+    const MOD = { 'navigation.tsx': 2.4, 'router.ts': 3.9, 'types.ts': 4.2 };
+    const tree = TREE.map(([d, n, k]) => { const act = k === 'active', m = MOD[n] != null && cf > MOD[n];
+      return { n: (k === 'dir' ? '▾ ' : '') + n, pl: 12 + d * 14, bg: act && cf > 0.3 ? 'rgba(91,132,255,0.16)' : 'transparent', c: k === 'dir' ? FAINT : act ? INK : DIM, m: act && !allFix ? '●' : m ? 'M' : '', mc: act && !allFix ? ERR : '#5fd2ff' }; });
+    const opsT = [[0.9, 2.2], [2.2, 3.7], [3.7, 4.5], [4.5, 5.7]];
+    const nT = Math.round(clamp((cf - 4.6) / 1.0) * 12);
+    const shipT = [[0, 0.5], [0.5, 1.0], [1.0, 1.5]];
+    const code = { build: green ? t.buildOk : t.buildBad, buildC: green ? OK : ERR, buildBg: green ? 'rgba(95,224,168,0.1)' : 'rgba(255,122,133,0.1)', buildBd: green ? 'rgba(95,224,168,0.4)' : 'rgba(255,122,133,0.4)',
+      tree, lines, tipO: errOn && !f8 ? 1 : 0, title: sh ? t.shipping : t.fixing, opsO: sh ? 0.5 : 1,
+      ops: t.ops.map((n, i) => { const s = st(cf, ...opsT[i]); return { n: n + (s === 'run' ? '…' : ''), s, c: s === 'wait' ? FAINT : INK }; }),
+      testO: cf > 4.5 ? 1 : 0, testN: nT, testP: nT / 12 * 100, testC: nT === 12 ? OK : DIM, resO: green ? 1 : 0, resY: green ? 0 : 8,
+      shipO: sh ? 1 : 0, ship: t.ship.map((n, i) => { const s = st(es, ...shipT[i]); return { n: n + (s === 'run' ? '…' : ''), s, c: s === 'wait' ? FAINT : INK }; }), doneO: sh && es > 1.6 ? 1 : 0 };
+    // web
+    const er = e('research'), mode = er < 2 ? 0 : er < 3.5 ? 1 : 2, done = er > 5.5;
+    const n = done ? 14 : 1 + Math.floor(clamp(er / 5.4) * 13);
+    const tabOn = i => mode === 0 ? i === 0 : mode === 1 ? i === 1 : i === 1 || i === 2;
+    const dots = ['#5b84ff', '#9a72ff', '#5fd2ff', '#8a90b8'];
+    const page = (s, x, cw, sc2, y, hw) => ({ x, cw, s: sc2, y, dU: s.d.toUpperCase(), t: s.t, m: s.m, paras: s.p.map((q, j) => ({ s: q, c: j === 1 ? INK : DIM, hw: j === 1 ? hw : 0 })) });
+    const pages = mode === 0 ? [page(SRC[0], 64, 860, 1, er > 0.3 ? -250 : 0, er > 0.9 ? 100 : 0)]
+      : mode === 1 ? [page(SRC[1], 64, 860, 1, er > 2.2 ? -250 : 0, er > 2.6 ? 100 : 0)]
+      : [page(SRC[1], 24, 448, 0.56, -250, 100), page(SRC[2], 512, 448, 0.56, er > 3.8 ? -250 : 0, er > 4.4 ? 100 : 0)];
+    const notesAt = [1.5, 3.0, 4.9];
+    const web = { st: done ? 'done' : 'run', count: done ? '14 ' + t.reviewed : `${t.source} ${n} / 14`, bodyO: done ? 0.22 : 1, blur: done ? 4 : 0,
+      tabs: [...SRC, { d: 'designsystems.wk' }].map((s, i) => ({ d: s.d, dot: dots[i], c: tabOn(i) ? INK : FAINT, bg: tabOn(i) ? 'rgba(255,255,255,0.07)' : 'transparent', bd: tabOn(i) ? 'rgba(255,255,255,0.1)' : 'transparent' })),
+      url: mode === 2 ? 'Comparing  hci.review  ↔  productfield.co' : `https://${SRC[mode].d}/${SRC[mode].slug}`, pages, cmpO: mode === 2 ? 1 : 0,
+      notes: t.note.filter((_, i) => er > notesAt[i]).map((x, i) => ({ t: x, d: SRC[i].d })), sumO: done ? 1 : 0, sumY: done ? 0 : 14 };
+    const patterns = t.pat.map((x, i) => ({ n: '0' + (i + 1), t: x }));
+    // agent
+    const eu = e('update'), secs = 134 + Math.max(0, Math.floor(eu));
+    const agent = { clock: `${Math.floor(secs / 60)}m ${String(secs % 60).padStart(2, '0')}s`, p: Math.round(30 + 18 * clamp(eu / 4)),
+      steps: t.steps.map((x, i) => { const s = i < 2 ? (eu > 0.6 + i * 0.4 ? 'done' : 'run') : i === 2 ? (eu > 1.4 ? 'live' : 'wait') : 'wait'; return { n: x, s, c: s === 'wait' ? FAINT : INK, sub: i === 2 && s === 'live' ? t.editing : '' }; }) };
+    const ind = { o: S.agent && M !== 'agent' && M !== 'activity' ? 1 : 0, s: S.agent && M !== 'agent' ? 1 : 0.6, pe: S.agent && M !== 'agent' ? 'auto' : 'none', sub: S.at.orch ? t.indPrep : t.indWork };
+    // daily
+    const dOn = M === 'daily', eg = e('gym'), ej = e('james');
+    const draft = t.draft, nd = Math.floor(clamp((ej - 0.9) / 0.8) * draft.length);
+    const daily = { meetO: dOn ? (S.at.gym ? 0.6 : 1) : 0, meetY: dOn ? 0 : 18, gymO: dOn && S.at.gym ? (S.at.james ? 0.6 : 1) : 0, gymY: dOn && S.at.gym ? 0 : 18,
+      oldC: eg > 0.6 ? FAINT : INK, oldD: eg > 0.6 ? 'line-through' : 'none', movedO: eg > 0.6 ? 1 : 0, newX: eg > 0.6 ? 0 : 16, updO: eg > 0.9 ? 1 : 0,
+      msgO: dOn && S.at.james ? 1 : 0, msgY: dOn && S.at.james ? 0 : 18, msgPe: dOn && S.at.james ? 'auto' : 'none', draft: draft.slice(0, nd),
+      sent: S.sent, sendL: S.sent ? t.sent : t.send, sendC: S.sent ? OK : '#fff', sendBg: S.sent ? 'rgba(95,224,168,0.12)' : '#5b84ff', sendBd: S.sent ? 'rgba(95,224,168,0.4)' : 'transparent' };
+    // files
+    const ed = e('doc'), edf = e('diff'), dif = !!S.at.diff && edf > 0.2;
+    const q = 'MAVE architecture', searching = ed < 1.5;
+    const FL = [['MAVE_Architecture_v4.pdf', 'Drive · edited yesterday', 1], ['MAVE_Architecture_v3.pdf', 'Drive · 3 weeks ago'], ['architecture-notes.md', 'MAVE Core · 2 days ago'], ['Context_Router_RFC.docx', 'Shared · last month']];
+    const sel = ed > 1.9;
+    const SECS = [['1', 'Overview'], ['2', 'Memory Architecture', '+4 pages', ['add', '', '']], ['3', 'Tool Execution Layer', 'Rewritten', ['', 'del', 'add']], ['4', 'Context Router', 'New', ['add', 'add', 'add']]];
+    const files = { q: q.slice(0, Math.floor(clamp(ed / 1.0) * q.length)), searching, status: searching ? t.searching : t.results, listO: dif ? 0 : 1,
+      list: ed > 1.5 ? FL.map(([nm, m, l]) => ({ n: nm, m, ext: nm.split('.').pop().toUpperCase(), tag: l ? 'LATEST' : '', bg: l && sel ? 'rgba(91,132,255,0.14)' : 'transparent', bd: l && sel ? 'rgba(91,132,255,0.4)' : 'transparent' })) : [],
+      difO: dif ? 1 : 0, difY: dif ? 0 : 10, docO: ed > 2.1 ? 1 : 0, docX: ed > 2.1 ? 0 : 30,
+      changes: SECS.slice(1).map(([, tt, ch]) => ({ t: tt, ch })),
+      secs: SECS.map(([nn, tt, ch, ks], i) => { const on = dif && edf > 0.3 + i * 0.2 && !!ch;
+        return { n: nn, t: tt, ch: ch || '', chO: on ? 1 : 0, bg: on ? 'rgba(91,132,255,0.1)' : 'transparent',
+          bars: [640, 560, 420].map((w, j) => { const k = ks ? ks[j] : ''; return { w, sym: on && k ? (k === 'add' ? '+' : '−') : '', sc: k === 'add' ? OK : ERR, c: on && k === 'add' ? 'rgba(95,224,168,0.45)' : on && k === 'del' ? 'rgba(255,122,133,0.4)' : 'rgba(255,255,255,0.1)' }; }) }; }) };
+    // orchestration
+    const eo = e('orch'), NT = [[0.3, 2.4, 2.6], [0.8, 2.6, 3.6], [1.4, 3.6, 4.4], [1.9, 3.9, 4.8]];
+    const arts = [
+      SRC.map(s => ({ t: '▪ ' + s.d, fs: 15, c: DIM, ff: SANS })),
+      [{ t: 'MAVE Architecture v5', fs: 16, c: INK, ff: SANS }, { t: '§4 Context Router', fs: 13, c: FAINT, ff: MONO }, { t: '+ research findings', fs: 13, c: OK, ff: MONO }],
+      [{ t: 'James', fs: 15, c: INK, ff: SANS }, { t: L === 'th' ? 'เอกสาร architecture ที่อัปเดตสำหรับพรุ่งนี้' : 'Updated architecture doc for tomorrow.', fs: 15, c: DIM, ff: SANS }, { t: 'Architecture_v5.pdf', fs: 12, c: FAINT, ff: MONO }],
+      [{ t: 'TOMORROW · 10:00', fs: 13, c: FAINT, ff: MONO }, { t: 'Product Review', fs: 18, c: INK, ff: SANS }, { t: '+ Architecture_v5.pdf', fs: 12, c: DIM, ff: MONO }],
+    ];
+    const orch = { doneO: eo > 5.1 ? 1 : 0, nodes: t.nodes.map((nm, i) => { const [ap, s0, d0] = NT[i], s = st(eo, s0, d0), on = eo > ap;
+      return { n: nm, s, o: on ? 1 : 0, y: on ? 0 : 14, d: s === 'done' ? t.det[i] : s === 'run' ? t.run[i] : t.queued, dc: s === 'done' ? DIM : s === 'run' ? '#5fd2ff' : FAINT,
+        bd: s === 'run' ? 'rgba(91,132,255,0.55)' : 'rgba(180,190,255,0.14)', sh: s === 'run' ? '0 0 36px -6px rgba(91,132,255,0.35)' : 'none', ao: eo > s0 - 0.1 ? (s === 'done' ? 0.75 : 1) : 0, art: arts[i] }; }) };
+    const activity = t.act.map(([nm, sub], i) => ({ n: nm, sub, s: i < 5 ? 'done' : 'live', c: i < 5 ? DIM : INK, sc: i < 5 ? FAINT : '#5fd2ff', live: i >= 5, p: i === 5 ? 72 : 58 }));
+    const glance = [['MAVE UI V2', L === 'th' ? 'Build ล้มเหลว' : 'Build failed', ERR], ['Product Review', '14:00', '#5fd2ff'], [L === 'th' ? 'งานวิจัย Navigation' : 'Navigation research', L === 'th' ? 'พร้อมแล้ว' : 'Ready', OK]].map(([tt, s, c]) => ({ t: tt, s, c }));
+    const keys = this.suggKeys();
+    const sugg = keys.map(k => ({ l: MSG['u_' + k][li], go: () => this.run(k) }));
+    const sg = { y: !S.active ? 2000 : idleC ? (S.glance ? 840 : 620) : M === 'chat' || tool || M === 'agent' ? 885 : 885 };
+    const langUI = { enC: L === 'en' ? INK : FAINT, enBg: L === 'en' ? 'rgba(255,255,255,0.08)' : 'transparent', thC: L === 'th' ? INK : FAINT, thBg: L === 'th' ? 'rgba(255,255,255,0.08)' : 'transparent' };
+    return { stage, t, v, voice, pill, cap, th, msgs, home, code, web, patterns, agent, ind, daily, files, orch, activity, glance, sugg, sg, langUI,
+      chrome: { o: M === 'idle' ? 0 : 1, mode: t.modes[M] }, input: S.input,
+      onInput: ev => this.setState({ input: ev.target.value }), onKey: ev => { if (ev.key === 'Enter') { const k = keys[0]; if (k) this.run(k); } },
+      wake: this.wake, collapse: this.collapse, send: this.send, openActivity: () => this.setState({ mode: 'activity', last: Date.now() - 3400 }),
+      setEN: () => this.setState({ lang: 'en' }), setTH: () => this.setState({ lang: 'th' }) };
+  }
+}
+</script>
+</body>
+</html>
