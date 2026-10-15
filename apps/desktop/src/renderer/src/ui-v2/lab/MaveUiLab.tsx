@@ -22,10 +22,10 @@ import '../tokens.css';
 type ViewportPreset = 'compact' | 'chat' | 'sidecar' | 'workspace' | 'fill';
 
 const VIEWPORT_DIMENSIONS: Record<ViewportPreset, { width: string; height: string }> = {
-  compact: { width: '380px', height: '220px' },
+  compact: { width: '840px', height: '280px' },
   chat: { width: '440px', height: '680px' },
   sidecar: { width: '380px', height: '100%' },
-  workspace: { width: '1100px', height: '760px' },
+  workspace: { width: '1380px', height: '800px' },
   fill: { width: '100%', height: '100%' }
 };
 

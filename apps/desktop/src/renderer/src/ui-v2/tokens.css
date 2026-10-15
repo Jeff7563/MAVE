@@ -1,102 +1,244 @@
 /* ==========================================================================
-   MAVE UI V2 — Semantic Design Tokens & Motion Foundation
-   Track: U1 Presence Surface Identity
- *
-   IMPORTANT NOTICE:
-   Numeric values (dimensions, colors, radii, glow intensities, animation durations)
-   in this file are DEVELOPER PROTOTYPE / LAB VALUES ONLY and must not be treated
-   as frozen production specifications. Final design system tokens will be
-   established in the dedicated UI Redesign pass.
+   MAVE UI V2 — Authentic Visual Tokens & Motion Foundation
+   Track: VSM1 Authentic Presence & Visual Token Migration
+   Source of Truth:
+   - docs/uiref/MAVE ui kit/handoff/tailwind.config.js
+   - docs/uiref/MAVE ui kit/handoff/mave.css
    ========================================================================== */
 
 :root {
-  /* Surface Elevation & Backgrounds (Dark Glassmorphism) */
-  --mave-v2-surface-resting: rgba(13, 17, 23, 0.92);
-  --mave-v2-surface-active: rgba(17, 24, 39, 0.96);
-  --mave-v2-surface-elevated: rgba(26, 34, 48, 0.94);
-  --mave-v2-surface-overlay: rgba(8, 11, 16, 0.85);
+  /* --------------------------------------------------------------------------
+     Authentic MAVE Palette (UI Kit Token Baseline)
+     -------------------------------------------------------------------------- */
+  --mave-bg: #05060D;
+  --mave-surface: rgba(12, 14, 30, 0.60);
+  --mave-raised: rgba(255, 255, 255, 0.035);
+  --mave-line: rgba(255, 255, 255, 0.08);
+  --mave-edge: rgba(180, 190, 255, 0.14);
+  --mave-specular: rgba(95, 210, 255, 0.85);
 
-  /* Presence Specific Semantic Tokens */
-  --mave-v2-presence-bg: rgba(13, 17, 23, 0.94);
-  --mave-v2-presence-border: rgba(255, 255, 255, 0.08);
-  --mave-v2-presence-border-listening: rgba(56, 189, 248, 0.40);
-  --mave-v2-presence-border-thinking: rgba(168, 85, 247, 0.35);
-  --mave-v2-presence-border-speaking: rgba(139, 92, 246, 0.40);
-  --mave-v2-presence-border-error: rgba(239, 68, 68, 0.40);
+  --mave-ink: #EEF0FB;
+  --mave-dim: rgba(222, 226, 255, 0.60);
+  --mave-faint: rgba(222, 226, 255, 0.38);
 
-  /* Presence Glow Rules (Strict: Zero glow in Idle, controlled in Active) */
+  --mave-blue: #5B84FF;   /* accent-1 · primary actions, selection */
+  --mave-violet: #9A72FF; /* accent-2 · ambient, gradients, never body text */
+  --mave-cyan: #5FD2FF;   /* accent-3 · live state, MAVE voice, highlights */
+
+  --mave-ok: #5FE0A8;
+  --mave-err: #FF7A85;
+  --mave-warn: #FFC46B;
+
+  /* --------------------------------------------------------------------------
+     Authentic Typography Font Stacks
+     -------------------------------------------------------------------------- */
+  --mave-font-wordmark: 'Jost', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --mave-font-sans: 'Manrope', 'IBM Plex Sans Thai', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --mave-font-mono: 'JetBrains Mono', 'Cascadia Code', ui-monospace, monospace;
+
+  /* --------------------------------------------------------------------------
+     Authentic Radii
+     -------------------------------------------------------------------------- */
+  --mave-radius-chip: 17px;
+  --mave-radius-sm: 12px;
+  --mave-radius-inner: 18px;
+  --mave-radius-card: 24px;
+  --mave-radius-panel: 30px;
+  --mave-radius-pill-idle: 48px;
+  --mave-radius-pill-active: 36px;
+
+  /* --------------------------------------------------------------------------
+     Authentic Glass & Box Shadows
+     -------------------------------------------------------------------------- */
+  --mave-shadow-glass: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 30px 70px -24px rgba(0, 0, 0, 0.7);
+  --mave-shadow-pill: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 0 46px rgba(91, 132, 255, 0.16), 0 24px 60px -20px rgba(0, 0, 0, 0.7);
+  --mave-shadow-active: 0 0 36px -6px rgba(91, 132, 255, 0.35);
+  --mave-backdrop-glass: blur(22px) saturate(140%);
+  --mave-glass-gradient: linear-gradient(180deg, rgba(255, 255, 255, 0.065), rgba(255, 255, 255, 0.018)), rgba(12, 14, 30, 0.60);
+
+  /* --------------------------------------------------------------------------
+     Authentic Ambient Background Canvas
+     -------------------------------------------------------------------------- */
+  --mave-ambient-gradient:
+    radial-gradient(950px circle at 14% 89%, rgba(154, 114, 255, 0.34), transparent 62%),
+    radial-gradient(820px circle at 88% 91%, rgba(91, 132, 255, 0.34), transparent 62%),
+    radial-gradient(720px circle at 17% 11%, rgba(91, 132, 255, 0.16), transparent 62%),
+    #05060D;
+
+  /* --------------------------------------------------------------------------
+     Authentic Motion Curves & Durations
+     -------------------------------------------------------------------------- */
+  --mave-ease-enter: cubic-bezier(0.25, 1, 0.5, 1);   /* easeOutQuart — things arriving */
+  --mave-ease-glide: cubic-bezier(0.65, 0, 0.35, 1);  /* easeInOutCubic — surfaces morphing */
+  --mave-ease-pop: cubic-bezier(0.34, 1.56, 0.64, 1); /* easeOutBack — value changes */
+  --mave-dur-enter: 450ms;
+  --mave-dur-glide: 800ms;
+  --mave-dur-quick: 200ms;
+
+  /* --------------------------------------------------------------------------
+     Backward-Compatible MAVE V2 & V3 Token Mappings
+     (Ensures existing architecture, contracts, and test assertions remain green)
+     -------------------------------------------------------------------------- */
+  --mave-v2-surface-resting: var(--mave-surface);
+  --mave-v2-surface-active: var(--mave-surface);
+  --mave-v2-surface-elevated: var(--mave-raised);
+  --mave-v2-surface-overlay: rgba(5, 6, 13, 0.85);
+
+  --mave-v2-presence-bg: var(--mave-surface);
+  --mave-v2-presence-border: var(--mave-edge);
+  --mave-v2-presence-border-listening: rgba(95, 210, 255, 0.40);
+  --mave-v2-presence-border-thinking: rgba(154, 114, 255, 0.35);
+  --mave-v2-presence-border-speaking: rgba(95, 210, 255, 0.40);
+  --mave-v2-presence-border-error: rgba(255, 122, 133, 0.40);
+
   --mave-v2-presence-glow-resting: none;
-  --mave-v2-presence-glow-listening: 0 0 14px -2px rgba(56, 189, 248, 0.28);
-  --mave-v2-presence-glow-thinking: 0 0 14px -2px rgba(168, 85, 247, 0.25);
-  --mave-v2-presence-glow-speaking: 0 0 14px -2px rgba(139, 92, 246, 0.28);
-  --mave-v2-presence-glow-error: 0 0 10px -2px rgba(239, 68, 68, 0.22);
+  --mave-v2-presence-glow-listening: 0 0 36px -6px rgba(91, 132, 255, 0.35);
+  --mave-v2-presence-glow-thinking: 0 0 32px -6px rgba(154, 114, 255, 0.30);
+  --mave-v2-presence-glow-speaking: 0 0 36px -6px rgba(91, 132, 255, 0.35);
+  --mave-v2-presence-glow-error: 0 0 20px -2px rgba(255, 122, 133, 0.28);
 
-  /* Borders & Dividers */
-  --mave-v2-border-subtle: rgba(255, 255, 255, 0.08);
-  --mave-v2-border-active: rgba(255, 255, 255, 0.16);
-  --mave-v2-border-focused: rgba(56, 189, 248, 0.45);
+  --mave-v2-border-subtle: var(--mave-line);
+  --mave-v2-border-active: var(--mave-edge);
+  --mave-v2-border-focused: rgba(95, 210, 255, 0.45);
 
-  /* Typography Colors */
-  --mave-v2-text-primary: #f8fafc;
-  --mave-v2-text-secondary: #94a3b8;
-  --mave-v2-text-muted: #64748b;
-  --mave-v2-text-dim: #475569;
+  --mave-v2-text-primary: var(--mave-ink);
+  --mave-v2-text-secondary: var(--mave-dim);
+  --mave-v2-text-muted: var(--mave-faint);
+  --mave-v2-text-dim: rgba(222, 226, 255, 0.28);
 
-  /* Semantic State Accents */
-  --mave-v2-accent-neutral: #94a3b8;     /* Resting / Inactive */
-  --mave-v2-accent-listening: #38bdf8;   /* Listening / Active interaction (Blue) */
-  --mave-v2-accent-thinking: #a855f7;    /* Thinking / Intelligence activity (Purple) */
-  --mave-v2-accent-retrieval: #06b6d4;   /* Retrieval / Information (Cyan) */
-  --mave-v2-accent-success: #22c55e;     /* Connected / Completed (Green) */
-  --mave-v2-accent-warning: #f97316;     /* Warning / Approval / Confirmation (Orange) */
-  --mave-v2-accent-error: #ef4444;       /* Blocked / Destructive / Error (Red) */
+  --mave-v2-accent-neutral: var(--mave-dim);
+  --mave-v2-accent-listening: var(--mave-cyan);
+  --mave-v2-accent-thinking: var(--mave-violet);
+  --mave-v2-accent-retrieval: var(--mave-cyan);
+  --mave-v2-accent-success: var(--mave-ok);
+  --mave-v2-accent-warning: var(--mave-warn);
+  --mave-v2-accent-error: var(--mave-err);
 
-  /* Controlled Semantic Glow */
   --mave-v2-glow-resting: 0 0 0 transparent;
-  --mave-v2-glow-active: 0 0 16px -2px rgba(56, 189, 248, 0.28);
-  --mave-v2-glow-thinking: 0 0 18px -2px rgba(168, 85, 247, 0.32);
-  --mave-v2-glow-attention: 0 0 24px 0px rgba(249, 115, 22, 0.40);
-  --mave-v2-glow-error: 0 0 20px 0px rgba(239, 68, 68, 0.38);
+  --mave-v2-glow-active: 0 0 24px -2px rgba(95, 210, 255, 0.32);
+  --mave-v2-glow-thinking: 0 0 24px -2px rgba(154, 114, 255, 0.32);
+  --mave-v2-glow-attention: 0 0 24px 0px rgba(255, 196, 107, 0.40);
+  --mave-v2-glow-error: 0 0 20px 0px rgba(255, 122, 133, 0.38);
 
-  /* Geometry & Radii */
   --mave-v2-radius-pill: 9999px;
-  --mave-v2-radius-card: 12px;
-  --mave-v2-radius-panel: 16px;
-  --mave-v2-radius-workspace: 20px;
+  --mave-v2-radius-card: var(--mave-radius-card);
+  --mave-v2-radius-panel: var(--mave-radius-panel);
+  --mave-v2-radius-workspace: 30px;
 
-  /* Motion Curves */
-  --mave-v2-motion-fast: 150ms cubic-bezier(0.16, 1, 0.3, 1);
-  --mave-v2-motion-normal: 250ms cubic-bezier(0.16, 1, 0.3, 1);
-  --mave-v2-motion-smooth: 350ms cubic-bezier(0.16, 1, 0.3, 1);
-  --mave-v2-blur: 16px;
+  --mave-v2-motion-fast: 150ms var(--mave-ease-enter);
+  --mave-v2-motion-normal: var(--mave-dur-enter) var(--mave-ease-enter);
+  --mave-v2-motion-smooth: var(--mave-dur-glide) var(--mave-ease-glide);
+  --mave-v2-blur: 22px;
 
-  /* ==========================================================================
-     Showcase V3 Spatial & Glass Tokens (Primary Reference Direction)
-     ========================================================================== */
-  --mave-v3-bg-atmosphere: radial-gradient(circle at 15% 85%, rgba(99, 102, 241, 0.12) 0%, transparent 45%),
-                          radial-gradient(circle at 85% 85%, rgba(56, 189, 248, 0.10) 0%, transparent 45%),
-                          radial-gradient(circle at 50% 20%, rgba(168, 85, 247, 0.08) 0%, transparent 50%),
-                          #080914;
-  --mave-v3-glass-bg: rgba(14, 18, 30, 0.75);
-  --mave-v3-glass-surface: rgba(18, 22, 38, 0.82);
-  --mave-v3-glass-border: rgba(255, 255, 255, 0.08);
-  --mave-v3-glass-border-subtle: rgba(255, 255, 255, 0.05);
-  --mave-v3-glass-border-glow: rgba(99, 140, 255, 0.22);
-  --mave-v3-glass-shadow: 0 16px 40px rgba(0, 0, 0, 0.55), 0 0 1px rgba(255, 255, 255, 0.12) inset;
-  --mave-v3-capsule-bg: rgba(16, 20, 34, 0.88);
-  --mave-v3-capsule-border: rgba(99, 140, 255, 0.25);
-  --mave-v3-capsule-shadow: 0 12px 32px rgba(0, 0, 0, 0.6), 0 0 14px -3px rgba(56, 189, 248, 0.25);
+  --mave-v3-bg-atmosphere: var(--mave-ambient-gradient);
+  --mave-v3-glass-bg: var(--mave-glass-gradient);
+  --mave-v3-glass-surface: var(--mave-glass-gradient);
+  --mave-v3-glass-border: var(--mave-edge);
+  --mave-v3-glass-border-subtle: var(--mave-line);
+  --mave-v3-glass-border-glow: rgba(91, 132, 255, 0.28);
+  --mave-v3-glass-shadow: var(--mave-shadow-glass);
+  --mave-v3-capsule-bg: var(--mave-glass-gradient);
+  --mave-v3-capsule-border: var(--mave-edge);
+  --mave-v3-capsule-shadow: var(--mave-shadow-pill);
+}
+
+/* ==========================================================================
+   Reusable UI Kit Component Layer
+   ========================================================================== */
+
+/* Authentic Glass Surface (Panels, Cards, Pill) */
+.mave-glass {
+  background: var(--mave-glass-gradient);
+  border: 1px solid var(--mave-edge);
+  box-shadow: var(--mave-shadow-glass);
+  backdrop-filter: var(--mave-backdrop-glass);
+  -webkit-backdrop-filter: var(--mave-backdrop-glass);
+}
+
+/* Inset Block inside a Glass Surface */
+.mave-inner {
+  background: var(--mave-raised);
+  border: 1px solid var(--mave-line);
+  border-radius: var(--mave-radius-inner);
+  box-sizing: border-box;
+}
+
+/* Monospace Upper Label */
+.mave-label {
+  font-family: var(--mave-font-mono);
+  font-size: 13px;
+  line-height: 1;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--mave-faint);
+}
+
+/* Jost Wordmark with Authentic Tracking */
+.mave-wordmark {
+  font-family: var(--mave-font-wordmark);
+  font-weight: 300;
+  letter-spacing: 0.42em;
+  padding-left: 0.42em;
+  line-height: 1;
+}
+
+/* Top-fade Mask for Persistent Thread */
+.mave-thread-mask {
+  -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 160px);
+  mask-image: linear-gradient(180deg, transparent 0, #000 160px);
+}
+
+/* Full Atmospheric Background */
+.mave-ambient {
+  background: var(--mave-ambient-gradient);
 }
 
 /* ==========================================================================
    Motion Keyframes
    ========================================================================== */
 
+/* Authentic Spinner (linear 0.9s) */
+@keyframes maveSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Authentic Live Indicator Pulse (1.6s) */
+@keyframes maveLive {
+  0%, 100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* Ambient Cloud Drift A */
+@keyframes maveDriftA {
+  from {
+    transform: translate(0, 0);
+  }
+  to {
+    transform: translate(90px, -30px);
+  }
+}
+
+/* Ambient Cloud Drift B */
+@keyframes maveDriftB {
+  from {
+    transform: translate(0, 0);
+  }
+  to {
+    transform: translate(-70px, 20px);
+  }
+}
+
 /* Showcase V3 Restrained Spatial Materialization */
 @keyframes mave-v3-materialize {
   0% {
     opacity: 0;
-    transform: translateY(8px) scale(0.985);
+    transform: translateY(10px) scale(0.985);
     filter: blur(6px);
   }
   100% {
@@ -114,12 +256,12 @@
   }
   100% {
     opacity: 0;
-    transform: translateY(6px) scale(0.985);
+    transform: translateY(8px) scale(0.985);
     filter: blur(4px);
   }
 }
 
-/* Rhythmic Breathing Dots in Capsule */
+/* Rhythmic Breathing Dots in Capsule (Maintained for backward compatibility) */
 @keyframes mave-v3-dots-pulse {
   0%, 100% {
     opacity: 0.35;
@@ -131,57 +273,23 @@
   }
 }
 
-/* Subtle Gradient Progress Flow */
-@keyframes mave-v3-gradient-flow {
-  0% {
-    background-position: 0% 50%;
-  }
-  100% {
-    background-position: 200% 50%;
-  }
-}
-
+/* Idle Breathing (Subtle scale 1.006 over 4.8s) */
 @keyframes mave-v2-breathe {
   0%, 100% {
     transform: scale(1);
-    opacity: 0.85;
   }
   50% {
-    transform: scale(1.04);
-    opacity: 1;
+    transform: scale(1.006);
   }
 }
 
+/* Orb Cognitive Arc Orbit for Thinking */
 @keyframes mave-v2-orbit {
   0% {
     transform: rotate(0deg);
   }
   100% {
     transform: rotate(360deg);
-  }
-}
-
-@keyframes mave-v2-pulse-ring {
-  0% {
-    transform: scale(0.9);
-    opacity: 0.8;
-  }
-  50% {
-    transform: scale(1.15);
-    opacity: 0.2;
-  }
-  100% {
-    transform: scale(0.9);
-    opacity: 0.8;
-  }
-}
-
-@keyframes mave-v2-shimmer {
-  0% {
-    background-position: -200% 0;
-  }
-  100% {
-    background-position: 200% 0;
   }
 }
 
@@ -214,6 +322,9 @@
 /* Reduced Motion Override */
 @media (prefers-reduced-motion: reduce) {
   :root {
+    --mave-dur-enter: 0.01ms !important;
+    --mave-dur-glide: 0.01ms !important;
+    --mave-dur-quick: 0.01ms !important;
     --mave-v2-motion-fast: 0.01ms !important;
     --mave-v2-motion-normal: 0.01ms !important;
     --mave-v2-motion-smooth: 0.01ms !important;
@@ -225,4 +336,3 @@
     transition-duration: 0.01ms !important;
   }
 }
-

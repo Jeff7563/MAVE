@@ -1,6 +1,7 @@
 import React from 'react';
 import type { PresenceState, OrbSize } from '../types';
 import { normalizeAudioRms } from '../presence/presence-rules';
+import '../tokens.css';
 
 export interface AdaptivePresenceMarkProps {
   state?: PresenceState;
@@ -11,21 +12,24 @@ export interface AdaptivePresenceMarkProps {
 }
 
 const SIZE_MAP: Record<OrbSize, number> = {
-  hero: 64,
-  medium: 40,
-  compact: 28,
-  status: 18
+  hero: 52,
+  medium: 36,
+  compact: 24,
+  status: 14
 };
 
 /**
  * AdaptivePresenceMark
  *
- * MAVE's visual identity mark. Adapts in size and motion across:
- * - Idle: quiet, calm resting core (zero outer glow)
+ * MAVE's visual identity mark.
+ * Derived from authentic UI Kit & Prototype source (mave-showcase.jsx / Orb).
+ *
+ * Vector / pure CSS implementation:
+ * - Idle: calm, luminous focal core (radial cyan -> violet), zero outer glow
  * - Waking: fast intentional pulse ("I heard you")
- * - Listening: audio-reactive acoustic waveform reacting to normalized RMS
- * - Thinking: restrained subtle cognitive loop (low visual noise, no fake progress)
- * - Speaking: vocal playback wave
+ * - Listening: luminous presence with active vocal resonance & acoustic micro-bars
+ * - Thinking: restrained cognitive orbit arc (low visual noise, no fake progress)
+ * - Speaking: active voice resonance & acoustic micro-bars
  * - Error: calm restrained alert indicator
  */
 export const AdaptivePresenceMark: React.FC<AdaptivePresenceMarkProps> = ({
@@ -38,23 +42,34 @@ export const AdaptivePresenceMark: React.FC<AdaptivePresenceMarkProps> = ({
   const pixelSize = SIZE_MAP[size];
   const normalizedAudio = normalizeAudioRms(audioLevel);
 
-  // Compute dynamic heights for acoustic bars in listening & speaking modes
-  const isAudioActive = state === 'listening' || state === 'speaking';
+  const isAudioActive = (state === 'listening' || state === 'speaking') && size !== 'status';
   const bar1Scale = isAudioActive ? 0.35 + normalizedAudio * 0.65 : 0.45;
   const bar2Scale = isAudioActive ? 0.45 + normalizedAudio * 0.75 : 0.60;
   const bar3Scale = isAudioActive ? 0.35 + normalizedAudio * 0.65 : 0.45;
 
-  // Semantic color per state
   const stateColor =
-    state === 'thinking'
-      ? 'var(--mave-v2-accent-thinking)'
-      : state === 'error'
-      ? 'var(--mave-v2-accent-error)'
+    state === 'error'
+      ? 'var(--mave-err, #ff7a85)'
+      : state === 'thinking'
+      ? 'var(--mave-violet, #9a72ff)'
       : state === 'listening' || state === 'waking'
-      ? 'var(--mave-v2-accent-listening)'
+      ? 'var(--mave-cyan, #5fd2ff)'
       : state === 'speaking'
-      ? 'var(--mave-v2-accent-thinking)'
-      : 'var(--mave-v2-accent-retrieval)';
+      ? 'var(--mave-cyan, #5fd2ff)'
+      : 'var(--mave-cyan, #5fd2ff)';
+
+  const glowBoxShadow =
+    state === 'idle'
+      ? 'none'
+      : state === 'error'
+      ? '0 0 12px rgba(255, 122, 133, 0.45)'
+      : state === 'thinking'
+      ? '0 0 14px rgba(154, 114, 255, 0.5)'
+      : state === 'listening'
+      ? '0 0 14px rgba(95, 210, 255, 0.5)'
+      : state === 'speaking'
+      ? '0 0 14px rgba(95, 210, 255, 0.45)'
+      : '0 0 12px rgba(154, 114, 255, 0.4)';
 
   return (
     <div
@@ -85,63 +100,37 @@ export const AdaptivePresenceMark: React.FC<AdaptivePresenceMarkProps> = ({
         style={{ overflow: 'visible' }}
       >
         <defs>
-          <radialGradient id={`orbGrad-${size}-${state}`} cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stopColor={stateColor} stopOpacity="0.9" />
-            <stop offset="70%" stopColor={stateColor} stopOpacity="0.3" />
-            <stop offset="100%" stopColor={stateColor} stopOpacity="0" />
+          <radialGradient id={`orbGrad-${size}-${state}`} cx="35%" cy="30%" r="70%">
+            <stop offset="0%" stopColor="#5fd2ff" />
+            <stop offset="70%" stopColor="#9a72ff" />
           </radialGradient>
-          <radialGradient id={`orbCoreGrad-${size}-${state}`} cx="35%" cy="35%" r="65%">
-            <stop offset="0%" stopColor="rgba(30, 41, 59, 0.95)" />
-            <stop offset="50%" stopColor="rgba(15, 23, 42, 0.98)" />
-            <stop offset="100%" stopColor="rgba(8, 11, 20, 1.0)" />
-          </radialGradient>
-          <radialGradient id={`orbLuminousCore-${size}`} cx="40%" cy="40%" r="60%">
-            <stop offset="0%" stopColor="#ffffff" stopOpacity="0.95" />
-            <stop offset="35%" stopColor="#38bdf8" stopOpacity="0.8" />
-            <stop offset="70%" stopColor="#818cf8" stopOpacity="0.45" />
-            <stop offset="100%" stopColor="#38bdf8" stopOpacity="0" />
+          <radialGradient id={`orbAlert-${size}`} cx="35%" cy="30%" r="70%">
+            <stop offset="0%" stopColor="#ff7a85" />
+            <stop offset="70%" stopColor="#dc2626" />
           </radialGradient>
         </defs>
 
-        {/* Outer ambient glow halo (strictly active only when live/working, zero outer glow in resting idle) */}
-        {state !== 'idle' && (
+        {/* Waking state intentional pulse ring */}
+        {state === 'waking' && (
           <circle
             cx="20"
             cy="20"
             r="19"
-            fill={`url(#orbGrad-${size}-${state})`}
-            opacity={state === 'thinking' ? 0.35 : 0.75}
-            style={{
-              animation:
-                state === 'waking'
-                  ? 'mave-v2-wake-pulse 0.5s ease-out'
-                  : state === 'thinking'
-                  ? 'mave-v2-restrained-thinking 2.5s ease-in-out infinite'
-                  : undefined
-            }}
-          />
-        )}
-
-        {/* Subtle Outer Concentric Ring in Resting Idle (Showcase v3 Spatial Presence) */}
-        {state === 'idle' && size !== 'status' && (
-          <circle
-            cx="20"
-            cy="20"
-            r={size === 'hero' ? 18 : size === 'medium' ? 16 : 15}
-            stroke="rgba(255, 255, 255, 0.12)"
-            strokeWidth="0.8"
+            stroke="rgba(95, 210, 255, 0.6)"
+            strokeWidth="1.5"
             fill="none"
+            style={{ animation: 'mave-v2-wake-pulse 0.5s ease-out' }}
           />
         )}
 
-        {/* Restrained cognitive arc for thinking state (low visual noise, no fake progress) */}
+        {/* Thinking state restrained cognitive orbit arc */}
         {state === 'thinking' && (
           <circle
             cx="20"
             cy="20"
-            r="16"
-            stroke="var(--mave-v2-accent-thinking)"
-            strokeWidth="1.2"
+            r="17"
+            stroke="var(--mave-violet, #9a72ff)"
+            strokeWidth="1.5"
             strokeDasharray="8 22"
             strokeLinecap="round"
             opacity="0.85"
@@ -153,101 +142,60 @@ export const AdaptivePresenceMark: React.FC<AdaptivePresenceMarkProps> = ({
         <circle
           cx="20"
           cy="20"
-          r={size === 'hero' ? 14 : size === 'medium' ? 13 : 12}
-          fill={`url(#orbCoreGrad-${size}-${state})`}
-          stroke={state === 'idle' ? 'rgba(56, 189, 248, 0.45)' : stateColor}
-          strokeWidth={size === 'status' ? '1.2' : '1.5'}
+          r={size === 'hero' ? 14 : size === 'medium' ? 12 : size === 'compact' ? 10 : 6}
+          fill={state === 'error' ? `url(#orbAlert-${size})` : `url(#orbGrad-${size}-${state})`}
           style={{
-            animation: state === 'idle' ? 'mave-v2-breathe 4s ease-in-out infinite' : undefined
+            boxShadow: glowBoxShadow,
+            filter: state !== 'idle' ? 'drop-shadow(0 0 6px rgba(154, 114, 255, 0.45))' : 'none',
+            animation: state === 'idle' ? 'mave-v2-breathe 4.8s ease-in-out infinite' : undefined
           }}
         />
 
-        {/* State-specific Content Inside Core */}
-        {size !== 'status' && (
-          <>
-            {/* 1. Acoustic Bars exclusively during active audio (listening or speaking) */}
-            {isAudioActive && (
-              <g transform="translate(14, 12)">
-                <rect
-                  x="1"
-                  y={8 - 8 * bar1Scale}
-                  width="2.2"
-                  height={16 * bar1Scale}
-                  rx="1.1"
-                  fill={stateColor}
-                  style={{ transition: 'all 80ms ease-out' }}
-                />
-                <rect
-                  x="5"
-                  y={8 - 8 * bar2Scale}
-                  width="2.2"
-                  height={16 * bar2Scale}
-                  rx="1.1"
-                  fill={stateColor}
-                  style={{ transition: 'all 80ms ease-out' }}
-                />
-                <rect
-                  x="9"
-                  y={8 - 8 * bar3Scale}
-                  width="2.2"
-                  height={16 * bar3Scale}
-                  rx="1.1"
-                  fill={stateColor}
-                  style={{ transition: 'all 80ms ease-out' }}
-                />
-              </g>
-            )}
+        {/* Specular Glint Highlight */}
+        {size !== 'status' && !isAudioActive && (
+          <circle
+            cx={16.5}
+            cy={16.5}
+            r={size === 'hero' ? 2.5 : size === 'medium' ? 2.0 : 1.6}
+            fill="#ffffff"
+            opacity={0.8}
+          />
+        )}
 
-            {/* 2. Luminous MAVE Focal Orb Core (Idle & Waking states — NOT pause bars) */}
-            {(state === 'idle' || state === 'waking') && (
-              <g>
-                <circle
-                  cx="20"
-                  cy="20"
-                  r={size === 'hero' ? 5.5 : size === 'medium' ? 4.5 : 3.8}
-                  fill={`url(#orbLuminousCore-${size})`}
-                  style={{
-                    filter: 'drop-shadow(0 0 3px rgba(56, 189, 248, 0.65))'
-                  }}
-                />
-                <circle
-                  cx={size === 'hero' ? 18.6 : 18.8}
-                  cy={size === 'hero' ? 18.6 : 18.8}
-                  r={size === 'hero' ? 1.6 : 1.2}
-                  fill="#ffffff"
-                  opacity="0.9"
-                />
-              </g>
-            )}
-
-            {/* 3. Thinking Inner Core */}
-            {state === 'thinking' && (
-              <circle
-                cx="20"
-                cy="20"
-                r={size === 'hero' ? 5 : size === 'medium' ? 4 : 3.5}
-                fill="var(--mave-v2-accent-thinking)"
-                opacity="0.85"
-                style={{
-                  filter: 'drop-shadow(0 0 4px rgba(168, 85, 247, 0.7))',
-                  animation: 'mave-v2-restrained-thinking 2.5s ease-in-out infinite'
-                }}
-              />
-            )}
-
-            {/* 4. Error Alert Dot */}
-            {state === 'error' && (
-              <circle
-                cx="20"
-                cy="20"
-                r={size === 'hero' ? 5 : size === 'medium' ? 4 : 3.5}
-                fill="var(--mave-v2-accent-error)"
-                style={{
-                  filter: 'drop-shadow(0 0 4px rgba(239, 68, 68, 0.7))'
-                }}
-              />
-            )}
-          </>
+        {/* Acoustic micro-bars exclusively during active audio (listening or speaking) */}
+        {isAudioActive && (
+          <g transform="translate(14, 12)">
+            <rect
+              x="1"
+              y={8 - 8 * bar1Scale}
+              width="2.2"
+              height={16 * bar1Scale}
+              rx="1.1"
+              fill="#ffffff"
+              opacity={0.9}
+              style={{ transition: 'all 80ms ease-out' }}
+            />
+            <rect
+              x="5"
+              y={8 - 8 * bar2Scale}
+              width="2.2"
+              height={16 * bar2Scale}
+              rx="1.1"
+              fill="#ffffff"
+              opacity={0.95}
+              style={{ transition: 'all 80ms ease-out' }}
+            />
+            <rect
+              x="9"
+              y={8 - 8 * bar3Scale}
+              width="2.2"
+              height={16 * bar3Scale}
+              rx="1.1"
+              fill="#ffffff"
+              opacity={0.9}
+              style={{ transition: 'all 80ms ease-out' }}
+            />
+          </g>
         )}
 
         {/* Status dot for icon-scale */}
@@ -258,4 +206,3 @@ export const AdaptivePresenceMark: React.FC<AdaptivePresenceMarkProps> = ({
     </div>
   );
 };
-
