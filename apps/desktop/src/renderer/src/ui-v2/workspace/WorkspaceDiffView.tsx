@@ -125,21 +125,38 @@ export const WorkspaceDiffView: React.FC<WorkspaceDiffViewProps> = ({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          padding: '10px 14px',
-          background: 'var(--mave-v2-surface-elevated)',
-          border: '1px solid var(--mave-v2-border-subtle)',
-          borderRadius: 'var(--mave-v2-radius-card)'
+          padding: '10px 16px',
+          background: 'rgba(18, 22, 38, 0.75)',
+          backdropFilter: 'blur(16px)',
+          border: '1px solid rgba(255, 255, 255, 0.08)',
+          borderRadius: '12px'
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <span style={{ fontWeight: 600, fontSize: '13px', fontFamily: 'monospace' }} data-testid="diff-file-path">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <span style={{ fontWeight: 600, fontSize: '13px', fontFamily: 'monospace', color: '#f8fafc' }} data-testid="diff-file-path">
             {activeFile}
           </span>
-          <span style={{ fontSize: '11px', color: 'var(--mave-v2-accent-success)', fontWeight: 600 }}>
+          <span style={{ fontSize: '11px', color: '#4ade80', fontWeight: 600 }}>
             +{additions}
           </span>
-          <span style={{ fontSize: '11px', color: 'var(--mave-v2-accent-error)', fontWeight: 600 }}>
+          <span style={{ fontSize: '11px', color: '#f87171', fontWeight: 600 }}>
             -{deletions}
+          </span>
+          <span
+            style={{
+              fontSize: '11px',
+              color: '#38bdf8',
+              background: 'rgba(56, 189, 248, 0.1)',
+              border: '1px solid rgba(56, 189, 248, 0.25)',
+              borderRadius: '9999px',
+              padding: '2px 8px',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '4px'
+            }}
+            data-testid="diff-tests-passing"
+          >
+            <span>✓</span> 12 / 12 passed
           </span>
         </div>
 
@@ -148,12 +165,12 @@ export const WorkspaceDiffView: React.FC<WorkspaceDiffViewProps> = ({
           <button
             onClick={() => onRequestRevision?.()}
             style={{
-              background: 'transparent',
-              border: '1px solid var(--mave-v2-border-subtle)',
+              background: 'rgba(255, 255, 255, 0.04)',
+              border: '1px solid rgba(255, 255, 255, 0.08)',
               borderRadius: '6px',
-              padding: '4px 10px',
+              padding: '5px 12px',
               fontSize: '11px',
-              color: 'var(--mave-v2-text-secondary)',
+              color: 'rgba(226, 232, 240, 0.85)',
               cursor: 'pointer'
             }}
             data-testid="btn-request-revision"
@@ -164,18 +181,68 @@ export const WorkspaceDiffView: React.FC<WorkspaceDiffViewProps> = ({
             onClick={() => onApproveReview?.()}
             style={{
               background: 'rgba(34, 197, 94, 0.15)',
-              border: '1px solid var(--mave-v2-accent-success)',
+              border: '1px solid rgba(34, 197, 94, 0.4)',
               borderRadius: '6px',
-              padding: '4px 12px',
+              padding: '5px 14px',
               fontSize: '11px',
               fontWeight: 600,
-              color: 'var(--mave-v2-accent-success)',
+              color: '#4ade80',
               cursor: 'pointer'
             }}
             data-testid="btn-approve-diff"
           >
             ✓ Approve Diff
           </button>
+        </div>
+      </div>
+
+      {/* Inline Diagnostic Error Callout (Showcase v3 • CODE) */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          background: 'rgba(239, 68, 68, 0.08)',
+          border: '1px solid rgba(239, 68, 68, 0.3)',
+          borderRadius: '8px',
+          padding: '8px 14px',
+          fontSize: '12px',
+          color: '#fca5a5'
+        }}
+        data-testid="workspace-code-diagnostic"
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{ color: '#ef4444', fontWeight: 700 }}>✕</span>
+          <span style={{ fontFamily: 'monospace', fontWeight: 600 }}>TS2322:</span>
+          <span>Type &apos;string&apos; is not assignable to type &apos;number&apos;.</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <span
+            style={{
+              background: 'rgba(56, 189, 248, 0.15)',
+              border: '1px solid rgba(56, 189, 248, 0.3)',
+              color: '#38bdf8',
+              borderRadius: '9999px',
+              padding: '2px 8px',
+              fontSize: '11px',
+              fontWeight: 500,
+              cursor: 'pointer'
+            }}
+          >
+            ✦ Fix with MAVE
+          </span>
+          <span
+            style={{
+              background: 'rgba(255, 255, 255, 0.05)',
+              color: 'rgba(148, 163, 184, 0.8)',
+              borderRadius: '9999px',
+              padding: '2px 8px',
+              fontSize: '11px',
+              cursor: 'pointer'
+            }}
+          >
+            Ignore
+          </span>
         </div>
       </div>
 

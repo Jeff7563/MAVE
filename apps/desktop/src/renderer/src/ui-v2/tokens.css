@@ -69,11 +69,77 @@
   --mave-v2-motion-normal: 250ms cubic-bezier(0.16, 1, 0.3, 1);
   --mave-v2-motion-smooth: 350ms cubic-bezier(0.16, 1, 0.3, 1);
   --mave-v2-blur: 16px;
+
+  /* ==========================================================================
+     Showcase V3 Spatial & Glass Tokens (Primary Reference Direction)
+     ========================================================================== */
+  --mave-v3-bg-atmosphere: radial-gradient(circle at 15% 85%, rgba(99, 102, 241, 0.12) 0%, transparent 45%),
+                          radial-gradient(circle at 85% 85%, rgba(56, 189, 248, 0.10) 0%, transparent 45%),
+                          radial-gradient(circle at 50% 20%, rgba(168, 85, 247, 0.08) 0%, transparent 50%),
+                          #080914;
+  --mave-v3-glass-bg: rgba(14, 18, 30, 0.75);
+  --mave-v3-glass-surface: rgba(18, 22, 38, 0.82);
+  --mave-v3-glass-border: rgba(255, 255, 255, 0.08);
+  --mave-v3-glass-border-subtle: rgba(255, 255, 255, 0.05);
+  --mave-v3-glass-border-glow: rgba(99, 140, 255, 0.22);
+  --mave-v3-glass-shadow: 0 16px 40px rgba(0, 0, 0, 0.55), 0 0 1px rgba(255, 255, 255, 0.12) inset;
+  --mave-v3-capsule-bg: rgba(16, 20, 34, 0.88);
+  --mave-v3-capsule-border: rgba(99, 140, 255, 0.25);
+  --mave-v3-capsule-shadow: 0 12px 32px rgba(0, 0, 0, 0.6), 0 0 14px -3px rgba(56, 189, 248, 0.25);
 }
 
 /* ==========================================================================
    Motion Keyframes
    ========================================================================== */
+
+/* Showcase V3 Restrained Spatial Materialization */
+@keyframes mave-v3-materialize {
+  0% {
+    opacity: 0;
+    transform: translateY(8px) scale(0.985);
+    filter: blur(6px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0px);
+  }
+}
+
+@keyframes mave-v3-dematerialize {
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0px);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(6px) scale(0.985);
+    filter: blur(4px);
+  }
+}
+
+/* Rhythmic Breathing Dots in Capsule */
+@keyframes mave-v3-dots-pulse {
+  0%, 100% {
+    opacity: 0.35;
+    transform: scale(0.95);
+  }
+  50% {
+    opacity: 0.95;
+    transform: scale(1.1);
+  }
+}
+
+/* Subtle Gradient Progress Flow */
+@keyframes mave-v3-gradient-flow {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 200% 50%;
+  }
+}
 
 @keyframes mave-v2-breathe {
   0%, 100% {

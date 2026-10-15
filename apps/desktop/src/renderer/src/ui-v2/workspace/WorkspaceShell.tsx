@@ -171,17 +171,17 @@ export const WorkspaceShell: React.FC<WorkspaceShellProps> = ({
       style={{
         width,
         height,
-        background: 'var(--mave-v2-surface-resting)',
-        backdropFilter: 'blur(var(--mave-v2-blur))',
-        WebkitBackdropFilter: 'blur(var(--mave-v2-blur))',
-        border: '1px solid var(--mave-v2-border-subtle)',
-        borderRadius: 'var(--mave-v2-radius-workspace)',
-        boxShadow: '0 16px 48px rgba(0, 0, 0, 0.55)',
+        background: 'rgba(12, 16, 28, 0.88)',
+        backdropFilter: 'blur(28px)',
+        WebkitBackdropFilter: 'blur(28px)',
+        border: '1px solid rgba(255, 255, 255, 0.08)',
+        borderRadius: '20px',
+        boxShadow: '0 24px 64px rgba(0, 0, 0, 0.65), 0 0 1px rgba(255, 255, 255, 0.15) inset',
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
         boxSizing: 'border-box',
-        color: 'var(--mave-v2-text-primary)',
+        color: '#f8fafc',
         fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
         position: 'relative'
       }}
@@ -196,7 +196,7 @@ export const WorkspaceShell: React.FC<WorkspaceShellProps> = ({
           alignItems: 'center',
           justifyContent: 'space-between',
           padding: '12px 20px',
-          borderBottom: '1px solid var(--mave-v2-border-subtle)',
+          borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
           background: 'rgba(255, 255, 255, 0.02)',
           userSelect: 'none'
         }}
@@ -208,11 +208,50 @@ export const WorkspaceShell: React.FC<WorkspaceShellProps> = ({
             state={isRunning ? 'thinking' : isWaitingApproval ? 'idle' : 'idle'}
           />
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontWeight: 700, fontSize: '14px', letterSpacing: '-0.2px' }}>
+            <span style={{ fontWeight: 600, fontSize: '13px', letterSpacing: '0.14em', color: '#f8fafc' }}>
               MAVE
             </span>
-            <span style={{ color: 'var(--mave-v2-text-dim)', fontSize: '13px' }}>/</span>
-            <span style={{ fontWeight: 600, fontSize: '13px', color: 'var(--mave-v2-text-primary)' }} data-testid="workspace-title">
+            <span
+              style={{
+                fontSize: '11px',
+                fontWeight: 600,
+                letterSpacing: '0.1em',
+                color: 'rgba(148, 163, 184, 0.85)',
+                textTransform: 'uppercase',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px'
+              }}
+            >
+              <span
+                style={{
+                  width: '4px',
+                  height: '4px',
+                  borderRadius: '50%',
+                  background:
+                    state.type === 'diff_review'
+                      ? '#38bdf8'
+                      : state.type === 'agent' || state.type === 'agent_work'
+                      ? '#a855f7'
+                      : state.type === 'language'
+                      ? '#34d399'
+                      : state.type === 'research'
+                      ? '#60a5fa'
+                      : '#818cf8'
+                }}
+              />
+              {state.type === 'diff_review'
+                ? 'CODE'
+                : state.type === 'agent' || state.type === 'agent_work'
+                ? 'AGENT'
+                : state.type === 'language'
+                ? 'LANGUAGE'
+                : state.type === 'research'
+                ? 'RESEARCH'
+                : 'WORKSPACE'}
+            </span>
+            <span style={{ color: 'rgba(255, 255, 255, 0.2)', fontSize: '12px' }}>/</span>
+            <span style={{ fontWeight: 600, fontSize: '13px', color: '#f8fafc' }} data-testid="workspace-title">
               {state.title}
             </span>
             <span
@@ -374,11 +413,12 @@ export const WorkspaceShell: React.FC<WorkspaceShellProps> = ({
         {!isFocusMode && showConversation && (
           <aside
             style={{
-              width: '320px',
-              minWidth: '280px',
-              maxWidth: '360px',
-              borderRight: '1px solid var(--mave-v2-border-subtle)',
-              background: 'rgba(0, 0, 0, 0.2)',
+              width: '260px',
+              minWidth: '220px',
+              maxWidth: '280px',
+              borderRight: '1px solid rgba(255, 255, 255, 0.06)',
+              background: 'rgba(10, 14, 26, 0.6)',
+              backdropFilter: 'blur(16px)',
               display: 'flex',
               flexDirection: 'column',
               overflow: 'hidden'
@@ -610,11 +650,12 @@ export const WorkspaceShell: React.FC<WorkspaceShellProps> = ({
         {!isFocusMode && showContext && (
           <aside
             style={{
-              width: '280px',
-              minWidth: '240px',
-              maxWidth: '320px',
-              borderLeft: '1px solid var(--mave-v2-border-subtle)',
-              background: 'rgba(0, 0, 0, 0.25)',
+              width: '240px',
+              minWidth: '200px',
+              maxWidth: '260px',
+              borderLeft: '1px solid rgba(255, 255, 255, 0.06)',
+              background: 'rgba(10, 14, 26, 0.65)',
+              backdropFilter: 'blur(16px)',
               display: 'flex',
               flexDirection: 'column',
               overflowY: 'auto',

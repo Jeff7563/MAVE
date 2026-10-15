@@ -159,7 +159,7 @@ export const ConversationShell: React.FC<ConversationShellProps> = ({
     state.streamingStatus === 'streaming' ||
     Boolean(state.streamingText);
 
-  const shortcuts = state.suggestedShortcuts ?? DEFAULT_SHORTCUTS;
+  const shortcuts = state.suggestedShortcuts ?? (isSidecar ? [] : DEFAULT_SHORTCUTS);
   const groups: ResponseGroup[] = groupConversationTimeline(state);
 
   return (
@@ -168,19 +168,19 @@ export const ConversationShell: React.FC<ConversationShellProps> = ({
       style={{
         width,
         height,
-        background: 'var(--mave-v2-surface-resting)',
-        backdropFilter: 'blur(var(--mave-v2-blur))',
-        WebkitBackdropFilter: 'blur(var(--mave-v2-blur))',
-        border: '1px solid var(--mave-v2-border-subtle)',
-        borderRadius: 'var(--mave-v2-radius-panel)',
+        background: 'rgba(14, 18, 30, 0.85)',
+        backdropFilter: 'blur(28px)',
+        WebkitBackdropFilter: 'blur(28px)',
+        border: '1px solid rgba(255, 255, 255, 0.08)',
+        borderRadius: isSidecar ? undefined : '20px',
         boxShadow: isSidecar
-          ? '0 8px 24px rgba(0, 0, 0, 0.35)'
-          : '0 12px 36px rgba(0, 0, 0, 0.45)',
+          ? '0 12px 32px rgba(0, 0, 0, 0.5), 0 0 1px rgba(255, 255, 255, 0.12) inset'
+          : '0 20px 50px rgba(0, 0, 0, 0.6), 0 0 1px rgba(255, 255, 255, 0.15) inset',
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
         boxSizing: 'border-box',
-        color: 'var(--mave-v2-text-primary)',
+        color: '#f8fafc',
         fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
         position: 'relative'
       }}
@@ -195,7 +195,7 @@ export const ConversationShell: React.FC<ConversationShellProps> = ({
           alignItems: 'center',
           justifyContent: 'space-between',
           padding: '12px 16px',
-          borderBottom: '1px solid var(--mave-v2-border-subtle)',
+          borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
           background: 'rgba(255, 255, 255, 0.02)',
           userSelect: 'none'
         }}
@@ -210,13 +210,28 @@ export const ConversationShell: React.FC<ConversationShellProps> = ({
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <span
                 style={{
-                  fontWeight: 700,
-                  fontSize: '14px',
-                  letterSpacing: '-0.2px',
-                  color: 'var(--mave-v2-text-primary)'
+                  fontWeight: 600,
+                  fontSize: '13px',
+                  letterSpacing: '0.14em',
+                  color: '#f8fafc'
                 }}
               >
                 MAVE
+              </span>
+              <span
+                style={{
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  letterSpacing: '0.1em',
+                  color: 'rgba(148, 163, 184, 0.85)',
+                  textTransform: 'uppercase',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '5px'
+                }}
+              >
+                <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#38bdf8' }} />
+                CONVERSATION
               </span>
               {state.contextLabel && (
                 <span
@@ -236,7 +251,7 @@ export const ConversationShell: React.FC<ConversationShellProps> = ({
               )}
             </div>
             <div
-              style={{ fontSize: '11px', color: 'var(--mave-v2-text-dim)' }}
+              style={{ fontSize: '11px', color: 'rgba(148, 163, 184, 0.7)', marginTop: '1px' }}
               data-testid="conversation-subtitle"
             >
               {state.semanticRuntimeLabel ?? 'Personal Assistant'}
@@ -350,43 +365,48 @@ export const ConversationShell: React.FC<ConversationShellProps> = ({
       </header>
 
       {/* 2. Optional Task Shortcuts (Prompt Accelerators, NOT mandatory mode locks) */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '6px',
-          padding: '6px 16px',
-          overflowX: 'auto',
-          borderBottom: '1px solid rgba(255, 255, 255, 0.04)',
-          background: 'rgba(0, 0, 0, 0.12)'
-        }}
-        data-testid="conversation-shortcuts-bar"
-      >
-        {shortcuts.map((shortcut) => (
-          <button
-            key={shortcut}
-            onClick={() => {
-              setInputText((prev) => (prev ? `${prev} ${shortcut}: ` : `${shortcut}: `));
-              onSelectShortcut?.(shortcut);
-              inputRef.current?.focus();
-            }}
-            style={{
-              background: 'rgba(255, 255, 255, 0.04)',
-              border: '1px solid var(--mave-v2-border-subtle)',
-              borderRadius: 'var(--mave-v2-radius-pill)',
-              padding: '2px 9px',
-              fontSize: '11px',
-              color: 'var(--mave-v2-text-secondary)',
-              cursor: 'pointer',
-              whiteSpace: 'nowrap',
-              transition: 'all var(--mave-v2-motion-fast)'
-            }}
-            data-testid={`shortcut-${shortcut.toLowerCase()}`}
-          >
-            {shortcut}
-          </button>
-        ))}
-      </div>
+      {shortcuts.length > 0 && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '7px 16px',
+            overflowX: 'auto',
+            scrollbarWidth: 'none',
+            msOverflowStyle: 'none',
+            borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
+            background: 'rgba(0, 0, 0, 0.16)'
+          }}
+          data-testid="conversation-shortcuts-bar"
+        >
+          {shortcuts.map((shortcut) => (
+            <button
+              key={shortcut}
+              onClick={() => {
+                setInputText((prev) => (prev ? `${prev} ${shortcut}: ` : `${shortcut}: `));
+                onSelectShortcut?.(shortcut);
+                inputRef.current?.focus();
+              }}
+              style={{
+                background: 'rgba(255, 255, 255, 0.04)',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                borderRadius: '9999px',
+                padding: '3px 11px',
+                fontSize: '11px',
+                fontWeight: 500,
+                color: 'rgba(226, 232, 240, 0.85)',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                transition: 'all 150ms ease'
+              }}
+              data-testid={`shortcut-${shortcut.toLowerCase()}`}
+            >
+              {shortcut}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Screen Reader Live Region: Announces coherent milestones, never token-by-token noise */}
       <div
@@ -538,23 +558,35 @@ export const ConversationShell: React.FC<ConversationShellProps> = ({
                   style={{
                     display: 'flex',
                     flexDirection: 'column',
-                    alignItems: 'flex-end',
-                    width: '100%'
+                    alignItems: 'flex-start',
+                    width: '100%',
+                    gap: '4px'
                   }}
                   data-testid="message-card-user"
                 >
                   <div
                     style={{
-                      maxWidth: '85%',
-                      background:
-                        'linear-gradient(135deg, rgba(2, 132, 199, 0.25) 0%, rgba(56, 189, 248, 0.15) 100%)',
-                      border: '1px solid rgba(56, 189, 248, 0.3)',
-                      borderRadius: '14px 14px 2px 14px',
-                      padding: '10px 14px',
-                      color: 'var(--mave-v2-text-primary)',
-                      fontSize: '13px',
-                      lineHeight: '1.5',
-                      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)'
+                      fontSize: '11px',
+                      fontWeight: 600,
+                      color: 'rgba(148, 163, 184, 0.75)',
+                      letterSpacing: '0.08em',
+                      textTransform: 'uppercase',
+                      paddingLeft: '2px'
+                    }}
+                  >
+                    YOU
+                  </div>
+                  <div
+                    style={{
+                      maxWidth: '96%',
+                      background: 'rgba(255, 255, 255, 0.04)',
+                      border: '1px solid rgba(255, 255, 255, 0.08)',
+                      borderRadius: '12px',
+                      padding: '12px 16px',
+                      color: '#f8fafc',
+                      fontSize: '13.5px',
+                      lineHeight: '1.6',
+                      boxShadow: '0 2px 10px rgba(0, 0, 0, 0.2)'
                     }}
                   >
                     <div style={{ whiteSpace: 'pre-wrap' }}>{group.userMessage.content}</div>
@@ -582,8 +614,10 @@ export const ConversationShell: React.FC<ConversationShellProps> = ({
                       gap: '6px',
                       fontSize: '11px',
                       fontWeight: 600,
-                      color: 'var(--mave-v2-text-dim)',
-                      marginLeft: '2px'
+                      color: '#38bdf8',
+                      letterSpacing: '0.08em',
+                      marginLeft: '2px',
+                      textTransform: 'uppercase'
                     }}
                     data-testid="response-group-header"
                   >
@@ -602,7 +636,8 @@ export const ConversationShell: React.FC<ConversationShellProps> = ({
                         color: 'var(--mave-v2-accent-listening)',
                         padding: '6px 12px',
                         background: 'rgba(56, 189, 248, 0.08)',
-                        borderRadius: '6px',
+                        border: '1px solid rgba(56, 189, 248, 0.2)',
+                        borderRadius: '8px',
                         width: '100%',
                         boxSizing: 'border-box'
                       }}
@@ -617,15 +652,16 @@ export const ConversationShell: React.FC<ConversationShellProps> = ({
                   {group.answerText && (
                     <div
                       style={{
-                        maxWidth: '92%',
-                        background: 'var(--mave-v2-surface-elevated)',
-                        border: '1px solid var(--mave-v2-border-subtle)',
-                        borderRadius: '14px 14px 14px 2px',
-                        padding: '12px 16px',
-                        fontSize: '13px',
-                        lineHeight: 1.6,
-                        color: 'var(--mave-v2-text-primary)',
-                        boxShadow: '0 2px 10px rgba(0, 0, 0, 0.2)'
+                        maxWidth: '96%',
+                        background: 'rgba(18, 22, 38, 0.75)',
+                        backdropFilter: 'blur(16px)',
+                        border: '1px solid rgba(255, 255, 255, 0.07)',
+                        borderRadius: '12px',
+                        padding: '14px 18px',
+                        fontSize: '13.5px',
+                        lineHeight: 1.65,
+                        color: '#f8fafc',
+                        boxShadow: '0 4px 16px rgba(0, 0, 0, 0.25)'
                       }}
                       data-testid="response-answer-text"
                     >
@@ -638,15 +674,16 @@ export const ConversationShell: React.FC<ConversationShellProps> = ({
                     <div
                       aria-hidden="true"
                       style={{
-                        maxWidth: '92%',
-                        background: 'var(--mave-v2-surface-elevated)',
-                        border: '1px solid var(--mave-v2-border-subtle)',
-                        borderRadius: '14px 14px 14px 2px',
-                        padding: '12px 16px',
-                        fontSize: '13px',
-                        lineHeight: 1.6,
-                        color: 'var(--mave-v2-text-primary)',
-                        boxShadow: '0 2px 10px rgba(0, 0, 0, 0.2)'
+                        maxWidth: '96%',
+                        background: 'rgba(18, 22, 38, 0.75)',
+                        backdropFilter: 'blur(16px)',
+                        border: '1px solid rgba(56, 189, 248, 0.25)',
+                        borderRadius: '12px',
+                        padding: '14px 18px',
+                        fontSize: '13.5px',
+                        lineHeight: 1.65,
+                        color: '#f8fafc',
+                        boxShadow: '0 4px 16px rgba(0, 0, 0, 0.25)'
                       }}
                       data-testid="streaming-text-block"
                     >
@@ -655,11 +692,12 @@ export const ConversationShell: React.FC<ConversationShellProps> = ({
                         <span
                           style={{
                             display: 'inline-block',
-                            width: '6px',
+                            width: '4px',
                             height: '14px',
-                            background: 'var(--mave-v2-accent-listening)',
+                            background: '#38bdf8',
                             marginLeft: '4px',
                             verticalAlign: 'middle',
+                            borderRadius: '1px',
                             animation: 'mave-v2-pulse-ring 1s infinite'
                           }}
                         />
@@ -938,8 +976,9 @@ export const ConversationShell: React.FC<ConversationShellProps> = ({
       <footer
         style={{
           padding: '12px 16px',
-          borderTop: '1px solid var(--mave-v2-border-subtle)',
-          background: 'rgba(0, 0, 0, 0.25)',
+          borderTop: '1px solid rgba(255, 255, 255, 0.06)',
+          background: 'rgba(10, 14, 26, 0.7)',
+          backdropFilter: 'blur(16px)',
           display: 'flex',
           flexDirection: 'column',
           gap: '8px'
@@ -954,7 +993,7 @@ export const ConversationShell: React.FC<ConversationShellProps> = ({
               aria-label="Voice activation"
               style={{
                 background: 'rgba(255, 255, 255, 0.05)',
-                border: '1px solid var(--mave-v2-border-subtle)',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
                 borderRadius: '8px',
                 padding: '8px 10px',
                 color: 'var(--mave-v2-text-muted)',
@@ -976,11 +1015,11 @@ export const ConversationShell: React.FC<ConversationShellProps> = ({
             rows={1}
             style={{
               flex: 1,
-              background: 'var(--mave-v2-surface-active)',
-              border: '1px solid var(--mave-v2-border-subtle)',
+              background: 'rgba(255, 255, 255, 0.04)',
+              border: '1px solid rgba(255, 255, 255, 0.08)',
               borderRadius: '10px',
-              padding: '10px 12px',
-              color: 'var(--mave-v2-text-primary)',
+              padding: '10px 14px',
+              color: '#f8fafc',
               fontSize: '13px',
               resize: 'none',
               outline: 'none',
@@ -1021,16 +1060,16 @@ export const ConversationShell: React.FC<ConversationShellProps> = ({
               aria-label="Send message"
               style={{
                 background: inputText.trim()
-                  ? 'var(--mave-v2-accent-listening)'
+                  ? '#38bdf8'
                   : 'rgba(255, 255, 255, 0.08)',
                 border: 'none',
                 borderRadius: '8px',
-                color: inputText.trim() ? '#0f172a' : 'var(--mave-v2-text-dim)',
-                padding: '10px 14px',
+                color: inputText.trim() ? '#080914' : 'rgba(148, 163, 184, 0.5)',
+                padding: '10px 16px',
                 fontWeight: 600,
                 fontSize: '13px',
                 cursor: inputText.trim() ? 'pointer' : 'default',
-                transition: 'all var(--mave-v2-motion-fast)'
+                transition: 'all 150ms ease'
               }}
               data-testid="conversation-send-button"
             >
