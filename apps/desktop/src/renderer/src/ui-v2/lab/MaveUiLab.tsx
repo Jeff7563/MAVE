@@ -1731,6 +1731,7 @@ export const MaveUiLab: React.FC = () => {
                 key={`${selectedScenarioId}-${snapshot.workspace?.id || snapshot.workspace?.type || 'ws'}`}
                 state={snapshot.workspace}
                 conversationState={snapshot.conversation}
+                isNarrow={viewportPreset === 'narrow' || selectedScenarioId.includes('narrow')}
                 officeMode={officeMode}
                 onMinimizeToConversation={() => handleSetLevel('conversation')}
                 onCollapseToPresence={() => handleSetLevel('presence')}
@@ -1894,6 +1895,9 @@ export const MaveUiLab: React.FC = () => {
                     const activeContext = /coffee|cafe/i.test(loc) || roleplay.role?.toLowerCase() === 'barista'
                       ? 'Roleplay: Coffee Shop'
                       : `Roleplay: ${loc}`;
+                    const activeSituation = roleplay.activeSituation ||
+                      (!/^paused\b/i.test(roleplay.situation || '') ? roleplay.situation : undefined) ||
+                      'You just walked into a busy Tokyo specialty cafe. Order an iced oat milk latte with less sweetness.';
                     return {
                       ...prev,
                       workspace: {
@@ -1907,7 +1911,9 @@ export const MaveUiLab: React.FC = () => {
                           currentPrompt: 'Hi there! Welcome to Shibuya Roasters. What can I get started for you today?',
                           roleplayScenario: {
                             ...roleplay,
-                            isOutOfRole: false
+                            isOutOfRole: false,
+                            situation: activeSituation,
+                            activeSituation
                           }
                         }
                       }

@@ -865,7 +865,117 @@ describe('MAVE UI V2 — U6 Language Experience & Conversational Learning System
       expect(html).not.toContain('Adaptive Language Workspace');
 
       // Canonical title and status badge
-      expect(html).toContain('Free Conversation');
+      expect(html).toContain('title="Free Conversation"');
+      expect(html).toContain('Conversing in English');
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // 13. VSM5.3 Language Final State Consistency & Narrow Header Polish
+  // -------------------------------------------------------------------------
+  describe('13. VSM5.3 Language Final State Consistency & Narrow Header Polish', () => {
+    it('A. active roleplay contains no paused-state contextual copy', () => {
+      const activeRoleplay = U6_LANGUAGE_SCENARIOS.find((s) => s.id === 'u6_05_roleplay_coffee_shop');
+      expect(activeRoleplay).toBeDefined();
+
+      const html = renderToStaticMarkup(
+        <WorkspaceShell state={activeRoleplay!.snapshot.workspace} />
+      );
+
+      expect(html).toContain('Roleplay Active');
+      expect(html).toContain('You just walked into a busy Tokyo specialty cafe');
+      expect(html).toContain('Step out of role');
+      // Must contain zero paused-state copy
+      expect(html).not.toContain('Paused for');
+      expect(html).not.toContain('Roleplay Paused');
+      expect(html).not.toContain('substitution');
+    });
+
+    it('B. paused roleplay contains pause reason', () => {
+      const pausedRoleplay = U6_LANGUAGE_SCENARIOS.find((s) => s.id === 'u6_06_roleplay_explanation_break');
+      expect(pausedRoleplay).toBeDefined();
+
+      const html = renderToStaticMarkup(
+        <WorkspaceShell state={pausedRoleplay!.snapshot.workspace} />
+      );
+
+      expect(html).toContain('Roleplay Paused (MAVE Direct)');
+      expect(html).toContain('Paused for vocabulary explanation');
+      expect(html).toContain('substitution');
+      expect(html).toContain('Resume Roleplay');
+      expect(html).not.toContain('Step out of role');
+    });
+
+    it('C. resumed roleplay restores active scenario context', () => {
+      const pausedRoleplay = U6_LANGUAGE_SCENARIOS.find((s) => s.id === 'u6_06_roleplay_explanation_break');
+      expect(pausedRoleplay).toBeDefined();
+
+      // Simulate resumed state
+      const resumedState = {
+        ...pausedRoleplay!.snapshot.workspace,
+        status: 'running' as const,
+        userFacingState: 'Roleplay: Coffee Shop',
+        languageSession: {
+          ...pausedRoleplay!.snapshot.workspace.languageSession!,
+          status: 'practicing' as const,
+          roleplayScenario: {
+            ...pausedRoleplay!.snapshot.workspace.languageSession!.roleplayScenario!,
+            isOutOfRole: false
+          }
+        }
+      };
+
+      const html = renderToStaticMarkup(
+        <WorkspaceShell state={resumedState} />
+      );
+
+      expect(html).toContain('Roleplay: Coffee Shop');
+      expect(html).toContain('Roleplay Active');
+      expect(html).toContain('You just walked into a busy Tokyo specialty cafe');
+      expect(html).toContain('Step out of role');
+      // Must contain ZERO paused or explanation copy
+      expect(html).not.toContain('Paused for');
+      expect(html).not.toContain('substitution');
+      expect(html).not.toContain('Resume Roleplay');
+    });
+
+    it('D. narrow workspace header exposes no horizontal overflow', () => {
+      const narrowScenario = U6_LANGUAGE_SCENARIOS.find((s) => s.id === 'u6_18_narrow_workspace_adaptation');
+      expect(narrowScenario).toBeDefined();
+
+      const html = renderToStaticMarkup(
+        <WorkspaceShell state={narrowScenario!.snapshot.workspace} isNarrow={true} />
+      );
+
+      // Non-essential toggles collapsed to eliminate horizontal overflow
+      expect(html).not.toContain('data-testid="btn-workspace-focus"');
+      expect(html).not.toContain('data-testid="btn-workspace-toggle-chat"');
+      expect(html).not.toContain('data-testid="btn-workspace-toggle-context"');
+
+      // Critical surface controls remain available
+      expect(html).toContain('data-testid="btn-workspace-minimize-conversation"');
+      expect(html).toContain('data-testid="btn-workspace-collapse-presence"');
+      expect(html).toContain('data-testid="btn-workspace-close"');
+    });
+
+    it('E. narrow header does not clip/overlap product identity', () => {
+      const narrowScenario = U6_LANGUAGE_SCENARIOS.find((s) => s.id === 'u6_18_narrow_workspace_adaptation');
+      expect(narrowScenario).toBeDefined();
+
+      const html = renderToStaticMarkup(
+        <WorkspaceShell state={narrowScenario!.snapshot.workspace} isNarrow={true} />
+      );
+
+      // Clean unclipped product identity in header
+      expect(html).toContain('MAVE');
+      expect(html).toContain('Language Practice');
+      expect(html).toContain('title="Free Conversation"');
+
+      // Secondary status badge does NOT crowd the narrow header
+      expect(html).not.toContain('data-testid="workspace-status-badge"');
+
+      // Secondary status moves into the dominant practice canvas metadata
+      expect(html).toContain('data-testid="language-practice-metadata"');
       expect(html).toContain('Conversing in English');
     });
   });

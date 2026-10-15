@@ -490,6 +490,8 @@ export interface RoleplayScenario {
   userRole: string;
   assistantRole?: string;
   situation?: string;
+  activeSituation?: string;
+  pauseReason?: string;
   setting?: string;
   goal?: string;
   location?: string;

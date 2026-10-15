@@ -3734,7 +3734,9 @@ export const U6_LANGUAGE_SCENARIOS: MockScenario[] = [
           roleplayScenario: {
             role: 'Barista',
             userRole: 'Customer',
-            situation: 'Paused for vocabulary explanation: "substitution".',
+            situation: 'You just walked into a busy Tokyo specialty cafe. Order an iced oat milk latte with less sweetness.',
+            activeSituation: 'You just walked into a busy Tokyo specialty cafe. Order an iced oat milk latte with less sweetness.',
+            pauseReason: 'Paused for vocabulary explanation: "substitution".',
             location: 'Shibuya Coffee Roasters',
             isOutOfRole: true
           },

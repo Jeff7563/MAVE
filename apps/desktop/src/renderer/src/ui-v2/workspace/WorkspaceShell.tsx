@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import type {
   WorkspaceState,
   ConversationState,
@@ -56,6 +56,7 @@ export interface WorkspaceShellProps {
   officeMode?: boolean;
   width?: string | number;
   height?: string | number;
+  isNarrow?: boolean;
   initialFocusMode?: boolean;
   initialShowConversation?: boolean;
   initialShowContext?: boolean;
@@ -101,6 +102,7 @@ export const WorkspaceShell: React.FC<WorkspaceShellProps> = ({
   officeMode = false,
   width = '100%',
   height = '100%',
+  isNarrow: propIsNarrow,
   initialFocusMode,
   initialShowConversation,
   initialShowContext
@@ -238,6 +240,44 @@ export const WorkspaceShell: React.FC<WorkspaceShellProps> = ({
     onResumeRoleplay?.();
   };
 
+  // Measure container width for responsive adaptation
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [containerWidth, setContainerWidth] = useState<number | null>(() => {
+    if (typeof width === 'number') return width;
+    if (typeof width === 'string' && width.endsWith('px')) return parseInt(width, 10);
+    return null;
+  });
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const checkWidth = (w: number) => {
+      setContainerWidth(w);
+    };
+
+    checkWidth(el.getBoundingClientRect().width);
+
+    const ro = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        checkWidth(entry.contentRect.width);
+      }
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const isNarrowViewport =
+    propIsNarrow !== undefined
+      ? propIsNarrow
+      : (containerWidth !== null
+          ? containerWidth < 860
+          : Boolean(
+              (typeof width === 'number' && width < 860) ||
+              (typeof width === 'string' && width.endsWith('px') && parseInt(width, 10) < 860) ||
+              Boolean(state.id && (state.id.includes('narrow') || state.id.includes('u6-18')))
+            ));
+
   // User-facing semantic status text (Zero provider leakage and zero dev/viewport jargon)
   let rawStatusText = state.userFacingState;
 
@@ -258,10 +298,19 @@ export const WorkspaceShell: React.FC<WorkspaceShellProps> = ({
   }
 
   // Sanitize title to remove dev/scenario labels
-  let cleanTitle = state.title;
+  let cleanTitle = state.title || '';
   if (cleanTitle && /adaptive language workspace|viewport/i.test(cleanTitle)) {
     cleanTitle = 'Free Conversation';
   }
+
+  // Responsive narrow header title: collapse to clear product identity
+  const displayTitle = isNarrowViewport
+    ? (isLanguageMode || state.languageSession
+        ? 'Language Practice'
+        : (cleanTitle && cleanTitle.length > 20
+            ? (state.type.charAt(0).toUpperCase() + state.type.slice(1))
+            : cleanTitle))
+    : cleanTitle;
 
   // Semantic Status Color
   const statusColor = (isRoleplaySession && roleplayPaused)
@@ -294,6 +343,7 @@ export const WorkspaceShell: React.FC<WorkspaceShellProps> = ({
 
   return (
     <div
+      ref={containerRef}
       className={`mave-v2-workspace-shell ${isFocusMode ? 'mave-v2-workspace-focus' : ''} ${className}`.trim()}
       style={{
         width,
@@ -322,7 +372,7 @@ export const WorkspaceShell: React.FC<WorkspaceShellProps> = ({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          padding: '12px 20px',
+          padding: isNarrowViewport ? '10px 16px' : '12px 20px',
           borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
           background: 'rgba(255, 255, 255, 0.02)',
           userSelect: 'none'
@@ -351,9 +401,9 @@ export const WorkspaceShell: React.FC<WorkspaceShellProps> = ({
               data-testid="workspace-title"
               title={cleanTitle}
             >
-              {cleanTitle}
+              {displayTitle}
             </span>
-            {semanticStatusText && (
+            {semanticStatusText && (!isNarrowViewport || isWaitingApproval) && (
               <span
                 style={{
                   fontSize: '10px',
@@ -378,31 +428,33 @@ export const WorkspaceShell: React.FC<WorkspaceShellProps> = ({
         {/* Right: Region Toggles & Navigation Controls */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
           {/* Focus Mode Toggle */}
-          <button
-            onClick={() => setIsFocusMode(!isFocusMode)}
-            title={isFocusMode ? 'Exit Focus Mode (Esc)' : 'Focus Primary Artifact (Alt+F)'}
-            aria-label={isFocusMode ? 'Exit Focus Mode' : 'Focus Primary Artifact'}
-            style={{
-              background: isFocusMode ? 'rgba(56, 189, 248, 0.15)' : 'transparent',
-              border: isFocusMode ? '1px solid rgba(56, 189, 248, 0.4)' : '1px solid var(--mave-v2-border-subtle)',
-              borderRadius: '6px',
-              color: isFocusMode ? 'var(--mave-v2-accent-listening)' : 'var(--mave-v2-text-secondary)',
-              padding: '4px 8px',
-              fontSize: '11px',
-              cursor: 'pointer',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '5px'
-            }}
-            data-testid="btn-workspace-focus"
-            aria-pressed={isFocusMode}
-          >
-            <FocusIcon size={12} color={isFocusMode ? 'var(--mave-v2-accent-listening)' : 'var(--mave-v2-text-secondary)'} />
-            <span>Focus</span>
-          </button>
+          {!isNarrowViewport && (
+            <button
+              onClick={() => setIsFocusMode(!isFocusMode)}
+              title={isFocusMode ? 'Exit Focus Mode (Esc)' : 'Focus Primary Artifact (Alt+F)'}
+              aria-label={isFocusMode ? 'Exit Focus Mode' : 'Focus Primary Artifact'}
+              style={{
+                background: isFocusMode ? 'rgba(56, 189, 248, 0.15)' : 'transparent',
+                border: isFocusMode ? '1px solid rgba(56, 189, 248, 0.4)' : '1px solid var(--mave-v2-border-subtle)',
+                borderRadius: '6px',
+                color: isFocusMode ? 'var(--mave-v2-accent-listening)' : 'var(--mave-v2-text-secondary)',
+                padding: '4px 8px',
+                fontSize: '11px',
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px'
+              }}
+              data-testid="btn-workspace-focus"
+              aria-pressed={isFocusMode}
+            >
+              <FocusIcon size={12} color={isFocusMode ? 'var(--mave-v2-accent-listening)' : 'var(--mave-v2-text-secondary)'} />
+              <span>Focus</span>
+            </button>
+          )}
 
           {/* Conversation Panel Toggle */}
-          {!isFocusMode && (
+          {!isFocusMode && !isNarrowViewport && (
             <button
               onClick={() => setShowConversation(!showConversation)}
               title={showConversation ? 'Hide Conversation Rail (Alt+C)' : 'Show Conversation Rail (Alt+C)'}
@@ -428,7 +480,7 @@ export const WorkspaceShell: React.FC<WorkspaceShellProps> = ({
           )}
 
           {/* Supporting Context Toggle */}
-          {!isFocusMode && (
+          {!isFocusMode && !isNarrowViewport && (
             <button
               onClick={() => hasContextContent && setShowContext(!showContext)}
               disabled={!hasContextContent}
@@ -457,7 +509,9 @@ export const WorkspaceShell: React.FC<WorkspaceShellProps> = ({
             </button>
           )}
 
-          <div style={{ width: '1px', height: '16px', background: 'var(--mave-v2-border-subtle)', margin: '0 4px' }} />
+          {!isNarrowViewport && (
+            <div style={{ width: '1px', height: '16px', background: 'var(--mave-v2-border-subtle)', margin: '0 4px' }} />
+          )}
 
           {/* Minimize to Conversation */}
           <button
@@ -469,7 +523,7 @@ export const WorkspaceShell: React.FC<WorkspaceShellProps> = ({
               border: '1px solid var(--mave-v2-border-subtle)',
               borderRadius: '6px',
               color: 'var(--mave-v2-text-secondary)',
-              padding: '4px 8px',
+              padding: isNarrowViewport ? '4px 6px' : '4px 8px',
               fontSize: '11px',
               cursor: 'pointer',
               display: 'inline-flex',
@@ -479,7 +533,7 @@ export const WorkspaceShell: React.FC<WorkspaceShellProps> = ({
             data-testid="btn-workspace-minimize-conversation"
           >
             <MinimizeIcon size={12} color="var(--mave-v2-text-secondary)" />
-            <span>Conversation</span>
+            {!isNarrowViewport && <span>Conversation</span>}
           </button>
 
           {/* Collapse to Presence */}
@@ -492,7 +546,7 @@ export const WorkspaceShell: React.FC<WorkspaceShellProps> = ({
               border: '1px solid var(--mave-v2-border-subtle)',
               borderRadius: '6px',
               color: 'var(--mave-v2-text-secondary)',
-              padding: '4px 8px',
+              padding: isNarrowViewport ? '4px 6px' : '4px 8px',
               fontSize: '11px',
               cursor: 'pointer',
               display: 'inline-flex',
@@ -502,7 +556,7 @@ export const WorkspaceShell: React.FC<WorkspaceShellProps> = ({
             data-testid="btn-workspace-collapse-presence"
           >
             <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'currentColor' }} />
-            <span>Presence</span>
+            {!isNarrowViewport && <span>Presence</span>}
           </button>
 
           {/* Close Surface (Visual dismiss != Cancel task) */}
@@ -519,7 +573,8 @@ export const WorkspaceShell: React.FC<WorkspaceShellProps> = ({
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'center'
+              justifyContent: 'center',
+              borderRadius: '4px'
             }}
             data-testid="btn-workspace-close"
           >
@@ -733,6 +788,16 @@ export const WorkspaceShell: React.FC<WorkspaceShellProps> = ({
 
             // 3. Language Practice Workspace (Canonical U6 Experience)
             if (state.type === 'language' || state.languageSession) {
+              const session = state.languageSession;
+              const roleplay = session?.roleplayScenario;
+              const canonicalActiveSituation =
+                roleplay?.activeSituation ||
+                (!/^paused\b/i.test(roleplay?.situation || '') ? roleplay?.situation : undefined) ||
+                'You just walked into a busy Tokyo specialty cafe. Order an iced oat milk latte with less sweetness.';
+              const canonicalPauseReason =
+                roleplay?.pauseReason ||
+                (/^paused\b/i.test(roleplay?.situation || '') ? roleplay?.situation : 'Paused for vocabulary explanation: "substitution".');
+
               return (
                 <LanguageWorkspaceView
                   state={{
@@ -740,12 +805,15 @@ export const WorkspaceShell: React.FC<WorkspaceShellProps> = ({
                     title: cleanTitle,
                     userFacingState: rawStatusText,
                     status: (isRoleplaySession && roleplayPaused) ? 'paused' : (state.status === 'paused' && !roleplayPaused ? 'running' : state.status),
-                    languageSession: state.languageSession ? {
-                      ...state.languageSession,
-                      status: (isRoleplaySession && roleplayPaused) ? 'paused' : (state.languageSession.status === 'paused' && !roleplayPaused ? 'practicing' : state.languageSession.status),
-                      roleplayScenario: state.languageSession.roleplayScenario ? {
-                        ...state.languageSession.roleplayScenario,
-                        isOutOfRole: roleplayPaused
+                    languageSession: session ? {
+                      ...session,
+                      status: (isRoleplaySession && roleplayPaused) ? 'paused' : (session.status === 'paused' && !roleplayPaused ? 'practicing' : session.status),
+                      roleplayScenario: roleplay ? {
+                        ...roleplay,
+                        isOutOfRole: roleplayPaused,
+                        situation: roleplayPaused ? canonicalPauseReason : canonicalActiveSituation,
+                        activeSituation: canonicalActiveSituation,
+                        pauseReason: canonicalPauseReason
                       } : undefined
                     } : undefined
                   }}

@@ -263,7 +263,11 @@ export const LanguageWorkspaceView: React.FC<LanguageWorkspaceViewProps> = ({
                   color: 'var(--mave-faint)',
                   fontFamily: 'var(--mave-font-mono)'
                 }}
+                data-testid="language-practice-metadata"
               >
+                {state.userFacingState && !state.userFacingState.toLowerCase().includes('paused') && !state.userFacingState.toLowerCase().includes('roleplay')
+                  ? `${state.userFacingState} · `
+                  : ''}
                 {session.targetLanguage} · {session.practiceType.replace('_', ' ')}
               </span>
             </div>

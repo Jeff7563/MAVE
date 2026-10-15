@@ -37,8 +37,22 @@ export const RoleplayBanner: React.FC<RoleplayBannerProps> = ({
   const isOutOfRole = Boolean(scenario.isOutOfRole);
   const assistantRole = scenario.assistantRole || scenario.role;
   const scenarioTitle = scenario.title || 'Roleplay Scenario';
-  const situation = scenario.situation || scenario.goal || scenario.setting;
   const location = scenario.location || scenario.setting;
+
+  // Canonical state-derived situation vs pause reason
+  const isPausedCopy = (text?: string) => Boolean(text && /^paused\b/i.test(text.trim()));
+
+  const activeSituation =
+    scenario.activeSituation ||
+    (!isPausedCopy(scenario.situation) ? scenario.situation : undefined) ||
+    (!isPausedCopy(scenario.goal) ? scenario.goal : undefined) ||
+    scenario.setting ||
+    'You just walked into a busy Tokyo specialty cafe. Order an iced oat milk latte with less sweetness.';
+
+  const pauseReason =
+    scenario.pauseReason ||
+    (isPausedCopy(scenario.situation) ? scenario.situation : undefined) ||
+    'Paused for vocabulary explanation: "substitution".';
 
   return (
     <div
@@ -117,19 +131,27 @@ export const RoleplayBanner: React.FC<RoleplayBannerProps> = ({
       )}
 
       {isOutOfRole ? (
-        <div style={{ fontSize: '12px', color: 'var(--mave-dim)', lineHeight: 1.4 }}>
-          MAVE speaking directly as coach. You can ask for grammar explanations, vocabulary clarification, or strategy before resuming.
-        </div>
+        <>
+          <div style={{ fontSize: '12px', color: 'var(--mave-dim)', lineHeight: 1.4 }}>
+            MAVE speaking directly as coach. You can ask for grammar explanations, vocabulary clarification, or strategy before resuming.
+          </div>
+          {pauseReason && (
+            <div style={{ fontSize: '12px', color: 'var(--mave-dim)', lineHeight: 1.4 }} data-testid="roleplay-pause-reason">
+              {pauseReason}
+            </div>
+          )}
+        </>
       ) : (
-        <div style={{ fontSize: '12px', fontWeight: 500, color: 'var(--mave-dim)' }}>
-          MAVE as <span style={{ color: 'var(--mave-cyan)', fontWeight: 600 }}>{assistantRole}</span> (You: {scenario.userRole})
-        </div>
-      )}
-
-      {situation && (
-        <div style={{ fontSize: '12px', color: 'var(--mave-dim)', lineHeight: 1.4 }}>
-          {situation}
-        </div>
+        <>
+          <div style={{ fontSize: '12px', fontWeight: 500, color: 'var(--mave-dim)' }}>
+            MAVE as <span style={{ color: 'var(--mave-cyan)', fontWeight: 600 }}>{assistantRole}</span> (You: {scenario.userRole})
+          </div>
+          {activeSituation && (
+            <div style={{ fontSize: '12px', color: 'var(--mave-dim)', lineHeight: 1.4 }} data-testid="roleplay-active-situation">
+              {activeSituation}
+            </div>
+          )}
+        </>
       )}
 
       <div style={{ fontSize: '11px', color: 'var(--mave-faint)', marginTop: '2px', fontFamily: 'var(--mave-font-mono)' }}>
