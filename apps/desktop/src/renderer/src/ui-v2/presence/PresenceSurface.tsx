@@ -413,14 +413,14 @@ export const PresenceSurface: React.FC<PresenceSurfaceProps> = ({
 
       {/* --------------------------------------------------------------------
           3. Main Presence Capsule (Restrained Morphing Geometry & Snug Gap)
-          - Idle: 250 × 50, radius 25, centered Jost 300 wordmark
+          - Idle: compact wordmark capsule with intentional breathing room (~160 × 50, radius 25)
           - Active: min(460px, 30vw) × 50, radius 25, content-aware layout
           -------------------------------------------------------------------- */}
       <div
         style={{
           position: 'relative',
-          width: isIdle ? '250px' : 'fit-content',
-          minWidth: isIdle ? '250px' : '260px',
+          width: 'fit-content',
+          minWidth: isIdle ? '160px' : '260px',
           maxWidth: 'min(500px, 92vw)',
           height: '50px',
           borderRadius: '25px',
@@ -432,11 +432,11 @@ export const PresenceSurface: React.FC<PresenceSurfaceProps> = ({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          padding: '0 18px',
+          padding: isIdle ? '0 30px' : '0 18px',
           boxSizing: 'border-box',
           gap: '10px',
           overflow: 'hidden',
-          transition: 'width 400ms cubic-bezier(0.16, 1, 0.3, 1), min-width 400ms cubic-bezier(0.16, 1, 0.3, 1), max-width 400ms cubic-bezier(0.16, 1, 0.3, 1), border-radius 350ms ease, opacity 350ms ease, transform 350ms ease, background-color 350ms ease, border-color 350ms ease, box-shadow 350ms ease',
+          transition: 'width 400ms cubic-bezier(0.16, 1, 0.3, 1), min-width 400ms cubic-bezier(0.16, 1, 0.3, 1), max-width 400ms cubic-bezier(0.16, 1, 0.3, 1), padding 400ms cubic-bezier(0.16, 1, 0.3, 1), border-radius 350ms ease, opacity 350ms ease, transform 350ms ease, background-color 350ms ease, border-color 350ms ease, box-shadow 350ms ease',
           animation: isIdle ? 'mave-v2-breathe 4.8s ease-in-out infinite' : undefined
         }}
         data-testid="presence-capsule"

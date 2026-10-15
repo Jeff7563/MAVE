@@ -40,6 +40,17 @@ describe('MAVE UI V2 — U1.1 Presence Interaction Semantics Hardening Tests', (
       const html = renderToStaticMarkup(<PresenceSurface state="idle" />);
       expect(html).toContain('var(--mave-v2-presence-glow-resting)');
     });
+
+    it('Visual QA P2.2 — applies compact fit-content wordmark capsule sizing with intentional breathing room and no 250px reservation', () => {
+      const html = renderToStaticMarkup(<PresenceSurface state="idle" />);
+      expect(html).toContain('width:fit-content');
+      expect(html).toContain('min-width:160px');
+      expect(html).toContain('height:50px');
+      expect(html).toContain('border-radius:25px');
+      expect(html).toContain('padding:0 30px');
+      expect(html).not.toContain('min-width:250px');
+      expect(html).not.toContain('width:250px');
+    });
   });
 
   describe('2. Active Streamlining & Capsule Cleanliness', () => {
