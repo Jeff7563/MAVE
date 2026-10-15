@@ -2063,10 +2063,706 @@ export const U3_RICH_CARD_SCENARIOS: MockScenario[] = [
   }
 ];
 
-// Combined full scenarios array (Baseline U0 preserved first, followed by U2, then U3)
+// ---------------------------------------------------------------------------
+// U4 Specific Chat-Only / Sidecar Scenarios (Prompt Section 37)
+// ---------------------------------------------------------------------------
+
+export const U4_CHAT_ONLY_SCENARIOS: MockScenario[] = [
+  // U4-01 Empty Sidecar
+  {
+    id: 'u4_01_empty_sidecar',
+    name: 'U4-01 Empty Sidecar',
+    description: 'Minimal empty sidecar companion showing greeting and quick-suggestion chips without visual clutter.',
+    category: 'conversation',
+    snapshot: {
+      level: 'conversation',
+      presentationMode: 'sidecar',
+      sidecarPlacement: 'right',
+      presence: { state: 'idle', audioLevel: 0 },
+      conversation: {
+        status: 'idle',
+        presentationMode: 'sidecar',
+        sidecarPlacement: 'right',
+        isPinned: false,
+        messages: [],
+        cards: []
+      },
+      workspace: {
+        type: 'project',
+        title: 'Sidecar Companion',
+        status: 'idle',
+        steps: []
+      }
+    }
+  },
+
+  // U4-02 Short Conversation
+  {
+    id: 'u4_02_short_conversation',
+    name: 'U4-02 Short Conversation',
+    description: 'Direct concise answer rendered in compact sidecar presentation mode alongside active user work.',
+    category: 'conversation',
+    snapshot: {
+      level: 'conversation',
+      presentationMode: 'sidecar',
+      sidecarPlacement: 'right',
+      presence: { state: 'idle', audioLevel: 0 },
+      conversation: {
+        status: 'result',
+        presentationMode: 'sidecar',
+        sidecarPlacement: 'right',
+        messages: [
+          {
+            id: 'm1',
+            type: 'message',
+            role: 'user',
+            content: 'What is the syntax for Array.prototype.flatMap in TypeScript?'
+          },
+          {
+            id: 'm2',
+            type: 'message',
+            role: 'assistant',
+            content: 'In TypeScript/JavaScript, `arr.flatMap(callback)` maps each element using a mapping function, then flattens the result into a new array by 1 level: `[1, 2].flatMap(x => [x, x * 2]) // [1, 2, 2, 4]`.'
+          }
+        ],
+        cards: []
+      },
+      workspace: {
+        type: 'project',
+        title: 'TypeScript Helpers',
+        status: 'idle',
+        steps: []
+      }
+    }
+  },
+
+  // U4-03 Streaming Conversation
+  {
+    id: 'u4_03_streaming_conversation',
+    name: 'U4-03 Streaming Conversation',
+    description: 'Active streaming response in narrow sidecar showing subtle pulse without token-by-token visual jitter.',
+    category: 'conversation',
+    snapshot: {
+      level: 'conversation',
+      presentationMode: 'sidecar',
+      sidecarPlacement: 'right',
+      presence: { state: 'thinking', audioLevel: 0 },
+      conversation: {
+        status: 'streaming',
+        streamingStatus: 'streaming',
+        activeRequestId: 'req-u4-stream-01',
+        streamingText: 'useMemo caches the result of a computation, while useCallback caches the function definition itself between renders.',
+        presentationMode: 'sidecar',
+        sidecarPlacement: 'right',
+        messages: [
+          {
+            id: 'm1',
+            type: 'message',
+            role: 'user',
+            content: 'Explain the difference between useMemo and useCallback.'
+          }
+        ],
+        cards: []
+      },
+      workspace: {
+        type: 'project',
+        title: 'React Reference',
+        status: 'idle',
+        steps: []
+      }
+    }
+  },
+
+  // U4-04 Video Result
+  {
+    id: 'u4_04_video_result',
+    name: 'U4-04 Video Result',
+    description: 'Compact video tutorial card with thumbnail, duration badge, and timestamp links fitting sidecar width.',
+    category: 'conversation',
+    snapshot: {
+      level: 'conversation',
+      presentationMode: 'sidecar',
+      sidecarPlacement: 'right',
+      presence: { state: 'idle', audioLevel: 0 },
+      conversation: {
+        status: 'result',
+        presentationMode: 'sidecar',
+        sidecarPlacement: 'right',
+        messages: [
+          {
+            id: 'm1',
+            type: 'message',
+            role: 'user',
+            content: 'Find a quick video on React 19 Actions'
+          },
+          {
+            id: 'm2',
+            type: 'message',
+            role: 'assistant',
+            content: 'Here is a 4-minute overview of React 19 Actions and useActionState:'
+          }
+        ],
+        cards: [
+          {
+            id: 'card-vid-04',
+            type: 'video',
+            title: 'React 19 Actions in 4 Minutes',
+            channel: 'React Core Team',
+            duration: '4:15',
+            url: 'https://youtube.com/watch?v=synthetic_demo_actions',
+            density: 'compact',
+            summary: 'Concise walkthrough of React 19 form actions and optimistic UI mutations.'
+          }
+        ]
+      },
+      workspace: {
+        type: 'project',
+        title: 'React 19 Research',
+        status: 'idle',
+        steps: []
+      }
+    }
+  },
+
+  // U4-05 Source Group
+  {
+    id: 'u4_05_source_group',
+    name: 'U4-05 Source Group',
+    description: 'Grouped external citations collapsed cleanly in sidecar mode without horizontal clipping.',
+    category: 'conversation',
+    snapshot: {
+      level: 'conversation',
+      presentationMode: 'sidecar',
+      sidecarPlacement: 'right',
+      presence: { state: 'idle', audioLevel: 0 },
+      conversation: {
+        status: 'result',
+        presentationMode: 'sidecar',
+        sidecarPlacement: 'right',
+        messages: [
+          {
+            id: 'm1',
+            type: 'message',
+            role: 'user',
+            content: 'Where is the documentation for CSS Subgrid?'
+          },
+          {
+            id: 'm2',
+            type: 'message',
+            role: 'assistant',
+            content: 'CSS Subgrid is part of CSS Grid Layout Module Level 2. Here are the authoritative references:'
+          }
+        ],
+        cards: [
+          {
+            id: 'src-1',
+            type: 'source',
+            title: 'CSS Grid Layout Module Level 2: Subgrid',
+            domain: 'w3.org',
+            url: 'https://www.w3.org/TR/css-grid-2/#subgrid',
+            snippet: 'Subgrid feature allows a grid item with its own grid context to align with the parent grid tracks.',
+            density: 'compact'
+          },
+          {
+            id: 'src-2',
+            type: 'source',
+            title: 'MDN Web Docs: CSS Subgrid',
+            domain: 'developer.mozilla.org',
+            url: 'https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_grid_layout/Subgrid',
+            snippet: 'Practical usage, browser compatibility tables, and examples of subgrid nesting.',
+            density: 'compact'
+          }
+        ]
+      },
+      workspace: {
+        type: 'project',
+        title: 'CSS Specs',
+        status: 'idle',
+        steps: []
+      }
+    }
+  },
+
+  // U4-06 Translation Result
+  {
+    id: 'u4_06_translation_result',
+    name: 'U4-06 Translation Result',
+    description: 'Bilingual translation card with phonetic guide and pronunciation button in compact sidecar layout.',
+    category: 'conversation',
+    snapshot: {
+      level: 'conversation',
+      presentationMode: 'sidecar',
+      sidecarPlacement: 'right',
+      presence: { state: 'idle', audioLevel: 0 },
+      conversation: {
+        status: 'result',
+        presentationMode: 'sidecar',
+        sidecarPlacement: 'right',
+        messages: [
+          {
+            id: 'm1',
+            type: 'message',
+            role: 'user',
+            content: 'Translate "Have a productive day" to Japanese'
+          },
+          {
+            id: 'm2',
+            type: 'message',
+            role: 'assistant',
+            content: 'Here is the Japanese translation:'
+          }
+        ],
+        cards: [
+          {
+            id: 'card-trans-06',
+            type: 'translation',
+            originalText: 'Have a productive day',
+            translatedText: '実りある一日をお過ごしください',
+            targetLanguage: 'Japanese',
+            pronunciation: 'Minori aru ichinichi o osugoshi kudasai',
+            density: 'compact'
+          }
+        ]
+      },
+      workspace: {
+        type: 'project',
+        title: 'Language Helper',
+        status: 'idle',
+        steps: []
+      }
+    }
+  },
+
+  // U4-07 Code Result
+  {
+    id: 'u4_07_code_result',
+    name: 'U4-07 Code Result',
+    description: 'Syntax-highlighted code block with language indicator and copy action formatted for narrow column.',
+    category: 'conversation',
+    snapshot: {
+      level: 'conversation',
+      presentationMode: 'sidecar',
+      sidecarPlacement: 'right',
+      presence: { state: 'idle', audioLevel: 0 },
+      conversation: {
+        status: 'result',
+        presentationMode: 'sidecar',
+        sidecarPlacement: 'right',
+        messages: [
+          {
+            id: 'm1',
+            type: 'message',
+            role: 'user',
+            content: 'Write a helper to debounce function calls.'
+          },
+          {
+            id: 'm2',
+            type: 'message',
+            role: 'assistant',
+            content: 'Here is a TypeScript debounce implementation:'
+          }
+        ],
+        cards: [
+          {
+            id: 'card-code-07',
+            type: 'code',
+            language: 'typescript',
+            filename: 'debounce.ts',
+            density: 'compact',
+            code: 'export function debounce<T extends (...args: any[]) => void>(fn: T, ms = 300) {\n  let timer: NodeJS.Timeout;\n  return (...args: Parameters<T>) => {\n    clearTimeout(timer);\n    timer = setTimeout(() => fn(...args), ms);\n  };\n}'
+          }
+        ]
+      },
+      workspace: {
+        type: 'project',
+        title: 'Utilities',
+        status: 'idle',
+        steps: []
+      }
+    }
+  },
+
+  // U4-08 Compact Diff
+  {
+    id: 'u4_08_compact_diff',
+    name: 'U4-08 Compact Diff',
+    description: 'Small focused inline unified diff (<40 modifications) inspectable directly within sidecar companion.',
+    category: 'conversation',
+    snapshot: {
+      level: 'conversation',
+      presentationMode: 'sidecar',
+      sidecarPlacement: 'right',
+      presence: { state: 'idle', audioLevel: 0 },
+      conversation: {
+        status: 'result',
+        presentationMode: 'sidecar',
+        sidecarPlacement: 'right',
+        messages: [
+          {
+            id: 'm1',
+            type: 'message',
+            role: 'user',
+            content: 'Show the change to fix the timeout bug.'
+          },
+          {
+            id: 'm2',
+            type: 'message',
+            role: 'assistant',
+            content: 'Here is the unified patch:'
+          }
+        ],
+        cards: [
+          {
+            id: 'card-diff-08',
+            type: 'diff',
+            filename: 'src/network/client.ts',
+            density: 'compact',
+            additions: 2,
+            deletions: 1,
+            compactPreview: [
+              '@@ -24,3 +24,4 @@',
+              ' const options = {',
+              '-  timeout: 5000',
+              '+  timeout: 15000,',
+              '+  keepAlive: true',
+              ' };'
+            ],
+            lines: [
+              { type: 'context', text: 'const options = {', oldLineNumber: 24, newLineNumber: 24 },
+              { type: 'remove', text: '  timeout: 5000', oldLineNumber: 25 },
+              { type: 'add', text: '  timeout: 15000,', newLineNumber: 25 },
+              { type: 'add', text: '  keepAlive: true', newLineNumber: 26 },
+              { type: 'context', text: '};', oldLineNumber: 26, newLineNumber: 27 }
+            ]
+          }
+        ]
+      },
+      workspace: {
+        type: 'project',
+        title: 'Bugfix',
+        status: 'idle',
+        steps: []
+      }
+    }
+  },
+
+  // U4-09 Error + Retry
+  {
+    id: 'u4_09_error_retry',
+    name: 'U4-09 Error + Retry',
+    description: 'Non-destructive inline error state with retry action button in sidecar presentation mode.',
+    category: 'error',
+    snapshot: {
+      level: 'conversation',
+      presentationMode: 'sidecar',
+      sidecarPlacement: 'right',
+      presence: { state: 'idle', audioLevel: 0 },
+      conversation: {
+        status: 'error',
+        presentationMode: 'sidecar',
+        sidecarPlacement: 'right',
+        activeRequestId: 'req-err-09',
+        messages: [
+          {
+            id: 'm1',
+            type: 'message',
+            role: 'user',
+            content: 'Analyze the active project branch.'
+          }
+        ],
+        cards: [
+          {
+            id: 'card-err-09',
+            type: 'error',
+            title: 'Analysis Unavailable',
+            errorMessage: 'Temporary connection timeout while querying branch analysis.',
+            suggestedAction: 'Please retry or verify local repository status.',
+            recoverable: true,
+            density: 'compact'
+          }
+        ]
+      },
+      workspace: {
+        type: 'project',
+        title: 'Project Analysis',
+        status: 'error',
+        steps: []
+      }
+    }
+  },
+
+  // U4-10 Office Mode
+  {
+    id: 'u4_10_office_mode',
+    name: 'U4-10 Office Mode',
+    description: 'Sidecar running under Office Mode: voice TTS muted, subtle text cursor, and discreet presence ring.',
+    category: 'conversation',
+    snapshot: {
+      level: 'conversation',
+      presentationMode: 'sidecar',
+      sidecarPlacement: 'right',
+      presence: { state: 'speaking', audioLevel: 0 },
+      conversation: {
+        status: 'result',
+        presentationMode: 'sidecar',
+        sidecarPlacement: 'right',
+        messages: [
+          {
+            id: 'm1',
+            type: 'message',
+            role: 'user',
+            content: 'Review meeting agenda for quarterly review'
+          },
+          {
+            id: 'm2',
+            type: 'message',
+            role: 'assistant',
+            content: 'Agenda summarized quietly (Office Mode active, TTS suppressed):\n1. Architecture review\n2. Milestone 5 schedule\n3. Budget review'
+          }
+        ],
+        cards: []
+      },
+      workspace: {
+        type: 'project',
+        title: 'Meeting Notes',
+        status: 'idle',
+        steps: []
+      }
+    }
+  },
+
+  // U4-11 User Scrolled Up
+  {
+    id: 'u4_11_user_scrolled_up',
+    name: 'U4-11 User Scrolled Up',
+    description: 'User reading earlier turn in sidecar while new response completes: auto-scroll locks with "Scroll to latest" button.',
+    category: 'conversation',
+    snapshot: {
+      level: 'conversation',
+      presentationMode: 'sidecar',
+      sidecarPlacement: 'right',
+      presence: { state: 'idle', audioLevel: 0 },
+      conversation: {
+        status: 'result',
+        presentationMode: 'sidecar',
+        sidecarPlacement: 'right',
+        isScrolledUp: true,
+        messages: [
+          { id: 'm1', type: 'message', role: 'user', content: 'What is step 1 of the migration plan?' },
+          { id: 'm2', type: 'message', role: 'assistant', content: 'Step 1 is standardizing all presentation layer mode contracts.' },
+          { id: 'm3', type: 'message', role: 'user', content: 'And step 2?' },
+          { id: 'm4', type: 'message', role: 'assistant', content: 'Step 2 is verifying that visual dismiss does not cancel the background stream.' },
+          { id: 'm5', type: 'message', role: 'user', content: 'And step 3?' },
+          { id: 'm6', type: 'message', role: 'assistant', content: 'Step 3 is completing the test suite with zero regression.' }
+        ],
+        cards: []
+      },
+      workspace: {
+        type: 'project',
+        title: 'Migration Steps',
+        status: 'idle',
+        steps: []
+      }
+    }
+  },
+
+  // U4-12 Conversation → Sidecar Continuity
+  {
+    id: 'u4_12_conversation_to_sidecar',
+    name: 'U4-12 Conversation → Sidecar Continuity',
+    description: 'Seamless mode transition from Floating Conversation to Sidecar: exact same session and messages preserved.',
+    category: 'conversation',
+    snapshot: {
+      level: 'conversation',
+      presentationMode: 'sidecar',
+      sidecarPlacement: 'right',
+      presence: { state: 'idle', audioLevel: 0 },
+      conversation: {
+        status: 'result',
+        presentationMode: 'sidecar',
+        sidecarPlacement: 'right',
+        messages: [
+          {
+            id: 'm1',
+            type: 'message',
+            role: 'user',
+            content: 'Let us prepare the release notes for UI V2 U4.'
+          },
+          {
+            id: 'm2',
+            type: 'message',
+            role: 'assistant',
+            content: 'Preserving full conversation context across floating and sidecar layout transitions.'
+          }
+        ],
+        cards: [
+          {
+            id: 'card-task-12',
+            type: 'task',
+            taskName: 'Sidecar Presentation Contract',
+            status: 'completed',
+            density: 'compact'
+          }
+        ]
+      },
+      workspace: {
+        type: 'project',
+        title: 'Release Notes',
+        status: 'idle',
+        steps: []
+      }
+    }
+  },
+
+  // U4-13 Sidecar → Conversation Continuity
+  {
+    id: 'u4_13_sidecar_to_conversation',
+    name: 'U4-13 Sidecar → Conversation Continuity',
+    description: 'Expanding from narrow Sidecar back to Floating Conversation expands canvas width while preserving all state.',
+    category: 'conversation',
+    snapshot: {
+      level: 'conversation',
+      presentationMode: 'floating',
+      sidecarPlacement: 'floating',
+      presence: { state: 'idle', audioLevel: 0 },
+      conversation: {
+        status: 'result',
+        presentationMode: 'floating',
+        messages: [
+          {
+            id: 'm1',
+            type: 'message',
+            role: 'user',
+            content: 'Expand conversation to see detailed comparison.'
+          },
+          {
+            id: 'm2',
+            type: 'message',
+            role: 'assistant',
+            content: 'Floating conversation surface active. All session history and card data retained.'
+          }
+        ],
+        cards: [
+          {
+            id: 'card-comp-13',
+            type: 'comparison',
+            title: 'Surface Level vs Presentation Mode',
+            columns: [
+              { key: 'property', label: 'Dimension', isPrimary: true },
+              { key: 'level', label: 'Surface Level' },
+              { key: 'mode', label: 'Presentation Mode' }
+            ],
+            rows: [
+              { id: 'r1', values: { property: 'Meaning', level: 'Information complexity', mode: 'Physical window layout' } },
+              { id: 'r2', values: { property: 'Values', level: 'presence | conversation | workspace', mode: 'ambient | floating | sidecar | full' } }
+            ]
+          }
+        ]
+      },
+      workspace: {
+        type: 'project',
+        title: 'Architecture Overview',
+        status: 'idle',
+        steps: []
+      }
+    }
+  },
+
+  // U4-14 Sidecar → Presence Minimize
+  {
+    id: 'u4_14_sidecar_to_presence',
+    name: 'U4-14 Sidecar → Presence Minimize',
+    description: 'Minimizing sidecar to Presence surface retains full multi-turn conversation in memory without reset.',
+    category: 'presence',
+    snapshot: {
+      level: 'presence',
+      presentationMode: 'ambient',
+      presence: { state: 'idle', audioLevel: 0 },
+      conversation: {
+        status: 'result',
+        presentationMode: 'sidecar',
+        messages: [
+          {
+            id: 'm1',
+            type: 'message',
+            role: 'user',
+            content: 'Keep this context handy while I switch to editing.'
+          },
+          {
+            id: 'm2',
+            type: 'message',
+            role: 'assistant',
+            content: 'Minimized to Presence capsule. Your conversation context remains active and ready.'
+          }
+        ],
+        cards: []
+      },
+      workspace: {
+        type: 'project',
+        title: 'Standby Context',
+        status: 'idle',
+        steps: []
+      }
+    }
+  },
+
+  // U4-15 Workspace Eligible Result
+  {
+    id: 'u4_15_workspace_eligible',
+    name: 'U4-15 Workspace Eligible Result',
+    description: 'Complex multi-step task result offering generic Workspace handoff banner without taking over screen.',
+    category: 'workspace',
+    snapshot: {
+      level: 'conversation',
+      presentationMode: 'sidecar',
+      sidecarPlacement: 'right',
+      presence: { state: 'idle', audioLevel: 0 },
+      conversation: {
+        status: 'result',
+        presentationMode: 'sidecar',
+        sidecarPlacement: 'right',
+        workspaceEligible: true,
+        workspaceReason: 'Complex diff across 12 files requires sustained structured review.',
+        messages: [
+          {
+            id: 'm1',
+            type: 'message',
+            role: 'user',
+            content: 'Refactor the desktop multi-window manager across 12 files.'
+          },
+          {
+            id: 'm2',
+            type: 'message',
+            role: 'assistant',
+            content: 'I have analyzed the architecture changes. Since this spans 12 files and requires structured review, you can open it in Workspace when you are ready.'
+          }
+        ],
+        cards: [
+          {
+            id: 'card-task-15',
+            type: 'task',
+            taskName: 'Multi-Window Refactoring Plan',
+            status: 'running',
+            progressPercent: 65,
+            density: 'compact'
+          }
+        ]
+      },
+      workspace: {
+        type: 'project',
+        title: 'Multi-Window Refactoring Plan',
+        status: 'idle',
+        steps: []
+      }
+    }
+  }
+];
+
+// Combined full scenarios array (Baseline U0 preserved first, followed by U2, then U3, then U4)
 export const MOCK_SCENARIOS: MockScenario[] = [
   ...BASELINE_SCENARIOS,
   ...U2_CONVERSATION_SCENARIOS,
-  ...U3_RICH_CARD_SCENARIOS
+  ...U3_RICH_CARD_SCENARIOS,
+  ...U4_CHAT_ONLY_SCENARIOS
 ];
 

@@ -5,6 +5,18 @@
 
 export type SurfaceLevel = 'presence' | 'conversation' | 'workspace';
 
+/**
+ * Presentation Mode (Physical Layout Mode)
+ * Defines how the surface is laid out on the user's display / device.
+ *
+ * Invariant: Surface Level != Presentation Mode.
+ * Chat-only is a Presentation Mode ('sidecar') of the Conversation surface level,
+ * NOT a new intelligence level or separate conversation runtime.
+ */
+export type PresentationMode = 'ambient' | 'floating' | 'sidecar' | 'full';
+
+export type SidecarPlacement = 'right' | 'left' | 'floating';
+
 export type PresenceState =
   | 'idle'
   | 'waking'
@@ -351,6 +363,9 @@ export interface ConversationState {
   workspaceReason?: string;
   isScrolledUp?: boolean;
   timelineGroups?: ResponseGroup[];
+  presentationMode?: PresentationMode;
+  sidecarPlacement?: SidecarPlacement;
+  isPinned?: boolean;
 }
 
 export type WorkspaceType = 'agent' | 'language' | 'research' | 'project';
@@ -387,6 +402,9 @@ export interface WorkspaceState {
 
 export interface UiV2Snapshot {
   level: SurfaceLevel;
+  presentationMode?: PresentationMode;
+  sidecarPlacement?: SidecarPlacement;
+  isPinned?: boolean;
   presence: {
     state: PresenceState;
     audioLevel: number;

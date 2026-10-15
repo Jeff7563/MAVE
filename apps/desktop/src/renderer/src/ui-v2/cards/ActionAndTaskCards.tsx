@@ -33,10 +33,29 @@ export const TaskCard: React.FC<TaskCardProps> = ({ data, onCancel, onRetry }) =
     ? 'var(--mave-v2-accent-error)'
     : 'var(--mave-v2-accent-thinking)';
 
+  // U3/U4 Semantic Hardening: TaskCard Execution Substrate Privacy
+  // Provider / runtime / model identities (Claude, Codex, Antigravity, Ollama, OpenAI, Anthropic, model IDs)
+  // must NEVER leak into normal user UI by default. Provider detail remains Developer Diagnostics only.
+  const SUBSTRATE_PROVIDER_REGEX = /claude|codex|antigravity|ollama|openai|anthropic|gpt|gemini|llama|qwen|deepseek/i;
+  const isProviderLeaked = Boolean(data.responsibleRuntime && SUBSTRATE_PROVIDER_REGEX.test(data.responsibleRuntime));
+
+  let taskBadge = 'MAVE • Task';
+  if (data.responsibleRuntime && !isProviderLeaked) {
+    taskBadge = data.responsibleRuntime;
+  } else if (isRunning) {
+    taskBadge = 'MAVE • Working';
+  } else if (isCompleted) {
+    taskBadge = 'Completed';
+  } else if (isFailed) {
+    taskBadge = 'Task Alert';
+  } else if (data.status === 'waiting_approval') {
+    taskBadge = 'Waiting Approval';
+  }
+
   return (
     <CardShell
       id={data.id}
-      badge={data.responsibleRuntime ?? 'MAVE Task'}
+      badge={taskBadge}
       badgeColor={statusColor}
       title={data.status.toUpperCase()}
       intent={data.intent || (isFailed ? 'warning' : 'default')}

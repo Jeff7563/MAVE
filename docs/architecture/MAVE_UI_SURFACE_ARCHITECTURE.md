@@ -1144,3 +1144,54 @@ Task complete
 ```
 
 The result should feel less like "opening an AI application" and more like **MAVE is already there and adapts around the user.**
+
+---
+
+# 29. Chat-Only / Sidecar Interaction Contract (UI V2 U4)
+
+The **Chat-Only Sidecar** is MAVE's specialized compact companion surface designed for side-by-side multitasking alongside primary desktop applications (e.g., VS Code, Chrome/Firefox, Word, Photoshop, IDEs).
+
+### Core Architectural Invariants
+
+```text
+1. Surface Level != Presentation Mode
+2. Chat-Only != New Conversation Runtime
+3. Sidecar Context == Conversation Context
+4. Visual Dismiss != Cancel Request
+5. Cards Reuse Same Information Model
+6. Office Mode Is Behavior, Not Separate UI
+```
+
+#### 1. Surface Level vs Presentation Mode
+- **`SurfaceLevel` (`presence | conversation | workspace`)** defines the *cognitive and information complexity* of what MAVE is presenting.
+- **`PresentationMode` (`ambient | floating | sidecar | full`)** defines the *physical window layout and docking behavior* on the user's screen.
+- Chat-Only is **NOT** a new surface level or a duplicate AI subsystem; it is `presentationMode: 'sidecar'` of the canonical `conversation` surface level.
+
+#### 2. Chat-Only != New Conversation Runtime
+- There is only one conversation engine, state store, and request session in MAVE.
+- Transitioning between a centered floating window and a right-docked sidecar companion preserves the exact active request ID, accumulated streaming text, turn history, and composer input without reset or re-querying.
+
+#### 3. Sidecar Context == Conversation Context
+- Switching presentation mode (e.g., clicking ⤢ to expand to floating, or docking to right sidecar) does not restart the conversation turn or drop cached context.
+- Minimizing from Sidecar to Presence (`collapseConversationToPresence`) produces an ambient quick-response bubble while retaining full turn history in memory for subsequent re-expansion.
+
+#### 4. Visual Dismiss != Cancel Request
+- When the user clicks Close (`✕`) or minimizes the sidecar companion, this is a **visual dismiss** action to clear screen space.
+- Active background generation, streaming tokens, tool approvals, and long-running tasks are **never** silently terminated upon visual dismiss. A dedicated cancel action (e.g. Stop Generation button `■`) must be explicitly chosen to abort execution.
+
+#### 5. Card Reuse Invariant (No Forked Card Subsystems)
+- All 14 rich cards designed in U3 (CodeCard, TranslationCard, DiffCard, VideoCard, ImageCard, ComparisonCard, TaskCard, etc.) are reused directly in the sidecar.
+- Cards adapt to narrow widths (360px–420px) via `density="compact"` and responsive stacking rather than separate "Chat-Only" card types.
+
+#### 6. TaskCard Substrate Privacy & Content Provenance
+- Content Provenance $\neq$ Execution Substrate:
+  - Legitimate knowledge and vendor citations (*"OpenAI API Documentation"*, *"MDN Web Docs"*) remain visible in `SourceCard` to preserve content attribution.
+  - Internal AI vendor/runtime identifiers (`Claude 3.7 Sonnet`, `Codex`, `Antigravity`, `Ollama llama3.2`, `gpt-4o`) are strictly scrubbed from user-facing `TaskCard` badges, mapping cleanly to semantic status badges (`MAVE • Working`, `Completed`, `Task Alert`).
+
+#### 7. Large-Diff Threshold Clarification (U3 Semantic Cleanup)
+- The `>40 modifications` rule is an internal prototype heuristic, not a rigid architectural ceiling.
+- Diff inspection requiring sustained multi-file navigation is Workspace-eligible, while small/medium inspectable unified patches remain natively inside Conversation / Sidecar.
+
+#### 8. Office Mode Semantics
+- Office Mode is an environmental behavior toggle, not a distinct surface. When active, it suppresses speech TTS audio output, introduces a discreet text-cursor indicator, and ensures quiet visual transitions.
+

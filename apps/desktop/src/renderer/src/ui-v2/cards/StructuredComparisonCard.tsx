@@ -286,3 +286,4 @@ export const StructuredComparisonCard: React.FC<StructuredComparisonCardProps> =
     </CardShell>
   );
 };
+

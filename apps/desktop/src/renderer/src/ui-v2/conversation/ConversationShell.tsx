@@ -2,7 +2,9 @@ import React, { useState, useRef, useEffect } from 'react';
 import type {
   ConversationState,
   PresenceState,
-  ResponseGroup
+  ResponseGroup,
+  PresentationMode,
+  SidecarPlacement
 } from '../types';
 import { AdaptivePresenceMark } from '../primitives/AdaptivePresenceMark';
 import { CardRenderer } from '../cards';
@@ -14,6 +16,11 @@ export interface ConversationShellProps {
   state: ConversationState;
   presenceState?: PresenceState;
   audioLevel?: number;
+  presentationMode?: PresentationMode;
+  sidecarPlacement?: SidecarPlacement;
+  isPinned?: boolean;
+  onTogglePin?: () => void;
+  onExpandToFloating?: () => void;
   onSendMessage?: (text: string) => void;
   onCollapseToPresence?: () => void;
   onExpandToWorkspace?: () => void;
@@ -53,6 +60,11 @@ export const ConversationShell: React.FC<ConversationShellProps> = ({
   state,
   presenceState = 'idle',
   audioLevel = 0,
+  presentationMode,
+  sidecarPlacement,
+  isPinned = false,
+  onTogglePin,
+  onExpandToFloating,
   onSendMessage,
   onCollapseToPresence,
   onExpandToWorkspace,
@@ -77,6 +89,12 @@ export const ConversationShell: React.FC<ConversationShellProps> = ({
   const [liveAnnouncement, setLiveAnnouncement] = useState<string>('');
   const timelineRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  const effectiveMode: PresentationMode =
+    presentationMode || state.presentationMode || 'floating';
+  const effectivePlacement: SidecarPlacement =
+    sidecarPlacement || state.sidecarPlacement || 'right';
+  const isSidecar = effectiveMode === 'sidecar';
 
   // Screen-reader live region updates (Announces coherent milestones, never token-by-token noise)
   useEffect(() => {
@@ -146,7 +164,7 @@ export const ConversationShell: React.FC<ConversationShellProps> = ({
 
   return (
     <div
-      className={`mave-v2-conversation-shell ${className}`.trim()}
+      className={`mave-v2-conversation-shell ${isSidecar ? 'mave-v2-conversation-sidecar' : ''} ${className}`.trim()}
       style={{
         width,
         height,
@@ -155,7 +173,9 @@ export const ConversationShell: React.FC<ConversationShellProps> = ({
         WebkitBackdropFilter: 'blur(var(--mave-v2-blur))',
         border: '1px solid var(--mave-v2-border-subtle)',
         borderRadius: 'var(--mave-v2-radius-panel)',
-        boxShadow: '0 12px 36px rgba(0, 0, 0, 0.45)',
+        boxShadow: isSidecar
+          ? '0 8px 24px rgba(0, 0, 0, 0.35)'
+          : '0 12px 36px rgba(0, 0, 0, 0.45)',
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
@@ -165,6 +185,8 @@ export const ConversationShell: React.FC<ConversationShellProps> = ({
         position: 'relative'
       }}
       data-testid="conversation-shell"
+      data-presentation-mode={effectiveMode}
+      data-placement={isSidecar ? effectivePlacement : undefined}
     >
       {/* 1. Header with MAVE Identity, Context Label & Navigation Controls */}
       <header
@@ -222,9 +244,50 @@ export const ConversationShell: React.FC<ConversationShellProps> = ({
           </div>
         </div>
 
-        {/* Level Controls */}
+        {/* Level & Presentation Mode Controls */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          {(state.workspaceEligible || onExpandToWorkspace) && (
+          {isSidecar && onTogglePin && (
+            <button
+              onClick={onTogglePin}
+              title={isPinned ? 'Unpin Sidecar' : 'Pin Sidecar on Top'}
+              aria-label={isPinned ? 'Unpin Sidecar' : 'Pin Sidecar on Top'}
+              style={{
+                background: isPinned ? 'rgba(56, 189, 248, 0.15)' : 'transparent',
+                border: isPinned ? '1px solid var(--mave-v2-accent-listening)' : 'none',
+                color: isPinned ? 'var(--mave-v2-accent-listening)' : 'var(--mave-v2-text-muted)',
+                cursor: 'pointer',
+                padding: '4px 6px',
+                borderRadius: '4px',
+                fontSize: '12px'
+              }}
+              data-testid="btn-pin-sidecar"
+              aria-pressed={isPinned}
+            >
+              📌
+            </button>
+          )}
+
+          {isSidecar && (onExpandToFloating || onExpandToWorkspace) && (
+            <button
+              onClick={onExpandToFloating || onExpandToWorkspace}
+              title="Expand to Floating Conversation"
+              aria-label="Expand to Floating Conversation"
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: 'var(--mave-v2-text-muted)',
+                cursor: 'pointer',
+                padding: '4px 6px',
+                borderRadius: '4px',
+                fontSize: '13px'
+              }}
+              data-testid="btn-expand-conversation"
+            >
+              ⤢
+            </button>
+          )}
+
+          {!isSidecar && (state.workspaceEligible || onExpandToWorkspace) && (
             <button
               onClick={onExpandToWorkspace}
               title="Expand to Workspace"
@@ -382,6 +445,69 @@ export const ConversationShell: React.FC<ConversationShellProps> = ({
             >
               ⤊ Load earlier conversation {state.earlierHistoryCount ? `(${state.earlierHistoryCount})` : ''}
             </button>
+          </div>
+        )}
+
+        {/* Minimal Empty State (Section 34) */}
+        {groups.length === 0 && (
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flex: 1,
+              gap: '12px',
+              textAlign: 'center',
+              padding: '32px 16px',
+              color: 'var(--mave-v2-text-secondary)',
+              minHeight: '220px'
+            }}
+            data-testid="sidecar-empty-state"
+          >
+            <AdaptivePresenceMark size="medium" state={presenceState} />
+            <div>
+              <div style={{ fontWeight: 700, fontSize: '15px', color: 'var(--mave-v2-text-primary)' }}>
+                MAVE
+              </div>
+              <div style={{ fontSize: '12px', color: 'var(--mave-v2-text-dim)', marginTop: '2px' }}>
+                What can I help with?
+              </div>
+            </div>
+            <div
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '6px',
+                width: '100%',
+                maxWidth: '260px',
+                marginTop: '6px'
+              }}
+            >
+              {['Find tutorial video', 'Translate phrase', 'Explain code'].map((sug) => (
+                <button
+                  key={sug}
+                  onClick={() => {
+                    setInputText(sug);
+                    onSendMessage?.(sug);
+                  }}
+                  style={{
+                    background: 'rgba(255, 255, 255, 0.04)',
+                    border: '1px solid var(--mave-v2-border-subtle)',
+                    borderRadius: 'var(--mave-v2-radius-pill)',
+                    padding: '6px 12px',
+                    fontSize: '11px',
+                    color: 'var(--mave-v2-text-secondary)',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    transition: 'all var(--mave-v2-motion-fast)'
+                  }}
+                  data-testid="sidecar-empty-suggestion"
+                >
+                  ✦ {sug}
+                </button>
+              ))}
+            </div>
           </div>
         )}
 
@@ -641,7 +767,7 @@ export const ConversationShell: React.FC<ConversationShellProps> = ({
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                         {group.sources.map((src) => (
-                          <SourceCard key={src.id} data={src} />
+                          <SourceCard key={src.id} data={isSidecar && !src.density ? { ...src, density: 'compact' } : src} />
                         ))}
                       </div>
                     </div>
@@ -663,7 +789,7 @@ export const ConversationShell: React.FC<ConversationShellProps> = ({
                       {group.cards.map((card) => (
                         <CardRenderer
                           key={card.id}
-                          card={card}
+                          card={isSidecar && !card.density ? { ...card, density: 'compact' } : card}
                           onAllow={onAllowAction}
                           onDeny={onDenyAction}
                           onListen={onListen}

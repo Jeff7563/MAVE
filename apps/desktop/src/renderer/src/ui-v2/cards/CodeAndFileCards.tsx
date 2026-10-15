@@ -239,8 +239,13 @@ export interface DiffCardProps {
  */
 export const DiffCard: React.FC<DiffCardProps> = ({ data, onInspect, onOpenWorkspace }) => {
   const [isExpanded, setIsExpanded] = useState<boolean>(data.defaultExpanded ?? false);
+  // U3/U4 Architectural Clarification: Large Diff Threshold
+  // The threshold (>40 modifications) is an implementation-local prototype heuristic fallback.
+  // Canonical rule: Diff inspection that requires sustained structured interaction is Workspace-eligible;
+  // small/medium inspectable diffs remain directly inside Conversation or Chat-only.
+  const DEFAULT_LARGE_DIFF_FALLBACK = 40;
   const totalModifications = data.additions + data.deletions;
-  const isLargeDiff = totalModifications > 40;
+  const isLargeDiff = totalModifications > DEFAULT_LARGE_DIFF_FALLBACK;
 
   // Render diff lines safely
   const renderLines = (lines: DiffLine[]) => {
