@@ -158,9 +158,13 @@ export const MaveUiLab: React.FC = () => {
 
   // Switch Surface Level manually
   const handleSetLevel = (level: SurfaceLevel) => {
-    setSnapshot((prev) => ({ ...prev, level }));
+    setSnapshot((prev) => ({
+      ...prev,
+      level,
+      presentationMode: level === 'conversation' ? (prev.presentationMode === 'floating' ? 'floating' : 'sidecar') : prev.presentationMode
+    }));
     if (level === 'presence') setViewportPreset('compact');
-    if (level === 'conversation') setViewportPreset('chat');
+    if (level === 'conversation') setViewportPreset('sidecar');
     if (level === 'workspace') setViewportPreset('workspace');
   };
 
@@ -515,37 +519,120 @@ export const MaveUiLab: React.FC = () => {
               display: 'flex',
               flexDirection: 'column',
               justifyContent: 'center',
-              gap: '20px'
+              gap: '24px'
             }}
             data-testid="showcase-scene-conversation"
           >
-            {/* User turn */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignSelf: 'flex-start' }}>
-              <span style={{ fontSize: '11px', fontWeight: 600, color: 'rgba(148, 163, 184, 0.75)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+            {/* User turn — Open Spatial Typography */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignSelf: 'flex-start', width: '100%' }}>
+              <span
+                style={{
+                  fontSize: '11px',
+                  fontFamily: "var(--mave-font-mono, monospace)",
+                  fontWeight: 600,
+                  color: 'var(--mave-faint)',
+                  letterSpacing: '0.18em',
+                  textTransform: 'uppercase'
+                }}
+              >
                 YOU
               </span>
-              <div style={{ background: 'rgba(255, 255, 255, 0.04)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '12px', padding: '12px 18px', fontSize: '14px', color: '#f8fafc', lineHeight: 1.5 }}>
+              <div
+                style={{
+                  fontSize: '15px',
+                  fontFamily: "var(--mave-font-sans, system-ui)",
+                  color: 'var(--mave-dim)',
+                  lineHeight: 1.55,
+                  padding: '2px 0'
+                }}
+              >
                 Where are the TypeScript errors coming from?
               </div>
             </div>
 
-            {/* Assistant turn */}
+            {/* Assistant turn — Open Spatial Typography */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignSelf: 'flex-start', width: '100%' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', fontWeight: 600, color: '#38bdf8', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-                <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#38bdf8', boxShadow: '0 0 6px #38bdf8' }} />
-                <span>MAVE</span>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  color: 'var(--mave-cyan)',
+                  letterSpacing: '0.24em',
+                  textTransform: 'uppercase'
+                }}
+              >
+                <span
+                  style={{
+                    width: '6px',
+                    height: '6px',
+                    borderRadius: '50%',
+                    background: 'var(--mave-cyan)',
+                    boxShadow: '0 0 8px var(--mave-cyan)'
+                  }}
+                />
+                <span
+                  style={{
+                    fontFamily: "var(--mave-font-wordmark, 'Jost', sans-serif)",
+                    fontWeight: 300,
+                    letterSpacing: '0.36em',
+                    color: 'var(--mave-faint)'
+                  }}
+                >
+                  MAVE
+                </span>
               </div>
-              <div style={{ background: 'rgba(18, 22, 38, 0.85)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '14px', padding: '16px 20px', fontSize: '14px', color: '#f8fafc', lineHeight: 1.6, boxShadow: '0 12px 32px rgba(0, 0, 0, 0.4)' }}>
+              <div
+                style={{
+                  fontSize: '15px',
+                  fontFamily: "var(--mave-font-sans, system-ui)",
+                  color: 'var(--mave-ink)',
+                  lineHeight: 1.6,
+                  padding: '2px 0'
+                }}
+              >
                 I inspected the repository and found 2 type mismatch errors in route parameters. The router expects string IDs while numeric values were being passed.
-                {/* Spatial Pill Tags */}
+                {/* Spatial Contextual Chips */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '12px' }}>
-                  <span style={{ background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '9999px', padding: '3px 10px', fontSize: '11px', color: 'rgba(226, 232, 240, 0.9)' }}>
+                  <span
+                    style={{
+                      background: 'var(--mave-raised)',
+                      border: '1px solid var(--mave-line)',
+                      borderRadius: 'var(--mave-radius-chip)',
+                      padding: '4px 12px',
+                      fontSize: '12px',
+                      fontFamily: "var(--mave-font-mono, monospace)",
+                      color: 'var(--mave-dim)'
+                    }}
+                  >
                     📄 navigation.tsx
                   </span>
-                  <span style={{ background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '9999px', padding: '3px 10px', fontSize: '11px', color: 'rgba(226, 232, 240, 0.9)' }}>
+                  <span
+                    style={{
+                      background: 'var(--mave-raised)',
+                      border: '1px solid var(--mave-line)',
+                      borderRadius: 'var(--mave-radius-chip)',
+                      padding: '4px 12px',
+                      fontSize: '12px',
+                      fontFamily: "var(--mave-font-sans, system-ui)",
+                      color: 'var(--mave-dim)'
+                    }}
+                  >
                     📋 Build logs
                   </span>
-                  <span style={{ background: 'rgba(239, 68, 68, 0.12)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '9999px', padding: '3px 10px', fontSize: '11px', color: '#fca5a5' }}>
+                  <span
+                    style={{
+                      background: 'rgba(255, 122, 133, 0.12)',
+                      border: '1px solid rgba(255, 122, 133, 0.3)',
+                      borderRadius: 'var(--mave-radius-chip)',
+                      padding: '4px 12px',
+                      fontSize: '12px',
+                      fontFamily: "var(--mave-font-sans, system-ui)",
+                      color: 'var(--mave-err)'
+                    }}
+                  >
                     ⚠️ 2 errors
                   </span>
                 </div>

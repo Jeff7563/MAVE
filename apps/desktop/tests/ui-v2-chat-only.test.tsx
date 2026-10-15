@@ -425,11 +425,133 @@ describe('MAVE UI V2 — U4 Chat-Only Sidecar Surface & Multitasking Experience 
       ];
 
       for (const file of m4Files) {
-        const fullPath = path.resolve('D:/project/MAVE', file);
+        const fullPath = path.resolve(__dirname, '../../..', file);
         expect(fs.existsSync(fullPath)).toBe(true);
         const content = fs.readFileSync(fullPath, 'utf8');
         expect(content.length).toBeGreaterThan(500);
       }
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // 11. VSM2 Direction Override — Spatial Authority & Open Typography Gate
+  // -------------------------------------------------------------------------
+  describe('11. VSM2 Spatial Authority, Open Typography & Companion Semantics', () => {
+    const vsm2State: ConversationState = {
+      status: 'result',
+      activeRequestId: 'req-vsm2-spatial',
+      messages: [
+        {
+          id: 'm1',
+          type: 'message',
+          role: 'user',
+          content: 'หาคลิปอธิบาย React state'
+        },
+        {
+          id: 'm2',
+          type: 'message',
+          role: 'assistant',
+          content: 'Here is an explanation of React state along with a concise tutorial video.'
+        }
+      ],
+      cards: [
+        {
+          id: 'video-react-state',
+          type: 'video',
+          title: 'React State in 10 Minutes',
+          channel: 'React Official',
+          duration: '10:14',
+          url: 'https://example.com/react-state',
+          density: 'compact'
+        }
+      ]
+    };
+
+    it('Rule 1 & 4: Uses open spatial typography (YOU label + dimmed text, • MAVE mark + ink text) instead of rigid chat bubbles', () => {
+      const html = renderToStaticMarkup(
+        <ConversationShell state={vsm2State} presentationMode="sidecar" />
+      );
+
+      // User turn uses uppercase YOU label and dimmed typography
+      expect(html).toContain('YOU');
+      expect(html).toContain('หาคลิปอธิบาย React state');
+      expect(html).toContain('data-testid="message-card-user"');
+      expect(html).toContain('var(--mave-dim)');
+
+      // Assistant turn uses MAVE identity indicator and crisp ink typography
+      expect(html).toContain('data-testid="response-group-header"');
+      expect(html).toContain('MAVE');
+      expect(html).toContain('Here is an explanation of React state');
+      expect(html).toContain('data-testid="response-answer-text"');
+      expect(html).toContain('var(--mave-ink)');
+    });
+
+    it('Rule 2 & 3: Sidecar acts as primary desktop companion without center occlusion', () => {
+      const sidecarHtml = renderToStaticMarkup(
+        <ChatOnlyPanel state={vsm2State} placement="right" />
+      );
+
+      // Renders as dedicated companion with right docking radius and glass gradient
+      expect(sidecarHtml).toContain('data-testid="chat-only-panel"');
+      expect(sidecarHtml).toContain('data-placement="right"');
+      expect(sidecarHtml).toContain('border-radius:24px 0 0 24px');
+      expect(sidecarHtml).toContain('var(--mave-glass-gradient)');
+      expect(sidecarHtml).toContain('var(--mave-shadow-glass)');
+    });
+
+    it('Rule 4 & 5: Zero permanent search/analyze toolbar clutter and zero horizontal scrollbars', () => {
+      const html = renderToStaticMarkup(
+        <ConversationShell state={vsm2State} presentationMode="sidecar" />
+      );
+
+      // No permanent search / analyze / code toolbar clutter
+      expect(html).not.toContain('data-testid="conversation-shortcuts-bar"');
+      expect(html).not.toContain('Search MAVE');
+
+      // Timeline and outer shell prevent horizontal scrollbar overflow
+      expect(html).toContain('overflow-x:hidden');
+      expect(html).toContain('scrollbar-width:none');
+    });
+
+    it('Rule 6 & 7: Message composer is compact, premium, and utilizes authentic UI Kit tokens', () => {
+      const html = renderToStaticMarkup(
+        <ConversationShell
+          state={vsm2State}
+          presentationMode="sidecar"
+          onVoiceActivate={() => {}}
+          initialInputText="Ask MAVE"
+        />
+      );
+
+      // Composer has input with authentic Thai/English placeholder
+      expect(html).toContain('data-testid="conversation-composer-input"');
+      expect(html).toContain('Ask MAVE anything… · ถาม MAVE ได้');
+
+      // Buttons use premium circular/pill layout
+      expect(html).toContain('data-testid="conversation-voice-button"');
+      expect(html).toContain('data-testid="conversation-send-button"');
+      expect(html).toContain('var(--mave-blue)');
+      expect(html).toContain('var(--mave-raised)');
+      expect(html).toContain('var(--mave-line)');
+    });
+
+    it('Rule 8 & 9: Rich results remain contextual within Sidecar and preserve identical state across layout modes', () => {
+      const sidecarHtml = renderToStaticMarkup(
+        <ChatOnlyPanel state={vsm2State} placement="right" />
+      );
+      const floatingHtml = renderToStaticMarkup(
+        <ConversationShell state={vsm2State} presentationMode="floating" />
+      );
+
+      // Rich card is rendered compactly inline inside Sidecar without taking over screen
+      expect(sidecarHtml).toContain('data-testid="rich-cards-section"');
+      expect(sidecarHtml).toContain('React State in 10 Minutes');
+
+      // Identical content and cards preserved across Sidecar and Floating
+      expect(floatingHtml).toContain('data-testid="rich-cards-section"');
+      expect(floatingHtml).toContain('React State in 10 Minutes');
+      expect(sidecarHtml).toContain('data-presentation-mode="sidecar"');
+      expect(floatingHtml).toContain('data-presentation-mode="floating"');
     });
   });
 });
