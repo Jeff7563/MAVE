@@ -3427,15 +3427,37 @@ export const U5_WORKSPACE_SCENARIOS: MockScenario[] = [
     category: 'workspace',
     snapshot: {
       level: 'workspace',
-      presentationMode: 'floating',
+      presentationMode: 'full',
       presence: { state: 'idle', audioLevel: 0 },
-      conversation: { status: 'idle', messages: [], cards: [] },
+      conversation: {
+        status: 'idle',
+        messages: [
+          {
+            id: 'm-nw1',
+            type: 'message',
+            role: 'user',
+            content: 'How does responsive layout adapt in narrow viewports?'
+          },
+          {
+            id: 'm-nw2',
+            type: 'message',
+            role: 'assistant',
+            content: 'In narrow viewports, the primary artifact retains full dominance while Conversation and Context panels open as overlay drawers.'
+          }
+        ],
+        cards: []
+      },
       workspace: {
         id: 'ws-16',
         type: 'project',
         title: 'Responsive Workspace',
         status: 'idle',
         userFacingState: 'Ready',
+        initialShowConversation: false,
+        initialShowContext: false,
+        files: [
+          { path: 'src/renderer/ResponsiveLayout.tsx', status: 'modified' }
+        ],
         steps: [
           { id: 's1', label: 'Primary artifact preserves visibility', status: 'completed' },
           { id: 's2', label: 'Side rails collapse gracefully', status: 'completed' }

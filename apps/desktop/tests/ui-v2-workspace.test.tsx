@@ -615,6 +615,129 @@ describe('MAVE UI V2 — U5 Workspace Surface Foundation & Structured Work Tests
       expect(dismissed).toBe(true);
     });
   });
+
+  // -------------------------------------------------------------------------
+  // 9. VSM4.1 Workspace Default Composition & Narrow Adaptation Hardening
+  // -------------------------------------------------------------------------
+  describe('9. VSM4.1 Workspace Default Composition & Narrow Adaptation Hardening', () => {
+    it('diff_review defaults to side rails completely collapsed (showConversation=false, showContext=false)', () => {
+      const diffState: WorkspaceState = {
+        id: 'ws-diff-canonical',
+        type: 'diff_review',
+        title: 'Network Timeout Patch',
+        status: 'idle',
+        userFacingState: 'Ready for Review',
+        files: [{ path: 'src/net.ts', status: 'modified' }],
+        diffArtifacts: [
+          {
+            filePath: 'src/net.ts',
+            additions: 2,
+            deletions: 1,
+            diffLines: [{ type: 'addition', text: '+ timeout: 15000', newLineNumber: 10 }]
+          }
+        ]
+      };
+
+      const convState: ConversationState = {
+        status: 'idle',
+        messages: [{ id: 'm1', type: 'message', role: 'user', content: 'Review diff' }],
+        cards: []
+      };
+
+      const html = renderToStaticMarkup(
+        <WorkspaceShell state={diffState} conversationState={convState} />
+      );
+
+      // Diff dominates immediately
+      expect(html).toContain('data-testid="workspace-diff-view"');
+      expect(html).toContain('src/net.ts');
+
+      // Side rails are collapsed by default in diff_review
+      expect(html).not.toContain('data-testid="workspace-conversation-region"');
+      expect(html).not.toContain('data-testid="workspace-context-region"');
+
+      // Toggles remain available in header
+      expect(html).toContain('data-testid="btn-workspace-toggle-chat"');
+      expect(html).toContain('data-testid="btn-workspace-toggle-context"');
+    });
+
+    it('narrow viewport preserves SurfaceLevel workspace without falling back to presence', () => {
+      const narrowScenario = U5_WORKSPACE_SCENARIOS.find((s) => s.id === 'u5_16_narrow_workspace');
+      expect(narrowScenario).toBeDefined();
+
+      // Invariant: level must strictly be 'workspace'
+      expect(narrowScenario!.snapshot.level).toBe('workspace');
+      expect(narrowScenario!.snapshot.workspace.title).toBe('Responsive Workspace');
+
+      const html = renderToStaticMarkup(
+        <WorkspaceShell state={narrowScenario!.snapshot.workspace} />
+      );
+
+      // Must render workspace project view, NOT presence capsule
+      expect(html).toContain('data-testid="workspace-shell"');
+      expect(html).toContain('ResponsiveLayout.md');
+      expect(html).not.toContain('data-testid="presence-capsule"');
+      expect(html).not.toContain('data-testid="presence-wordmark"');
+    });
+
+    it('opening optional rails preserves diff artifact data without state loss', () => {
+      const diffState: WorkspaceState = {
+        id: 'ws-diff-rails',
+        type: 'diff_review',
+        title: 'Payment Gateway Refactor',
+        status: 'idle',
+        files: [{ path: 'src/payment.ts', status: 'modified' }],
+        diffArtifacts: [
+          {
+            filePath: 'src/payment.ts',
+            additions: 10,
+            deletions: 2,
+            diffLines: [
+              { type: 'context', text: 'export class PaymentClient {', oldLineNumber: 1, newLineNumber: 1 },
+              { type: 'addition', text: '+  async charge(amount: number) {', newLineNumber: 2 }
+            ]
+          }
+        ]
+      };
+
+      const convState: ConversationState = {
+        status: 'result',
+        messages: [{ id: 'm1', type: 'message', role: 'user', content: 'Ensure idempotency key is sent.' }],
+        cards: []
+      };
+
+      // 1. Render with Chat opened
+      const htmlWithChat = renderToStaticMarkup(
+        <WorkspaceShell state={diffState} conversationState={convState} initialShowConversation={true} />
+      );
+      expect(htmlWithChat).toContain('data-testid="workspace-conversation-region"');
+      expect(htmlWithChat).toContain('Ensure idempotency key is sent.');
+      expect(htmlWithChat).toContain('data-testid="workspace-diff-view"');
+      expect(htmlWithChat).toContain('PaymentClient');
+
+      // 2. Render with Context opened
+      const htmlWithContext = renderToStaticMarkup(
+        <WorkspaceShell state={diffState} conversationState={convState} initialShowContext={true} />
+      );
+      expect(htmlWithContext).toContain('data-testid="workspace-context-region"');
+      expect(htmlWithContext).toContain('src/payment.ts');
+      expect(htmlWithContext).toContain('data-testid="workspace-diff-view"');
+      expect(htmlWithContext).toContain('charge(amount: number)');
+
+      // 3. Render with both opened
+      const htmlWithBoth = renderToStaticMarkup(
+        <WorkspaceShell
+          state={diffState}
+          conversationState={convState}
+          initialShowConversation={true}
+          initialShowContext={true}
+        />
+      );
+      expect(htmlWithBoth).toContain('data-testid="workspace-conversation-region"');
+      expect(htmlWithBoth).toContain('data-testid="workspace-context-region"');
+      expect(htmlWithBoth).toContain('data-testid="workspace-diff-view"');
+    });
+  });
 });
 
 

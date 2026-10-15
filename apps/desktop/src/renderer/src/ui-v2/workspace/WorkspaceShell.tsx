@@ -166,6 +166,20 @@ export const WorkspaceShell: React.FC<WorkspaceShellProps> = ({
     }
   }, [state.activeArtifactId]);
 
+  // Re-sync default rail visibility and focus state when workspace task/identity changes
+  useEffect(() => {
+    setShowConversation(defaultShowConversation());
+    setShowContext(defaultShowContext());
+    setIsFocusMode(isFocusRequested);
+  }, [state.id, state.type, state.initialShowConversation, state.initialShowContext, initialShowConversation, initialShowContext, isFocusRequested]);
+
+  // Sync internal file selection if updated
+  useEffect(() => {
+    if (state.files?.[0]?.path) {
+      setSelectedFile(state.files[0].path);
+    }
+  }, [state.files, state.id]);
+
   // Keyboard shortcut listener (Local component shortcuts only)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {

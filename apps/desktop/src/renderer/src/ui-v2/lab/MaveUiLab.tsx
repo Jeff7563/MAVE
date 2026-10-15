@@ -19,13 +19,14 @@ import {
 import './MaveUiLab.css';
 import '../tokens.css';
 
-type ViewportPreset = 'compact' | 'chat' | 'sidecar' | 'workspace' | 'fill';
+type ViewportPreset = 'compact' | 'chat' | 'sidecar' | 'workspace' | 'narrow' | 'fill';
 
 const VIEWPORT_DIMENSIONS: Record<ViewportPreset, { width: string; height: string }> = {
   compact: { width: '840px', height: '280px' },
   chat: { width: '440px', height: '680px' },
   sidecar: { width: '380px', height: '100%' },
   workspace: { width: '1380px', height: '800px' },
+  narrow: { width: '740px', height: '800px' },
   fill: { width: '100%', height: '100%' }
 };
 
@@ -143,7 +144,11 @@ export const MaveUiLab: React.FC = () => {
         setViewportPreset('chat');
       }
     } else if (scenario.snapshot.level === 'workspace') {
-      setViewportPreset('workspace');
+      if (scenario.id.includes('narrow') || scenario.name.toLowerCase().includes('narrow')) {
+        setViewportPreset('narrow');
+      } else {
+        setViewportPreset('workspace');
+      }
     }
 
     const pl = scenario.snapshot.sidecarPlacement || scenario.snapshot.conversation?.sidecarPlacement;
@@ -1413,7 +1418,7 @@ export const MaveUiLab: React.FC = () => {
           {/* Viewport Presets */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <span style={{ fontSize: '11px', color: '#64748b' }}>Viewport:</span>
-            {(['compact', 'chat', 'sidecar', 'workspace', 'fill'] as ViewportPreset[]).map((preset) => (
+            {(['compact', 'chat', 'sidecar', 'workspace', 'narrow', 'fill'] as ViewportPreset[]).map((preset) => (
               <button
                 key={preset}
                 onClick={() => setViewportPreset(preset)}
@@ -1723,6 +1728,7 @@ export const MaveUiLab: React.FC = () => {
 
             {snapshot.level === 'workspace' && (
               <WorkspaceShell
+                key={`${selectedScenarioId}-${snapshot.workspace?.id || snapshot.workspace?.type || 'ws'}`}
                 state={snapshot.workspace}
                 conversationState={snapshot.conversation}
                 officeMode={officeMode}

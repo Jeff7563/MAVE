@@ -461,21 +461,29 @@
   .mave-v2-workspace-conv-rail {
     position: absolute;
     left: 0;
-    top: 49px;
+    top: 0;
     bottom: 0;
+    width: min(320px, 85%) !important;
+    max-width: 85% !important;
     z-index: 20;
     box-shadow: 12px 0 32px rgba(0, 0, 0, 0.65);
-    background: rgba(10, 14, 26, 0.94) !important;
+    background: rgba(10, 14, 26, 0.96) !important;
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
   }
 
   .mave-v2-workspace-context-rail {
     position: absolute;
     right: 0;
-    top: 49px;
+    top: 0;
     bottom: 0;
+    width: min(280px, 85%) !important;
+    max-width: 85% !important;
     z-index: 20;
     box-shadow: -12px 0 32px rgba(0, 0, 0, 0.65);
-    background: rgba(10, 14, 26, 0.94) !important;
+    background: rgba(10, 14, 26, 0.96) !important;
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
   }
 }
 
@@ -483,21 +491,29 @@
   .mave-v2-workspace-shell .mave-v2-workspace-conv-rail {
     position: absolute;
     left: 0;
-    top: 49px;
+    top: 0;
     bottom: 0;
+    width: min(320px, 85%) !important;
+    max-width: 85% !important;
     z-index: 20;
     box-shadow: 12px 0 32px rgba(0, 0, 0, 0.65);
-    background: rgba(10, 14, 26, 0.94) !important;
+    background: rgba(10, 14, 26, 0.96) !important;
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
   }
 
   .mave-v2-workspace-shell .mave-v2-workspace-context-rail {
     position: absolute;
     right: 0;
-    top: 49px;
+    top: 0;
     bottom: 0;
+    width: min(280px, 85%) !important;
+    max-width: 85% !important;
     z-index: 20;
     box-shadow: -12px 0 32px rgba(0, 0, 0, 0.65);
-    background: rgba(10, 14, 26, 0.94) !important;
+    background: rgba(10, 14, 26, 0.96) !important;
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
   }
 }
 
