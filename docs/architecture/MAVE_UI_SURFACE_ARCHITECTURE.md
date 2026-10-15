@@ -1388,7 +1388,7 @@ Prior to locking the U6 language contract, two structural preflight hardenings w
 ## Status
 
 **PROTOTYPE FOUNDATION FROZEN & CLOSED (U0–U6 COMPLETE)**  
-This section records the definitive architectural audit, canonical surface contract, runtime integration map, and production readiness matrix for the MAVE UI V2 Foundation. Speculative prototyping on `feat/ui-v2-foundation` is hereby concluded.
+This section records the architectural audit, canonical surface contract, conceptual source map, and production readiness matrix for the MAVE UI V2 Foundation. Speculative prototyping on `feat/ui-v2-foundation` is hereby concluded.
 
 ---
 
@@ -1441,7 +1441,7 @@ stateDiagram-v2
 
 ### 2. Unified Invariants & Architectural Boundaries
 
-Across all seven prototype phases (U0–U6), six foundational architectural invariants have been validated and locked:
+Across all prototype phases (U0–U6), foundational architectural invariants have been validated and locked:
 
 #### Invariant 1: One MAVE Assistant Identity
 - MAVE is always a single cohesive assistant.
@@ -1463,12 +1463,16 @@ Across all seven prototype phases (U0–U6), six foundational architectural inva
 - Progress bars and status indicators must reflect genuine physical facts:
   - Determinate progress (e.g., `3 of 10 tests`) renders **only** when total and completed counts are known from the runtime.
   - Indeterminate tasks render truthful textual state (`Compiling Rust binary…`) and an indeterminate pulse—**never** a simulated or fake percentage curve.
-- Pronunciation evaluation: **zero acoustic analysis = zero pronunciation score**. Fabricated scores (e.g. `94% Match`) are strictly forbidden. Educational phonetic breakdown (IPA, stress, articulation guides) is provided instead.
-- Vocabulary learning status progresses through observed facts: `seen` $\rightarrow$ `practiced` $\rightarrow$ `reviewed`. No arbitrary "Mastered" badges without longitudinal memory.
+- Pronunciation evaluation: **zero acoustic evaluation evidence = ZERO pronunciation score**. Fabricated scores (e.g. `94% Match`) are strictly forbidden. Educational phonetic breakdown (IPA, stress, articulation guides) is provided instead.
+- Vocabulary learning status progresses through observed facts: `seen` $\rightarrow$ `practiced` $\rightarrow$ `reviewed`. No arbitrary "Mastered" badges without validated longitudinal persistence.
 
 #### Invariant 5: Action Authority Boundary (Presentation Only)
-- UI components possess **zero direct authority** to execute native shell commands, modify the filesystem, write to databases, or charge API tokens.
-- All interactive triggers (`Allow Action`, `Deny`, `Save Vocabulary`, `Approve Diff`) emit declarative intent events across IPC to the authoritative backend runtime and security gate (M5 Permission Boundary).
+- UI components possess **zero direct execution authority**. They cannot directly execute native shell commands, mutate filesystems, write to databases, or charge external tokens.
+- The canonical interaction boundary is:
+  ```text
+  UI Component → Semantic User Intent → Future Orchestration / Authority Boundary → Future policy / executor as applicable
+  ```
+- UI V2 strictly defines presentation-only semantics and declarative callbacks. It does **NOT** define or freeze IPC transports, M5 permission transport channels, or runtime executor routing.
 
 #### Invariant 6: Production Isolation & Non-Regression
 - The UI V2 prototype code is strictly encapsulated inside `apps/desktop/src/renderer/src/ui-v2/`.
@@ -1476,59 +1480,97 @@ Across all seven prototype phases (U0–U6), six foundational architectural inva
 
 ---
 
-### 3. Runtime Integration Map
+### 3. Conceptual Runtime Source Map
 
-This table maps every UI V2 capability to its destination production backend subsystem, establishing the contract for future integration phases:
+This map identifies the conceptual observable sources and event roles for each UI prototype capability without freezing hypothetical IPC channel names or transport mechanics:
 
-| UI Capability | UI V2 Prototype Form | Target Production Subsystem | IPC / Presentation Contract | Integration Preconditions |
+| UI Capability | Prototype Presentation Form | Conceptual Observable Source / Event Role | Future System Boundary | Integration Precondition Status |
 | :--- | :--- | :--- | :--- | :--- |
-| **Presence Acoustics** | Simulated sine RMS & smoothing algorithms | Audio Input Pipeline / VAD (`voice-manager`) | `voice:rms-update`, `voice:state-change` | M3.5 Wake ↔ Voice handoff runtime |
-| **Streaming Dialogue** | Async token generator (`ConversationShell`) | Intelligence Orchestrator (`Pre-M5 C3/C4`) | `intelligence:stream-delta`, `intelligence:turn-complete` | F1.5-C2 streaming pipeline |
-| **Execution Diagnostics** | Collapsible Dev Panel | Core Telemetry / Diagnostics Daemon | `telemetry:turn-diagnostics` (dev mode only) | Diagnostics flag enabled |
-| **Content Provenance** | `SourceCard` & `SourceGroupCard` | Knowledge Applicability & Retrieval Engine | `retrieval:source-citation` | Grounded search & citation pipeline |
-| **Security Approvals** | `ApprovalCard` (`ActionAndTaskCards`) | M5 Action Authority & Policy Gate | `security:request-approval`, `security:resolve-approval` | M5 Permission Matrix |
-| **Sidecar Positioning** | Fixed CSS / mock placement states | Electron Window Manager / Display Geometry | `window:dock-sidecar`, `window:set-bounds` | Multi-monitor DPI calibration |
-| **Diff Review Canvas** | `WorkspaceDiffView` syntax blocks | Git / Workspace Mutation Engine | `workspace:diff-stream`, `workspace:apply-patch` | Native git diff parser |
-| **Agent Observability** | `AgentWorkspaceView` execution logs | Autonomous Agent Orchestrator / Subagents | `agent:step-update`, `agent:stdout-log` | Background subagent daemon |
-| **Language Coaching** | `InlineCorrectionCard`, `VocabularyPanel` | Language Learning Semantic Adapter | `language:turn-correction`, `language:save-vocab` | Linguistic prompt templates |
-| **Phonetic Guidance** | `PronunciationGuideCard` (IPA, respelling) | Phonetic Analysis / Audio Service | `language:phonetic-breakdown`, `tts:synthesize-example` | Phoneme dictionary / local TTS |
-| **Learning Memory** | `SessionSummaryCard`, local vocab state | Longitudinal Episodic/Semantic Memory (SQLite) | `memory:persist-learning-session`, `memory:query-vocab` | MAVE Memory Schema V2 |
+| **Presence Acoustics** | Simulated sine RMS & smoothing algorithms | Future voice runtime observable state (RMS, voice state) | Future audio/voice runtime | Runtime voice integration pending |
+| **Streaming Dialogue** | Async token generator (`ConversationShell`) | Future intelligence stream events (deltas, completion) | Future intelligence orchestrator | Runtime intelligence stream pending |
+| **Execution Diagnostics** | Collapsible Dev Panel | Future developer diagnostic events (latency, tokens) | Diagnostic / Telemetry boundary | TBD (diagnostics mode only) |
+| **Content Provenance** | `SourceCard` & `SourceGroupCard` | Future research/retrieval source citations | Future research/retrieval runtime | Future retrieval pipeline |
+| **Approval Card** | `ApprovalCard` (`ActionAndTaskCards`) | Future permission request & decision state | Future policy / authority boundary | Pending M5 permissions & policy |
+| **Sidecar Positioning** | Fixed CSS / mock placement states | Future window docking & geometry coordination | Desktop window manager | Future multi-monitor window coordination |
+| **Diff Review Canvas** | `WorkspaceDiffView` syntax blocks | Future workspace diff & patch event stream | Future workspace / filesystem runtime | Future diff generation capability |
+| **Agent Activity** | `AgentWorkspaceView` execution logs | Future observable agent/task events (stdout, steps) | Future agent/task runtime | Future agent runtime capability |
+| **Language Coaching** | `InlineCorrectionCard`, `VocabularyPanel` | Future language coaching & turn feedback events | Future language assistance runtime | Future language capability |
+| **Pronunciation Guidance** | `PronunciationGuideCard` (IPA, phonetic hints) | Future validated pronunciation / phonetic data source | Future validated pronunciation capability | No scoring without validated audio evaluation |
+| **Learning Persistence** | `SessionSummaryCard`, local vocab state | Future learning progress & vocabulary persistence | Future learning persistence | Future memory / learning capability |
+
+> [!NOTE]
+> Concrete IPC channel names and transport protocols remain **illustrative / TBD** until the respective runtime subsystems are implemented. No speculative IPC channels are frozen by UI V2.
 
 ---
 
 ### 4. Production Readiness Classification Matrix
 
-The UI V2 codebase is categorized across four operational readiness tiers:
+The UI V2 prototype foundation is categorized by semantic, visual, and runtime authority readiness:
 
-| Subsystem / Component | Semantic Contract | Visual / UX Quality | Runtime Binding | Production Readiness Tier |
+| Subsystem / Component | Semantic Presentation | Visual Implementation | Runtime Authority / Integration | Readiness Classification |
 | :--- | :--- | :--- | :--- | :--- |
-| **Presence Surface** (`PresenceSurface.tsx`) | Complete & Hardened | High / Restrained | Mocked RMS | **Tier 1: Ready for Production Wiring** |
-| **Presence Rules** (`presence-rules.ts`) | Complete (RMS smoothing, expansion eligibility) | N/A (Logic) | Pure Functions | **Tier 1: Ready for Production Wiring** |
-| **Security Approvals** (`ApprovalCard`) | Complete (Risk classes, zero direct authority) | High | Mocked Callbacks | **Tier 1: Ready for Production Wiring** |
-| **Chat-only Sidecar** (`ChatOnlyPanel.tsx`) | Complete (Shared conversation state) | Standard | Needs Window IPC | **Tier 1: Ready for Production Wiring** |
-| **Rich Cards** (`Message`, `Source`, `Diff`, `Task`, `Progress`) | Complete (Intent-based, no fake progress) | High | Mock Data | **Tier 1: Ready for Production Wiring** |
-| **Conversation Shell** (`ConversationShell.tsx`) | Complete (Response groups, streaming phases) | High | Needs C3/C4 Hookup | **Tier 1: Ready for Production Wiring** |
-| **Agent Workspace** (`AgentWorkspaceView.tsx`) | Complete (Observable execution logs only) | Standard | Needs Agent Daemon | **Tier 2: Awaiting Agent Subsystem** |
-| **Language Coaching** (`LanguageComponents.tsx`) | Complete (Non-punitive tone, factual progress) | High | Needs Language Prompts | **Tier 2: Awaiting Runtime Prompts** |
-| **Pronunciation Guide** (`PronunciationGuideCard`) | Complete (IPA, phonetic hints, no fake score) | High | Needs Phoneme TTS | **Tier 2: Awaiting Phoneme Engine** |
-| **Workspace Shell** (`WorkspaceShell.tsx`) | Complete (Context tabs, unified MAVE header) | High | Needs Session IPC | **Tier 2: Awaiting Workspace Manager** |
-| **Visual Styling & Motion** (`tokens.css`, CSS classes) | Prototype Baseline | Functional Lab | Needs GPU Animation Pass | **Tier 3: Scheduled for UI Redesign** |
-| **Memory / Vocab Persistence** | Prototype Contracts Only | High UI | Needs SQLite Store | **Tier 4: Future Persistence Track** |
+| **Presence Surface** (`PresenceSurface.tsx`) | SEMANTICS READY | PROTOTYPE VISUAL | RUNTIME INTEGRATION PENDING | **SEMANTICS READY** (Awaiting voice runtime integration) |
+| **Presence Rules** (`presence-rules.ts`) | SEMANTICS READY | N/A (Pure Logic) | SEMANTICS READY (Pure Functions) | **SEMANTICS READY** |
+| **Conversation Shell** (`ConversationShell.tsx`) | SEMANTICS READY | PROTOTYPE VISUAL | RUNTIME INTEGRATION PENDING | **SEMANTICS READY** (Awaiting intelligence runtime) |
+| **Chat-only Sidecar** (`ChatOnlyPanel.tsx`) | SEMANTICS READY | PROTOTYPE VISUAL | RUNTIME INTEGRATION PENDING | **SEMANTICS READY** (Awaiting window docking integration) |
+| **Rich Cards** (`Message`, `Source`, `Diff`, `Task`, `Progress`) | SEMANTICS READY | PROTOTYPE VISUAL | RUNTIME INTEGRATION PENDING | **SEMANTICS READY** (Awaiting data binding) |
+| **Approval Card** (`ApprovalCard`) | SEMANTICS READY | PROTOTYPE VISUAL | AUTHORITY MODEL PENDING (M5) | **AUTHORITY MODEL PENDING** (Presentation semantics ready; policy & execution pending M5) |
+| **Workspace Shell** (`WorkspaceShell.tsx`) | SEMANTICS READY | PROTOTYPE VISUAL | RUNTIME INTEGRATION PENDING | **SEMANTICS READY** (Awaiting workspace session coordination) |
+| **Agent Workspace** (`AgentWorkspaceView.tsx`) | SEMANTICS READY (Observable logs) | PROTOTYPE VISUAL | FUTURE CAPABILITY | **FUTURE CAPABILITY** (Awaiting agent/task runtime) |
+| **Language Coaching** (`LanguageComponents.tsx`) | SEMANTICS READY (Non-punitive) | PROTOTYPE VISUAL | FUTURE CAPABILITY | **FUTURE CAPABILITY** (Awaiting language runtime prompts) |
+| **Pronunciation Guide** (`PronunciationGuideCard`) | SEMANTICS READY (No fake scores) | PROTOTYPE VISUAL | FUTURE CAPABILITY | **FUTURE CAPABILITY** (Awaiting validated pronunciation source) |
+| **Learning Persistence** (Vocabulary, summaries) | SEMANTICS READY (Fact progression) | PROTOTYPE VISUAL | FUTURE CAPABILITY | **FUTURE CAPABILITY** (Awaiting future learning persistence) |
+| **Visual Styling & Motion** (`tokens.css`, CSS) | PROTOTYPE VISUAL | PROTOTYPE VISUAL | N/A | **PROTOTYPE VISUAL** (Blueprint input for future UI redesign) |
+
+#### Prototype Risk Taxonomy Reconfirmation
+The risk levels used in UI V2 prototypes (`Level 0–3`, `read_only`, `safe_local`, `mutation`, `destructive` or `LOW/MEDIUM/HIGH/CRITICAL`) are strictly illustrative prototype groupings to test visual urgency and confirmation mechanics. UI V2 does **NOT** define or freeze the canonical M5 security risk taxonomy, permission evaluation engine, or execution boundary.
+
+#### Language & Pronunciation Capability Decoupling
+- Pronunciation guidance is architecturally decoupled from specific audio synthesis or recognition engines.
+- The canonical requirement is: a **validated pronunciation / phonetic data source where appropriate**.
+- Zero audio evaluation evidence = ZERO pronunciation score. IPA transcriptions, phonetic respellings, and mouth articulation hints provide educational assistance without making unsubstantiated score or level claims.
 
 ---
 
-### 5. Technical Debt & Open Architectural Questions
+### 5. Relationship to Future UI Redesign & Architecture Roadmap
 
-The following engineering questions are documented for resolution during the production implementation phase:
+#### A. Executable Prototype Blueprint
+UI V2 is an **executable prototype blueprint**, not the final production UI.
+The later production UI Redesign phase will consume this foundation as architectural input.
+During that phase, the engineering team may:
+- **Retain** core interaction flows (e.g. adaptive level progression, response groups).
+- **Modify** sizing, margins, and density parameters for native display hardware.
+- **Simplify** card variants or navigation controls based on real usage.
+- **Replace** prototype CSS tokens, color palettes, and mock transitions with production design system tokens and motion systems.
 
-1. **Multi-Monitor & DPI Scaling in Docked Sidecar**:
-   - On Windows 11 with heterogeneous DPI scaling (e.g., 150% laptop screen + 100% 4K external monitor), Electron native window bounds calculation requires precise per-monitor DPI coordinate normalization to prevent sidecar jitter or clipping during docking.
-2. **Conversation Timeline Virtualization**:
-   - Long-running multi-turn sessions with dozens of rich diffs and images must implement virtualized list rendering (e.g. `react-window` or custom DOM recycling) to ensure 60 FPS scrolling and low memory footprints.
-3. **Diff Chunk Syntax Highlighting Performance**:
-   - For diffs exceeding 1,000 lines, tokenization on the main renderer thread can cause brief frame drops. Future implementation should parse syntax tokens in a web worker or native background thread.
-4. **Episodic Learning Integration**:
-   - Vocabulary saved during Language Practice must be reconciled with MAVE's primary episodic memory store so that MAVE can naturally reinforce learned vocabulary across general conversation turns without explicit prompting.
+Prototyping UI V2 does **NOT** force immediate production migration or premature rewrite of M4.
+
+#### B. Dependency Direction & Intelligence Milestones
+The dependency direction is strictly:
+```text
+Runtime Architecture & Intelligence Milestones → Future Presentation Integration
+```
+UI prototypes do **NOT** dictate or constrain backend runtime contracts.
+`ConversationShell` and related surfaces will consume stable runtime contracts only after the relevant intelligence, voice, and orchestrator work is mature on the main roadmap.
+
+#### C. Preserved Main Engineering Roadmap
+The UI V2 Prototype Foundation is now officially **CLOSED & FROZEN**.
+Engineering priority immediately returns to the canonical MAVE roadmap:
+
+```text
+1. UI V2 Prototype Foundation   [CLOSED / FROZEN]
+2. Pre-M5 C3 Local Fast Brain   [NEXT PRIORITY]
+3. C4 Voice / Language / Conversation Closeout
+4. F1.6 Deep Brain
+5. F1.8 Research / Truth
+6. F1.9 Diagnostics / Reliability
+7. F1.10 Intelligence Closeout
+8. F2 Real Brain Integration / Tuning
+9. Production UI Redesign
+10. Full E2E Verification
+11. M5 Tools / Permissions / Security
+```
+**Production UI Redesign is NOT the immediate next engineering phase.** It is positioned downstream after intelligence and diagnostic milestones are established.
 
 ---
 
@@ -1536,11 +1578,14 @@ The following engineering questions are documented for resolution during the pro
 
 ```text
 ================================================================================
-                     MAVE UI V2 FOUNDATION STATUS: FROZEN
+              MAVE UI V2 FOUNDATION STATUS: HARDENED & FROZEN
 ================================================================================
 
-All prototyping phases (U0 through U6) are complete, audited, and verified:
-  - 8 Dedicated Test Suites Passing (174 Automated Vitest Unit & Contract Tests)
+All prototyping phases (U0 through U6) and U7 closeout audits are complete:
+  - 8 Dedicated UI V2 Vitest Test Suites Passing (174 Automated UI V2 Tests)
+    (Note: 174 represents the isolated UI V2 prototype test suite. Full desktop
+     regression suites include additional authoritative M4 surface and core tests)
+  - 6 Production M4 Surface Test Suites Passing (86 Legacy Surface Tests)
   - Full TypeScript Verification Clean (0 Compiler Errors)
   - Production Renderer Build Verified (Clean Vite Output)
   - Production M4 Isolation Guaranteed (0 Legacy Regressions)
@@ -1548,9 +1593,10 @@ All prototyping phases (U0 through U6) are complete, audited, and verified:
 The UI V2 prototype foundation on `feat/ui-v2-foundation` is hereby CLOSED.
 No further experimental or prototype features shall be added to this branch.
 
-READY FOR FUTURE PRODUCTION REDESIGN & RUNTIME INTEGRATION.
+NEXT ROADMAP STEP: Pre-M5 C3 Local Fast Brain.
 ================================================================================
 ```
+
 
 
 
