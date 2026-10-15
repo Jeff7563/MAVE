@@ -55,22 +55,23 @@ export const AgentWorkspaceView: React.FC<AgentWorkspaceViewProps> = ({
         )}
 
         {/* Plan Decomposition / Step Tracker */}
-        <div
-          style={{
-            background: 'var(--mave-v2-surface-elevated)',
-            border: '1px solid var(--mave-v2-border-subtle)',
-            borderRadius: 'var(--mave-v2-radius-card)',
-            padding: '14px 16px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '10px'
-          }}
-        >
-          <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--mave-v2-text-secondary)' }}>
-            Execution Plan
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {state.steps.map((step, idx) => {
+        {state.steps && state.steps.length > 0 && (
+          <div
+            style={{
+              background: 'var(--mave-v2-surface-elevated)',
+              border: '1px solid var(--mave-v2-border-subtle)',
+              borderRadius: 'var(--mave-v2-radius-card)',
+              padding: '14px 16px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '10px'
+            }}
+          >
+            <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--mave-v2-text-secondary)' }}>
+              Execution Plan
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {state.steps.map((step, idx) => {
               const isCompleted = step.status === 'completed';
               const isActive = step.status === 'active';
               return (
@@ -111,8 +112,9 @@ export const AgentWorkspaceView: React.FC<AgentWorkspaceViewProps> = ({
             })}
           </div>
         </div>
+      )}
 
-        {/* Live Output Summary / Logs */}
+      {/* Live Output Summary / Logs */}
         {state.outputSummary && (
           <div
             style={{

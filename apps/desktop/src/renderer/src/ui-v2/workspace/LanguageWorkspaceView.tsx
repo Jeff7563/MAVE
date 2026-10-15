@@ -90,7 +90,7 @@ export const LanguageWorkspaceView: React.FC<LanguageWorkspaceViewProps> = ({ st
             Interactive Practice Queue
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            {state.steps.map((step) => (
+            {state.steps?.map((step) => (
               <div
                 key={step.id}
                 style={{

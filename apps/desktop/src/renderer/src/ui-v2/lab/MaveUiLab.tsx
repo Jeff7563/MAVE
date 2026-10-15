@@ -974,10 +974,78 @@ export const MaveUiLab: React.FC = () => {
             {snapshot.level === 'workspace' && (
               <WorkspaceShell
                 state={snapshot.workspace}
+                conversationState={snapshot.conversation}
+                officeMode={officeMode}
                 onMinimizeToConversation={() => handleSetLevel('conversation')}
                 onCollapseToPresence={() => handleSetLevel('presence')}
+                onClose={() => handleSetLevel('presence')}
+                onSendMessage={handleSendMessage}
                 onAllowApproval={handleAllowAction}
                 onDenyApproval={handleDenyAction}
+                onSelectArtifact={(id) => {
+                  setSnapshot((prev) => ({
+                    ...prev,
+                    workspace: {
+                      ...prev.workspace,
+                      activeArtifactId: id
+                    }
+                  }));
+                }}
+                onSelectFile={(path) => {
+                  setSnapshot((prev) => ({
+                    ...prev,
+                    workspace: {
+                      ...prev.workspace,
+                      targetFiles: prev.workspace.targetFiles?.map((f) =>
+                        f.path === path ? { ...f, status: 'modified' as const } : f
+                      )
+                    }
+                  }));
+                }}
+                onApproveReview={() => {
+                  setSnapshot((prev) => ({
+                    ...prev,
+                    workspace: {
+                      ...prev.workspace,
+                      status: 'completed',
+                      userFacingState: 'Diff Approved',
+                      outputSummary: 'Changes approved. Ready to apply or commit.'
+                    }
+                  }));
+                }}
+                onRequestRevision={() => {
+                  setSnapshot((prev) => ({
+                    ...prev,
+                    workspace: {
+                      ...prev.workspace,
+                      status: 'idle',
+                      userFacingState: 'Revision Requested',
+                      outputSummary: 'Revision notes noted. Awaiting follow-up.'
+                    }
+                  }));
+                }}
+                onRetry={() => {
+                  setSnapshot((prev) => ({
+                    ...prev,
+                    workspace: {
+                      ...prev.workspace,
+                      status: 'running',
+                      userFacingState: 'Retrying…',
+                      outputSummary: 'Re-running workspace task…'
+                    }
+                  }));
+                }}
+                onCancelTask={() => {
+                  setSnapshot((prev) => ({
+                    ...prev,
+                    workspace: {
+                      ...prev.workspace,
+                      status: 'idle',
+                      userFacingState: 'Cancelled',
+                      outputSummary: 'Task cancelled by user.'
+                    }
+                  }));
+                }}
               />
             )}
           </div>

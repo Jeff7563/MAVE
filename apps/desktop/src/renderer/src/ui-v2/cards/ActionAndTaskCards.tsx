@@ -33,23 +33,32 @@ export const TaskCard: React.FC<TaskCardProps> = ({ data, onCancel, onRetry }) =
     ? 'var(--mave-v2-accent-error)'
     : 'var(--mave-v2-accent-thinking)';
 
-  // U3/U4 Semantic Hardening: TaskCard Execution Substrate Privacy
-  // Provider / runtime / model identities (Claude, Codex, Antigravity, Ollama, OpenAI, Anthropic, model IDs)
-  // must NEVER leak into normal user UI by default. Provider detail remains Developer Diagnostics only.
-  const SUBSTRATE_PROVIDER_REGEX = /claude|codex|antigravity|ollama|openai|anthropic|gpt|gemini|llama|qwen|deepseek/i;
-  const isProviderLeaked = Boolean(data.responsibleRuntime && SUBSTRATE_PROVIDER_REGEX.test(data.responsibleRuntime));
+  // Canonical Presentation Architecture (Section 0.A):
+  // UI relies on typed user-facing state (data.userFacingState or derived from data.status).
+  // Technical substrate diagnostics (providerId, modelId, tokens, latency) are structurally isolated
+  // in data.diagnostics and never surfaced in user badges.
+  let taskBadge = data.userFacingState;
 
-  let taskBadge = 'MAVE • Task';
-  if (data.responsibleRuntime && !isProviderLeaked) {
-    taskBadge = data.responsibleRuntime;
-  } else if (isRunning) {
-    taskBadge = 'MAVE • Working';
-  } else if (isCompleted) {
-    taskBadge = 'Completed';
-  } else if (isFailed) {
-    taskBadge = 'Task Alert';
-  } else if (data.status === 'waiting_approval') {
-    taskBadge = 'Waiting Approval';
+  if (!taskBadge) {
+    if (isRunning) {
+      taskBadge = 'MAVE • Working';
+    } else if (isCompleted) {
+      taskBadge = 'Completed';
+    } else if (isFailed) {
+      taskBadge = 'Task Alert';
+    } else if (data.status === 'waiting_approval') {
+      taskBadge = 'Waiting Approval';
+    } else {
+      taskBadge = 'MAVE • Task';
+    }
+  }
+
+  // Last-resort defensive fallback guard only (NOT the primary data architecture)
+  if (data.responsibleRuntime) {
+    const SUBSTRATE_PROVIDER_REGEX = /claude|codex|antigravity|ollama|openai|anthropic|gpt|gemini|llama|qwen|deepseek/i;
+    if (!SUBSTRATE_PROVIDER_REGEX.test(data.responsibleRuntime)) {
+      taskBadge = data.responsibleRuntime;
+    }
   }
 
   return (

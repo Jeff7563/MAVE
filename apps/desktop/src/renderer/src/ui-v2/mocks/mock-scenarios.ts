@@ -2758,11 +2758,685 @@ export const U4_CHAT_ONLY_SCENARIOS: MockScenario[] = [
   }
 ];
 
-// Combined full scenarios array (Baseline U0 preserved first, followed by U2, then U3, then U4)
+// ---------------------------------------------------------------------------
+// U5 Specific Workspace Surface Scenarios (Prompt Section 42)
+// ---------------------------------------------------------------------------
+
+export const U5_WORKSPACE_SCENARIOS: MockScenario[] = [
+  // U5-01 Empty Generic Workspace
+  {
+    id: 'u5_01_empty_generic_workspace',
+    name: 'U5-01 Empty Generic Workspace',
+    description: 'Clean generic workspace ready for task execution with empty artifact canvas and calm standby status.',
+    category: 'workspace',
+    snapshot: {
+      level: 'workspace',
+      presentationMode: 'full',
+      presence: { state: 'idle', audioLevel: 0 },
+      conversation: { status: 'idle', messages: [], cards: [] },
+      workspace: {
+        id: 'ws-01',
+        type: 'generic',
+        title: 'New Workspace',
+        status: 'idle',
+        userFacingState: 'Ready',
+        currentObjective: 'Standby for complex task instruction',
+        steps: [],
+        artifacts: []
+      }
+    }
+  },
+
+  // U5-02 Project Workspace
+  {
+    id: 'u5_02_project_workspace',
+    name: 'U5-02 Project Workspace',
+    description: 'Project workspace displaying primary architecture artifact, multi-step checklist, and conversation rail.',
+    category: 'workspace',
+    snapshot: {
+      level: 'workspace',
+      presentationMode: 'full',
+      presence: { state: 'idle', audioLevel: 0 },
+      conversation: {
+        status: 'result',
+        messages: [
+          { id: 'm1', type: 'message', role: 'user', content: 'Generate the architecture spec for UI V2 Workspace.' },
+          { id: 'm2', type: 'message', role: 'assistant', content: 'Architecture specification generated and placed in Primary Work Area.' }
+        ],
+        cards: []
+      },
+      workspace: {
+        id: 'ws-02',
+        type: 'project',
+        title: 'UI V2 Workspace Spec',
+        status: 'running',
+        userFacingState: 'Working',
+        currentObjective: 'Draft and review Level 3 Workspace architectural contracts',
+        steps: [
+          { id: 's1', label: 'Define composable region boundaries', status: 'completed' },
+          { id: 's2', label: 'Decouple Workspace from Agent runtime', status: 'completed' },
+          { id: 's3', label: 'Verify continuity across layout transitions', status: 'active' },
+          { id: 's4', label: 'Run validation gates with zero AI calls', status: 'pending' }
+        ],
+        artifacts: [
+          {
+            id: 'art-spec-1',
+            type: 'document',
+            title: 'MAVE_WORKSPACE_SPEC.md',
+            language: 'markdown',
+            content: '# MAVE Workspace Architecture Specification\n\n## 1. Principles\n- Surface Level != Presentation Mode\n- Workspace != Agent Runtime\n- Surface State != Task State\n\n## 2. Regions\n1. Conversation Rail\n2. Primary Work Area\n3. Supporting Context\n4. Activity / Plan'
+          }
+        ]
+      }
+    }
+  },
+
+  // U5-03 Diff Review Single File
+  {
+    id: 'u5_03_diff_review_single',
+    name: 'U5-03 Diff Review Single File',
+    description: 'Dedicated diff review workspace inspecting focused changes in a single critical source file.',
+    category: 'workspace',
+    snapshot: {
+      level: 'workspace',
+      presentationMode: 'full',
+      presence: { state: 'idle', audioLevel: 0 },
+      conversation: {
+        status: 'result',
+        messages: [
+          { id: 'm1', type: 'message', role: 'user', content: 'Review the fix for network client timeout.' },
+          { id: 'm2', type: 'message', role: 'assistant', content: 'Here is the unified diff for src/network/client.ts.' }
+        ],
+        cards: []
+      },
+      workspace: {
+        id: 'ws-03',
+        type: 'diff_review',
+        title: 'Diff Review: Network Client',
+        status: 'idle',
+        userFacingState: 'Ready for Review',
+        currentObjective: 'Review network timeout and keep-alive configuration patch',
+        files: [
+          { path: 'src/network/client.ts', status: 'modified' }
+        ],
+        steps: [],
+        artifacts: [
+          {
+            id: 'art-diff-03',
+            type: 'diff',
+            title: 'src/network/client.ts',
+            diffData: {
+              id: 'diff-single-03',
+              type: 'diff',
+              filename: 'src/network/client.ts',
+              additions: 2,
+              deletions: 1,
+              lines: [
+                { type: 'context', text: 'export const defaultClientOptions = {', oldLineNumber: 22, newLineNumber: 22 },
+                { type: 'context', text: '  headers: { "Content-Type": "application/json" },', oldLineNumber: 23, newLineNumber: 23 },
+                { type: 'remove', text: '-  timeout: 5000,', oldLineNumber: 24 },
+                { type: 'add', text: '+  timeout: 15000,', newLineNumber: 24 },
+                { type: 'add', text: '+  keepAlive: true,', newLineNumber: 25 },
+                { type: 'context', text: '  retries: 3', oldLineNumber: 25, newLineNumber: 26 },
+                { type: 'context', text: '};', oldLineNumber: 26, newLineNumber: 27 }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  },
+
+  // U5-04 Diff Review Multi-file
+  {
+    id: 'u5_04_diff_review_multi',
+    name: 'U5-04 Diff Review Multi-file',
+    description: 'Multi-file diff review workspace with tabbed file navigation and structured approve/revision actions.',
+    category: 'workspace',
+    snapshot: {
+      level: 'workspace',
+      presentationMode: 'full',
+      presence: { state: 'idle', audioLevel: 0 },
+      conversation: {
+        status: 'result',
+        messages: [
+          { id: 'm1', type: 'message', role: 'user', content: 'Review the changes across auth, client, and tests.' },
+          { id: 'm2', type: 'message', role: 'assistant', content: 'Found 3 modified files in the review set.' }
+        ],
+        cards: []
+      },
+      workspace: {
+        id: 'ws-04',
+        type: 'diff_review',
+        title: 'Review: Auth & Client Session',
+        status: 'idle',
+        userFacingState: 'Ready for Review',
+        files: [
+          { path: 'src/auth/session.ts', status: 'modified' },
+          { path: 'src/network/client.ts', status: 'modified' },
+          { path: 'tests/auth.test.ts', status: 'created' }
+        ],
+        steps: [],
+        artifacts: [
+          {
+            id: 'art-diff-04-1',
+            type: 'diff',
+            title: 'src/auth/session.ts',
+            diffData: {
+              id: 'diff-04-1',
+              type: 'diff',
+              filename: 'src/auth/session.ts',
+              additions: 4,
+              deletions: 1,
+              lines: [
+                { type: 'context', text: 'export class SessionManager {', oldLineNumber: 10, newLineNumber: 10 },
+                { type: 'remove', text: '-  private token: string | null = null;', oldLineNumber: 11 },
+                { type: 'add', text: '+  private token: string | null = null;', newLineNumber: 11 },
+                { type: 'add', text: '+  private refreshToken: string | null = null;', newLineNumber: 12 },
+                { type: 'add', text: '+  private expiryTimestamp = 0;', newLineNumber: 13 },
+                { type: 'add', text: '+  private readonly skewMs = 5000;', newLineNumber: 14 }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  },
+
+  // U5-05 Research Workspace
+  {
+    id: 'u5_05_research_workspace',
+    name: 'U5-05 Research Workspace',
+    description: 'Research workspace organizing analytical findings, key takeaways, comparison table, and cited sources.',
+    category: 'workspace',
+    snapshot: {
+      level: 'workspace',
+      presentationMode: 'full',
+      presence: { state: 'idle', audioLevel: 0 },
+      conversation: {
+        status: 'result',
+        messages: [
+          { id: 'm1', type: 'message', role: 'user', content: 'Compare React 19 Actions with TanStack Query mutations.' },
+          { id: 'm2', type: 'message', role: 'assistant', content: 'Compiled comparative research and authoritative documentation citations.' }
+        ],
+        cards: []
+      },
+      workspace: {
+        id: 'ws-05',
+        type: 'research',
+        title: 'React 19 vs TanStack Query',
+        status: 'completed',
+        userFacingState: 'Synthesis Complete',
+        currentObjective: 'Evaluate mutation patterns, caching lifecycles, and optimistic updates',
+        steps: [],
+        artifacts: [
+          {
+            id: 'art-res-05',
+            type: 'research',
+            title: 'Mutation Framework Comparison',
+            researchFindings: {
+              question: 'How do React 19 Actions compare to TanStack Query for desktop data mutation?',
+              summary: 'React 19 Actions natively integrate with HTML forms, pending transitions, and optimistic state. TanStack Query remains superior for multi-tiered caching, offline persistence, and complex invalidation graphs.',
+              takeaways: [
+                'React 19 Actions handle UI pending states natively without third-party libraries.',
+                'TanStack Query provides durable cache serialization for desktop application sessions.',
+                'Hybrid usage allows Actions for simple mutations while retaining Query for server caches.'
+              ]
+            },
+            comparisonData: {
+              id: 'comp-05',
+              type: 'comparison',
+              title: 'Feature Matrix',
+              columns: [
+                { key: 'feature', label: 'Feature', isPrimary: true },
+                { key: 'actions', label: 'React 19 Actions' },
+                { key: 'query', label: 'TanStack Query' }
+              ],
+              rows: [
+                { id: '1', values: { feature: 'Form Binding', actions: 'Native HTML form action', query: 'Manual onSubmit handler' } },
+                { id: '2', values: { feature: 'Cache Invalidation', actions: 'Router revalidation', query: 'QueryClient.invalidateQueries' } },
+                { id: '3', values: { feature: 'Bundle Overhead', actions: '0 kB (Built into React)', query: '~12 kB' } }
+              ]
+            },
+            sources: [
+              {
+                id: 'src-res-1',
+                type: 'source',
+                title: 'React 19 Actions Specification',
+                domain: 'react.dev',
+                url: 'https://react.dev/reference/rsc/server-actions',
+                snippet: 'Actions allow components to handle form submissions and async updates natively.'
+              },
+              {
+                id: 'src-res-2',
+                type: 'source',
+                title: 'TanStack Query Mutations Guide',
+                domain: 'tanstack.com',
+                url: 'https://tanstack.com/query/latest/docs/framework/react/guides/mutations',
+                snippet: 'Durable mutation lifecycles, retries, and cache synchronization.'
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+
+  // U5-06 Agent Workspace Working
+  {
+    id: 'u5_06_agent_workspace_working',
+    name: 'U5-06 Agent Workspace Working',
+    description: 'Synthetic Agent Workspace showing real observable plan progress and active task output.',
+    category: 'workspace',
+    snapshot: {
+      level: 'workspace',
+      presentationMode: 'full',
+      presence: { state: 'thinking', audioLevel: 0 },
+      conversation: {
+        status: 'streaming',
+        activeRequestId: 'req-agent-06',
+        messages: [
+          { id: 'm1', type: 'message', role: 'user', content: 'Refactor desktop window coordinator across 4 files.' }
+        ],
+        cards: []
+      },
+      workspace: {
+        id: 'ws-06',
+        type: 'agent',
+        title: 'Window Coordinator Refactor',
+        status: 'running',
+        userFacingState: 'Working',
+        currentObjective: 'Refactor desktop window coordinator to decouple layout mode from surface level',
+        steps: [
+          { id: 's1', label: 'Audit current window bounds and placement', status: 'completed' },
+          { id: 's2', label: 'Extract layout modes into PresentationMode type', status: 'active' },
+          { id: 's3', label: 'Verify multi-monitor snap boundaries', status: 'pending' },
+          { id: 's4', label: 'Compile test suites', status: 'pending' }
+        ],
+        files: [
+          { path: 'src/main/surface-window-manager.ts', status: 'modified' },
+          { path: 'src/renderer/types.ts', status: 'modified' }
+        ],
+        outputSummary: 'Decoupling SurfaceLevel from PresentationMode...\nUpdating window manager event dispatchers.'
+      }
+    }
+  },
+
+  // U5-07 Agent Workspace Waiting Approval
+  {
+    id: 'u5_07_agent_workspace_approval',
+    name: 'U5-07 Agent Workspace Waiting Approval',
+    description: 'Agent Workspace pausing execution to wait for user confirmation on a Level 2 external operation.',
+    category: 'workspace',
+    snapshot: {
+      level: 'workspace',
+      presentationMode: 'full',
+      presence: { state: 'idle', audioLevel: 0 },
+      conversation: {
+        status: 'result',
+        messages: [
+          { id: 'm1', type: 'message', role: 'user', content: 'Execute repository cleanup and re-indexing.' }
+        ],
+        cards: []
+      },
+      workspace: {
+        id: 'ws-07',
+        type: 'agent',
+        title: 'Repository Re-indexing',
+        status: 'waiting_approval',
+        userFacingState: 'Waiting for Approval',
+        currentObjective: 'Clean ephemeral build caches and trigger fresh vector index rebuild',
+        steps: [
+          { id: 's1', label: 'Scan workspace directory structure', status: 'completed' },
+          { id: 's2', label: 'Request user approval for cache prune', status: 'active' },
+          { id: 's3', label: 'Execute rebuild', status: 'pending' }
+        ],
+        activeApproval: {
+          id: 'appr-07',
+          type: 'approval',
+          actionRequested: 'Prune build cache and temp artifacts',
+          riskLevel: 'Level 2 — External',
+          riskClass: 'mutation',
+          command: 'rmdir /s /q .cache && pnpm build:index',
+          directory: 'D:\\project\\MAVE',
+          riskExplanation: 'Modifies local workspace temp files. Requires user authorization.'
+        }
+      }
+    }
+  },
+
+  // U5-08 Workspace Completed
+  {
+    id: 'u5_08_workspace_completed',
+    name: 'U5-08 Workspace Completed',
+    description: 'Calm completed state: all checklist items green, progress indicator quiet, final artifacts ready.',
+    category: 'workspace',
+    snapshot: {
+      level: 'workspace',
+      presentationMode: 'full',
+      presence: { state: 'idle', audioLevel: 0 },
+      conversation: {
+        status: 'result',
+        messages: [
+          { id: 'm1', type: 'message', role: 'user', content: 'Build the release changelog for UI V2 U5.' },
+          { id: 'm2', type: 'message', role: 'assistant', content: 'Changelog drafted, reviewed, and finalized.' }
+        ],
+        cards: []
+      },
+      workspace: {
+        id: 'ws-08',
+        type: 'project',
+        title: 'Release Changelog U5',
+        status: 'completed',
+        userFacingState: 'Completed',
+        currentObjective: 'Finalize changelog for UI V2 U5 milestone',
+        steps: [
+          { id: 's1', label: 'Collect commits from feat/ui-v2-foundation', status: 'completed' },
+          { id: 's2', label: 'Draft release highlights and breaking changes', status: 'completed' },
+          { id: 's3', label: 'Verify against test coverage matrix', status: 'completed' }
+        ],
+        artifacts: [
+          {
+            id: 'art-changelog-08',
+            type: 'document',
+            title: 'CHANGELOG_U5.md',
+            language: 'markdown',
+            content: '# Changelog — MAVE UI V2 U5\n\n## Highlights\n- Added Level 3 Workspace Surface\n- Implemented Workspace != Agent invariant\n- Diff Review, Research, and Project composable regions\n- Determinate and indeterminate progress truthfulness\n- Full regression test suite'
+          }
+        ]
+      }
+    }
+  },
+
+  // U5-09 Workspace Failed
+  {
+    id: 'u5_09_workspace_failed',
+    name: 'U5-09 Workspace Failed',
+    description: 'Non-destructive failure state: preserves conversation, completed steps, and offers synthetic retry intent.',
+    category: 'workspace',
+    snapshot: {
+      level: 'workspace',
+      presentationMode: 'full',
+      presence: { state: 'idle', audioLevel: 0 },
+      conversation: {
+        status: 'result',
+        messages: [
+          { id: 'm1', type: 'message', role: 'user', content: 'Synchronize remote design tokens.' }
+        ],
+        cards: []
+      },
+      workspace: {
+        id: 'ws-09',
+        type: 'project',
+        title: 'Token Synchronization',
+        status: 'error',
+        userFacingState: 'Failed',
+        currentObjective: 'Fetch updated design tokens from shared repository',
+        steps: [
+          { id: 's1', label: 'Parse local tokens.css', status: 'completed' },
+          { id: 's2', label: 'Fetch remote token definition', status: 'failed' }
+        ],
+        outputSummary: 'Error: Connection timeout after 15000ms while reaching token registry.'
+      }
+    }
+  },
+
+  // U5-10 Workspace Waiting Clarification
+  {
+    id: 'u5_10_workspace_waiting_clarification',
+    name: 'U5-10 Workspace Waiting Clarification',
+    description: 'Workspace waiting for user input: distinctly highlights need for user guidance without aggressive red alerts.',
+    category: 'workspace',
+    snapshot: {
+      level: 'workspace',
+      presentationMode: 'full',
+      presence: { state: 'idle', audioLevel: 0 },
+      conversation: {
+        status: 'result',
+        messages: [
+          { id: 'm1', type: 'message', role: 'user', content: 'Generate database schema migrations.' },
+          { id: 'm2', type: 'message', role: 'assistant', content: 'Would you prefer SQLite WAL mode or standard rollback journal for the memory store?' }
+        ],
+        cards: []
+      },
+      workspace: {
+        id: 'ws-10',
+        type: 'project',
+        title: 'Database Migration',
+        status: 'paused',
+        userFacingState: 'Waiting for Clarification',
+        currentObjective: 'Awaiting journal mode selection from user',
+        steps: [
+          { id: 's1', label: 'Analyze current database schema', status: 'completed' },
+          { id: 's2', label: 'Select SQLite journal configuration', status: 'active' }
+        ]
+      }
+    }
+  },
+
+  // U5-11 Focus Artifact Mode
+  {
+    id: 'u5_11_focus_artifact_mode',
+    name: 'U5-11 Focus Artifact Mode',
+    description: 'Focus Mode active: conversation and context panels collapsed, primary artifact takes maximal width.',
+    category: 'workspace',
+    snapshot: {
+      level: 'workspace',
+      presentationMode: 'full',
+      presence: { state: 'idle', audioLevel: 0 },
+      conversation: { status: 'idle', messages: [], cards: [] },
+      workspace: {
+        id: 'ws-11',
+        type: 'diff_review',
+        title: 'Deep Diff Inspection',
+        status: 'idle',
+        userFacingState: 'Focus Mode',
+        files: [{ path: 'src/renderer/WorkspaceShell.tsx', status: 'modified' }],
+        steps: [],
+        artifacts: [
+          {
+            id: 'art-diff-11',
+            type: 'diff',
+            title: 'WorkspaceShell.tsx',
+            diffData: {
+              id: 'diff-11',
+              type: 'diff',
+              filename: 'src/renderer/WorkspaceShell.tsx',
+              additions: 45,
+              deletions: 12,
+              lines: [
+                { type: 'context', text: 'export const WorkspaceShell: React.FC = () => {', oldLineNumber: 26, newLineNumber: 26 },
+                { type: 'add', text: '+  const [isFocusMode, setIsFocusMode] = useState(true);', newLineNumber: 27 },
+                { type: 'context', text: '  return (', oldLineNumber: 27, newLineNumber: 28 }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  },
+
+  // U5-12 Collapsed Context Panel
+  {
+    id: 'u5_12_collapsed_context_panel',
+    name: 'U5-12 Collapsed Context Panel',
+    description: 'Secondary supporting context collapsed while conversation and primary artifact remain side-by-side.',
+    category: 'workspace',
+    snapshot: {
+      level: 'workspace',
+      presentationMode: 'full',
+      presence: { state: 'idle', audioLevel: 0 },
+      conversation: {
+        status: 'result',
+        messages: [
+          { id: 'm1', type: 'message', role: 'user', content: 'Keep conversation visible while I inspect the document.' },
+          { id: 'm2', type: 'message', role: 'assistant', content: 'Conversation rail active on the left. Secondary context collapsed.' }
+        ],
+        cards: []
+      },
+      workspace: {
+        id: 'ws-12',
+        type: 'project',
+        title: 'Architecture Review',
+        status: 'idle',
+        userFacingState: 'Ready',
+        steps: [],
+        artifacts: [
+          {
+            id: 'art-doc-12',
+            type: 'document',
+            title: 'ARCHITECTURE_OVERVIEW.md',
+            language: 'markdown',
+            content: '# MAVE Architecture Overview\n\nDual-rail presentation layout active.'
+          }
+        ]
+      }
+    }
+  },
+
+  // U5-13 Conversation → Workspace Continuity
+  {
+    id: 'u5_13_conversation_to_workspace',
+    name: 'U5-13 Conversation → Workspace Continuity',
+    description: 'Seamless escalation from Conversation to Workspace: exact same session, turn history, and request preserved.',
+    category: 'workspace',
+    snapshot: {
+      level: 'workspace',
+      presentationMode: 'full',
+      presence: { state: 'idle', audioLevel: 0 },
+      conversation: {
+        status: 'result',
+        activeRequestId: 'req-escalate-13',
+        messages: [
+          { id: 'm1', type: 'message', role: 'user', content: 'This task requires sustained structured review.' },
+          { id: 'm2', type: 'message', role: 'assistant', content: 'Escalating to Level 3 Workspace. All conversation history and active turn context preserved.' }
+        ],
+        cards: []
+      },
+      workspace: {
+        id: 'ws-13',
+        taskId: 'task-escalate-13',
+        type: 'project',
+        title: 'Structured Review Task',
+        status: 'running',
+        userFacingState: 'Working',
+        currentObjective: 'Conduct structured multi-step code and test review',
+        steps: [
+          { id: 's1', label: 'Preserve conversation context', status: 'completed' },
+          { id: 's2', label: 'Mount primary work artifact', status: 'active' }
+        ]
+      }
+    }
+  },
+
+  // U5-14 Workspace → Conversation Continuity
+  {
+    id: 'u5_14_workspace_to_conversation',
+    name: 'U5-14 Workspace → Conversation Continuity',
+    description: 'Minimizing from Workspace back to Conversation: preserves task in memory, does not abort or reset session.',
+    category: 'conversation',
+    snapshot: {
+      level: 'conversation',
+      presentationMode: 'floating',
+      presence: { state: 'idle', audioLevel: 0 },
+      conversation: {
+        status: 'result',
+        activeRequestId: 'req-escalate-13',
+        workspaceEligible: true,
+        workspaceReason: 'Active task remains ready in Workspace.',
+        messages: [
+          { id: 'm1', type: 'message', role: 'user', content: 'Collapse back to conversational floating window.' },
+          { id: 'm2', type: 'message', role: 'assistant', content: 'Minimized to Conversation. Workspace state and task progress remain safely active.' }
+        ],
+        cards: [
+          {
+            id: 'card-task-14',
+            type: 'task',
+            taskName: 'Structured Review Task',
+            status: 'running',
+            progressPercent: 50,
+            userFacingState: 'Working in Background'
+          }
+        ]
+      },
+      workspace: {
+        type: 'project',
+        title: 'Structured Review Task',
+        status: 'running',
+        steps: []
+      }
+    }
+  },
+
+  // U5-15 Workspace → Presence Minimize
+  {
+    id: 'u5_15_workspace_to_presence',
+    name: 'U5-15 Workspace → Presence Minimize',
+    description: 'Minimizing Workspace all the way to Presence: capsule shows truthful MAVE • Working state without reset.',
+    category: 'presence',
+    snapshot: {
+      level: 'presence',
+      presentationMode: 'ambient',
+      presence: {
+        state: 'idle',
+        audioLevel: 0,
+        quickResponse: {
+          text: 'Workspace running in background. Click to reopen.',
+          sourceLabel: 'MAVE Workspace'
+        }
+      },
+      conversation: { status: 'idle', messages: [], cards: [] },
+      workspace: {
+        type: 'project',
+        title: 'Background Build Task',
+        status: 'running',
+        userFacingState: 'Working',
+        steps: []
+      }
+    }
+  },
+
+  // U5-16 Narrow Workspace Adaptation
+  {
+    id: 'u5_16_narrow_workspace',
+    name: 'U5-16 Narrow Workspace Adaptation',
+    description: 'Workspace viewed in narrow desktop dimension (720px): side panels gracefully adapt without layout breakage.',
+    category: 'workspace',
+    snapshot: {
+      level: 'workspace',
+      presentationMode: 'floating',
+      presence: { state: 'idle', audioLevel: 0 },
+      conversation: { status: 'idle', messages: [], cards: [] },
+      workspace: {
+        id: 'ws-16',
+        type: 'project',
+        title: 'Responsive Workspace',
+        status: 'idle',
+        userFacingState: 'Ready',
+        steps: [
+          { id: 's1', label: 'Primary artifact preserves visibility', status: 'completed' },
+          { id: 's2', label: 'Side rails collapse gracefully', status: 'completed' }
+        ],
+        artifacts: [
+          {
+            id: 'art-resp-16',
+            type: 'document',
+            title: 'ResponsiveLayout.md',
+            language: 'markdown',
+            content: '# Responsive Workspace Layout\n\nPreserves artifact primacy at any screen dimension.'
+          }
+        ]
+      }
+    }
+  }
+];
+
+// Combined full scenarios array (Baseline U0 preserved first, followed by U2, then U3, then U4, then U5)
 export const MOCK_SCENARIOS: MockScenario[] = [
   ...BASELINE_SCENARIOS,
   ...U2_CONVERSATION_SCENARIOS,
   ...U3_RICH_CARD_SCENARIOS,
-  ...U4_CHAT_ONLY_SCENARIOS
+  ...U4_CHAT_ONLY_SCENARIOS,
+  ...U5_WORKSPACE_SCENARIOS
 ];
 

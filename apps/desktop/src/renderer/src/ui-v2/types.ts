@@ -247,14 +247,24 @@ export interface ComparisonCardData extends BaseCardData {
   responsiveStack?: boolean;
 }
 
+export interface ExecutionDiagnostics {
+  providerId?: string;
+  runtimeId?: string;
+  modelId?: string;
+  latencyMs?: number;
+  tokensUsed?: number;
+}
+
 export interface TaskCardData extends BaseCardData {
   type: 'task';
   taskName: string;
   status: 'pending' | 'running' | 'completed' | 'failed' | 'waiting_approval';
+  userFacingState?: string;
   currentStep?: string;
   responsibleRuntime?: string;
   progressPercent?: number;
   determinate?: boolean;
+  diagnostics?: ExecutionDiagnostics;
 }
 
 export interface ProgressCardData extends BaseCardData {
@@ -368,7 +378,43 @@ export interface ConversationState {
   isPinned?: boolean;
 }
 
-export type WorkspaceType = 'agent' | 'language' | 'research' | 'project';
+export type WorkspaceType =
+  | 'generic'
+  | 'project'
+  | 'research'
+  | 'diff_review'
+  | 'agent_work'
+  | 'agent'
+  | 'language';
+
+export type WorkspaceArtifactType =
+  | 'diff'
+  | 'code'
+  | 'document'
+  | 'markdown'
+  | 'research'
+  | 'comparison'
+  | 'plan'
+  | 'media';
+
+export interface WorkspaceArtifact {
+  id: string;
+  type: WorkspaceArtifactType;
+  title: string;
+  description?: string;
+  filePath?: string;
+  diffData?: DiffCardData;
+  content?: string;
+  language?: string;
+  comparisonData?: ComparisonCardData;
+  researchFindings?: {
+    question: string;
+    summary: string;
+    takeaways?: string[];
+  };
+  sources?: SourceCardData[];
+  metadata?: Record<string, string | number | boolean>;
+}
 
 export interface WorkspaceStep {
   id: string;
@@ -383,12 +429,22 @@ export interface WorkspaceFile {
 }
 
 export interface WorkspaceState {
+  id?: string;
+  taskId?: string;
   type: WorkspaceType;
-  title: string;
-  status: 'idle' | 'running' | 'waiting_approval' | 'completed' | 'error';
+  title?: string;
+  status: 'idle' | 'running' | 'waiting_approval' | 'waiting_for_approval' | 'completed' | 'error' | 'paused' | 'failed';
+  userFacingState?: string;
   currentObjective?: string;
-  steps: WorkspaceStep[];
+  objective?: string;
+  steps?: WorkspaceStep[];
+  planSteps?: string[];
+  currentPlanStep?: number;
+  totalPlanSteps?: number;
   files?: WorkspaceFile[];
+  targetFiles?: WorkspaceFile[];
+  diffArtifacts?: any[];
+  researchFindings?: any;
   activeApproval?: ApprovalCardData;
   languageContext?: {
     targetLanguage: string;
@@ -398,6 +454,10 @@ export interface WorkspaceState {
   };
   sources?: SourceCardData[];
   outputSummary?: string;
+  artifacts?: WorkspaceArtifact[];
+  activeArtifactId?: string;
+  conversation?: ConversationState;
+  diagnostics?: ExecutionDiagnostics;
 }
 
 export interface UiV2Snapshot {

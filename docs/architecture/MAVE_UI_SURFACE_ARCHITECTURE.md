@@ -1195,3 +1195,91 @@ The **Chat-Only Sidecar** is MAVE's specialized compact companion surface design
 #### 8. Office Mode Semantics
 - Office Mode is an environmental behavior toggle, not a distinct surface. When active, it suppresses speech TTS audio output, introduces a discreet text-cursor indicator, and ensures quiet visual transitions.
 
+---
+
+# 30. Workspace Surface Interaction Contract (UI V2 U5)
+
+The **Workspace Surface** is MAVE's **Level 3 Surface**, designed for sustained, multi-turn, structured interaction and complex artifact inspection.
+
+```text
+Level 1: Presence      → Ambient, minimal visual footprint, zero-distraction identity
+Level 2: Conversation  → Floating or sidecar dialogue, streaming answers, rich cards
+Level 3: Workspace     → Structured canvases, diff reviews, research synthesis, project execution
+```
+
+---
+
+### Core Architectural Invariants
+
+```text
+1. Workspace != Agent Runtime
+2. Surface State != Task State
+3. Artifact != Card
+4. Composable Regions Architecture
+5. Focus Mode (Canvas Immersion)
+6. Execution Substrate Privacy
+7. Progress Truthfulness
+8. Mock Action Intents (Safety Gate)
+```
+
+#### 1. Workspace != Agent Runtime
+- **Workspace is an interaction complexity level, NOT an execution privilege level.**
+- Workspaces exist for:
+  - Multi-file Diff Reviews and code inspections
+  - Research Synthesis boards and comparison tables
+  - Project roadmaps, document generation, and execution checklists
+  - Dedicated focused learning sessions (e.g. Language Practice)
+  - Synthetic Agent Oversight (when autonomous tool execution is explicitly underway)
+- **Diff Review, Research, and Project Workspaces do NOT imply or display autonomous agent claims.** They are native, truthful structural views.
+
+#### 2. Surface State != Task State
+- Minimizing from Workspace to Conversation (`↙ Conversation`), collapsing to Presence (`• Presence`), or closing the window (`✕`) are **visual layout transitions only**.
+- Ongoing background tasks, streaming generations, and artifact states **never** terminate upon visual dismissal.
+- Only explicit user cancellation buttons (e.g., `Cancel Task`) abort execution.
+
+#### 3. Artifact != Card
+- **Cards** are compact, glanceable conversational inline previews designed for the conversation timeline (14 types in U3).
+- **Workspace Artifacts** are sustained, multi-file inspection canvases (full unified diffs, multi-source research takeaway boards, editable project specs).
+- Both levels share unified data structures without attempting to distort an inline card into a full-window workspace.
+
+#### 4. Composable Regions Architecture
+The Workspace Shell implements a composable 3-region layout:
+- **Header:**
+  - `AdaptivePresenceMark` (status-sized orb reflecting idle, listening, thinking, speaking)
+  - `MAVE / ${title}` breadcrumb identity
+  - Semantic status badge (`userFacingState`, e.g. `Ready for Review`, `Synthesis Complete`, `Generating Components`)
+  - Region visibility toggles (`[⛶ Focus]`, `[💬 Chat]`, `[📁 Context]`)
+  - Level navigation buttons (`↙ Conversation`, `• Presence`)
+  - Visual dismiss button (`✕`)
+- **Region A: Conversation Rail (Left, Collapsible):**
+  - Hosts the full `ConversationShell`, preserving live dialogue, active requests, and message history without layout shifts.
+- **Region B: Primary Work Area (Center, Flex 1):**
+  - Dispatches to specialized view components:
+    - `WorkspaceDiffView`: Multi-file tab navigation, line-by-line unified diff formatting with syntax color highlighting, and review action affordances.
+    - `WorkspaceResearchView`: Objective card, synthesized findings summary, key takeaways, structured comparison table, and cited references.
+    - `WorkspaceProjectView`: Primary artifact inspector (markdown/code), plan checklist, determinate vs indeterminate progress indicator, and output log.
+    - `AgentWorkspaceView`: Step decomposition, active risk approval card, target files, and execution console.
+    - `LanguageWorkspaceView`: Language immersion session, natural phrasings, and vocabulary recap.
+- **Region C: Supporting Context Panel (Right, Collapsible):**
+  - Displays pending action approvals, multi-artifact switcher tabs, target files list, and supporting sources.
+
+#### 5. Focus Mode (Canvas Immersion)
+- `Alt+F`, `Escape`, or the `[⛶ Focus]` button toggles **Focus Mode**.
+- Collapses both the Conversation Rail and the Context Panel to give the Primary Work Area 100% canvas width for deep code or research inspection.
+- Exiting Focus Mode immediately restores the previous panel configuration.
+
+#### 6. Execution Substrate Privacy
+- Provider identifiers (`Claude Code`, `Codex`, `Antigravity`, `Ollama`), internal runtime models (`claude-3-7-sonnet`, `gpt-4o`, `llama3.2`), token metrics, and latency timings are strictly classified as **Developer Diagnostics**.
+- Normal user-facing Workspace views show only semantic progress, truthful steps, and human-readable state badges (`Ready for Review`, `Finished Drafting Proposal`). Execution telemetry is never exposed to the end user.
+
+#### 7. Progress Truthfulness
+- **Determinate Progress (`X / Y steps • Z%`)**: Rendered **only** when total plan steps or item counts are explicitly known.
+- **Indeterminate Progress (`Working…`)**: Rendered when durations or total steps are unknown. The system strictly forbids synthetic timers, fake progress bars, or simulated percentage increments.
+- **Approval Attention State**: When paused waiting for user confirmation, the workspace enters `waiting_for_approval`, displaying a prominent attention banner and approval card, clearly distinct from active working states.
+- **Calm Completed State**: Once completed, spinners and pulsing rings cease, presenting clean artifact outputs and export options.
+
+#### 8. Mock Action Intents (Safety Gate)
+- Review buttons (`Approve Diff`, `Request Revision`), approval actions (`Allow Action`, `Deny`), retry, and export triggers emit UI event callbacks only.
+- In UI V2 prototype mode, zero native filesystem mutations, shell commands, or live external API calls are executed.
+
+
