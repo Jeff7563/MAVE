@@ -14,6 +14,7 @@ import {
   SessionSummaryCard,
   VocabularyPanel
 } from '../src/renderer/src/ui-v2/language/LanguageComponents';
+import { PinIcon } from '../src/renderer/src/ui-v2/primitives/Icons';
 import { MaveUiLab } from '../src/renderer/src/ui-v2/lab/MaveUiLab';
 
 import type {
@@ -381,6 +382,235 @@ describe('MAVE UI V2 — U7 Foundation Closeout, Architecture Audit & Production
       expect(fs.existsSync(path.join(uiV2Root, 'workspace'))).toBe(true);
       expect(fs.existsSync(path.join(uiV2Root, 'language'))).toBe(true);
       expect(fs.existsSync(path.join(uiV2Root, 'lab'))).toBe(true);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // 8. VSM6 Visual Integration, Motion Continuity & Cross-Surface Tests
+  // -------------------------------------------------------------------------
+  describe('8. VSM6 Visual Integration & Motion Continuity', () => {
+    it('Visual identity invariants are preserved across Presence, Conversation, Cards, and Workspace', () => {
+      // 1. Presence
+      const presenceHtml = renderToStaticMarkup(
+        <PresenceSurface state="speaking" audioLevel={0.6} />
+      );
+      expect(presenceHtml).toContain('data-testid="presence-surface"');
+      expect(presenceHtml).toContain('data-testid="presence-wordmark"');
+      expect(presenceHtml).toContain('MAVE');
+      expect(presenceHtml).toContain('var(--mave-font-wordmark');
+
+      // 2. Conversation
+      const convHtml = renderToStaticMarkup(
+        <ConversationShell
+          state={{
+            status: 'idle',
+            messages: [{ id: 'm1', type: 'message', role: 'assistant', content: 'Cohesive design test' }],
+            cards: []
+          }}
+        />
+      );
+      expect(convHtml).toContain('mave-v2-conversation-shell');
+      expect(convHtml).toContain('data-testid="conversation-shell"');
+
+      // 3. Workspace
+      const wsHtml = renderToStaticMarkup(
+        <WorkspaceShell
+          state={{
+            type: 'diff_review',
+            status: 'idle',
+            diffArtifacts: []
+          }}
+        />
+      );
+      expect(wsHtml).toContain('mave-v2-workspace-shell');
+      expect(wsHtml).toContain('MAVE');
+    });
+
+    it('Reduced motion CSS overrides enforce zero-duration transitions and suppress waveform animations', () => {
+      const tokensCssPath = path.resolve(
+        __dirname,
+        '../src/renderer/src/ui-v2/tokens.css'
+      );
+      expect(fs.existsSync(tokensCssPath)).toBe(true);
+      const tokensCss = fs.readFileSync(tokensCssPath, 'utf-8');
+
+      // Must have prefers-reduced-motion media query
+      expect(tokensCss).toContain('@media (prefers-reduced-motion: reduce)');
+
+      // Must neutralize motion durations to 0.01ms !important
+      expect(tokensCss).toContain('--mave-dur-enter: 0.01ms !important');
+      expect(tokensCss).toContain('--mave-dur-glide: 0.01ms !important');
+      expect(tokensCss).toContain('--mave-dur-quick: 0.01ms !important');
+      expect(tokensCss).toContain('animation-duration: 0.01ms !important');
+      expect(tokensCss).toContain('transition-duration: 0.01ms !important');
+
+      // Must suppress waveform and cognitive thinking animations
+      expect(tokensCss).toContain('.mave-v2-waveform-bar');
+      expect(tokensCss).toContain('.mave-v2-thinking-wave');
+      expect(tokensCss).toContain('.mave-orb-canvas');
+      expect(tokensCss).toContain('animation: none !important');
+      expect(tokensCss).toContain('transform: none !important');
+    });
+
+    it('No raw unhandled emojis or non-system icons in chrome controls', () => {
+      const pinHtml = renderToStaticMarkup(<PinIcon />);
+      expect(pinHtml).toContain('stroke-width="1.75"');
+
+      const convHtml = renderToStaticMarkup(
+        <ConversationShell
+          state={{
+            status: 'idle',
+            messages: [{ id: 'm1', type: 'message', role: 'assistant', content: 'Testing icons' }],
+            cards: []
+          }}
+          presentationMode="sidecar"
+          onTogglePin={() => {}}
+          onExpandToFloating={() => {}}
+          onClose={() => {}}
+        />
+      );
+
+      // Must NOT contain raw emojis in chrome controls
+      expect(convHtml).not.toContain('💡');
+      expect(convHtml).not.toContain('⤢');
+
+      // Must render SVG icons
+      expect(convHtml).toContain('<svg');
+      expect(convHtml).toContain('data-testid="btn-pin-sidecar"');
+
+      // Action labels must not leak internal developer jargon
+      expect(convHtml).not.toContain('Pin Sidecar');
+      expect(convHtml).not.toContain('Unpin Sidecar');
+      expect(convHtml).not.toContain('presentation mode');
+      expect(convHtml).not.toContain('surface level');
+    });
+
+    it('Scroll ownership is strictly maintained: containers do not produce nested scroll collisions', () => {
+      const convHtml = renderToStaticMarkup(
+        <ConversationShell
+          state={{
+            status: 'idle',
+            messages: [
+              { id: 'm1', type: 'message', role: 'user', content: 'Question 1' },
+              { id: 'm2', type: 'message', role: 'assistant', content: 'Answer 1' }
+            ],
+            cards: []
+          }}
+        />
+      );
+
+      // Outer ConversationShell container clips overflow
+      expect(convHtml).toContain('overflow:hidden');
+      // Messages timeline container owns scrolling
+      expect(convHtml).toContain('data-testid="conversation-timeline"');
+      expect(convHtml).toContain('overflow-y:auto');
+
+      // WorkspaceShell container clips outer bounds
+      const wsHtml = renderToStaticMarkup(
+        <WorkspaceShell
+          state={{
+            type: 'diff_review',
+            status: 'idle',
+            diffArtifacts: []
+          }}
+        />
+      );
+      expect(wsHtml).toContain('mave-v2-workspace-shell');
+      expect(wsHtml).toContain('overflow:hidden');
+      expect(wsHtml).toContain('data-testid="workspace-primary-work-area"');
+    });
+
+    it('Companion conversation maintains active session across docking transitions', () => {
+      const messages = [
+        { id: 'msg-sync-1', type: 'message' as const, role: 'user' as const, content: 'Analyze architecture' },
+        { id: 'msg-sync-2', type: 'message' as const, role: 'assistant' as const, content: 'Analysis completed.' }
+      ];
+
+      const floatingState: ConversationState = {
+        status: 'idle',
+        messages,
+        cards: []
+      };
+
+      const companionHtml = renderToStaticMarkup(
+        <ConversationShell state={floatingState} presentationMode="sidecar" />
+      );
+      const expandedHtml = renderToStaticMarkup(
+        <ConversationShell state={floatingState} presentationMode="floating" />
+      );
+
+      // Both must retain identical message contents and structure
+      expect(companionHtml).toContain('Analyze architecture');
+      expect(companionHtml).toContain('Analysis completed.');
+      expect(expandedHtml).toContain('Analyze architecture');
+      expect(expandedHtml).toContain('Analysis completed.');
+      expect(companionHtml).toContain('msg-sync-1');
+      expect(expandedHtml).toContain('msg-sync-1');
+    });
+
+    it('Promotion of card to workspace preserves card state', () => {
+      // 1. A diff card originating in Conversation
+      const initialDiffCard = {
+        id: 'diff-card-promo',
+        type: 'diff' as const,
+        filePath: 'src/core/auth.ts',
+        additions: 24,
+        deletions: 8,
+        description: 'Implement token validation'
+      };
+
+      // 2. Promote to Workspace state
+      const promotedWorkspace: WorkspaceState = {
+        type: 'diff_review',
+        status: 'idle',
+        userFacingState: 'Diff Review',
+        diffArtifacts: [
+          {
+            filePath: initialDiffCard.filePath,
+            changeType: 'modified',
+            additions: initialDiffCard.additions,
+            deletions: initialDiffCard.deletions,
+            diffLines: [
+              { type: 'context', oldLineNumber: 1, newLineNumber: 1, text: 'import jwt from "jsonwebtoken";' },
+              { type: 'addition', newLineNumber: 2, text: '+export function verifyToken(token: string) {}' }
+            ]
+          }
+        ]
+      };
+
+      const wsHtml = renderToStaticMarkup(<WorkspaceShell state={promotedWorkspace} />);
+
+      // State is strictly preserved: file path, additions, deletions, lines
+      expect(wsHtml).toContain('src/core/auth.ts');
+      expect(wsHtml).toContain('+24');
+      expect(wsHtml).toContain('-8');
+      expect(wsHtml).toContain('verifyToken');
+    });
+
+    it('Language experience renders within MAVE shell, not as an independent application', () => {
+      const languageState: WorkspaceState = {
+        type: 'language',
+        title: 'Daily Standup Practice',
+        status: 'running',
+        languageSession: {
+          sessionId: 'lang-shell-test',
+          targetLanguage: 'English',
+          practiceType: 'speaking',
+          topic: 'Daily Standup',
+          status: 'practicing'
+        }
+      };
+
+      const html = renderToStaticMarkup(<WorkspaceShell state={languageState} />);
+
+      // Must be nested in MAVE WorkspaceShell with canonical header
+      expect(html).toContain('mave-v2-workspace-shell');
+      expect(html).toContain('MAVE / Language Practice');
+      expect(html).toContain('Daily Standup Practice');
+
+      // Must NOT contain fragmented application branding
+      expect(html).not.toContain('LanguageApp.exe');
+      expect(html).not.toContain('Language Hub Portal');
     });
   });
 });

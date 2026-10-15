@@ -432,6 +432,14 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+
+  /* When reduced motion is requested, stop non-essential ambient and waveform movement */
+  .mave-v2-waveform-bar,
+  .mave-v2-thinking-wave,
+  .mave-orb-canvas {
+    animation: none !important;
+    transform: none !important;
+  }
 }
 
 /* ==========================================================================

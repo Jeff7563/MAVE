@@ -13,7 +13,8 @@ import {
   MinimizeIcon,
   CloseIcon,
   MicIcon,
-  PauseIcon
+  PauseIcon,
+  LightbulbIcon
 } from '../primitives/Icons';
 import { CardRenderer } from '../cards';
 import { SourceCard } from '../cards/MediaCards';
@@ -265,8 +266,8 @@ export const ConversationShell: React.FC<ConversationShellProps> = ({
           {isSidecar && onTogglePin && (
             <button
               onClick={onTogglePin}
-              title={isPinned ? 'Unpin Sidecar' : 'Pin Sidecar on Top'}
-              aria-label={isPinned ? 'Unpin Sidecar' : 'Pin Sidecar on Top'}
+              title={isPinned ? 'Unpin Companion' : 'Pin Companion on Top'}
+              aria-label={isPinned ? 'Unpin Companion' : 'Pin Companion on Top'}
               style={{
                 background: isPinned ? 'rgba(95, 210, 255, 0.15)' : 'transparent',
                 border: isPinned ? '1px solid var(--mave-cyan)' : 'none',
@@ -1024,8 +1025,9 @@ export const ConversationShell: React.FC<ConversationShellProps> = ({
           }}
           data-testid="workspace-escalation-banner"
         >
-          <span>
-            💡 {state.workspaceReason || 'This task works better in Workspace.'}
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+            <LightbulbIcon size={13} color="var(--mave-cyan)" />
+            <span>{state.workspaceReason || 'This task works better in Workspace.'}</span>
           </span>
           {onExpandToWorkspace && (
             <button
@@ -1039,10 +1041,15 @@ export const ConversationShell: React.FC<ConversationShellProps> = ({
                 fontWeight: 600,
                 fontSize: '11px',
                 cursor: 'pointer',
-                fontFamily: 'var(--mave-font-sans)'
+                fontFamily: 'var(--mave-font-sans)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px'
               }}
+              data-testid="btn-expand-workspace"
             >
-              Open Workspace ⤢
+              <span>Open Workspace</span>
+              <ExpandIcon size={11} color="#05060d" />
             </button>
           )}
         </div>
