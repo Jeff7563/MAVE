@@ -310,20 +310,35 @@ describe('MAVE UI V2 — U1.1 Presence Interaction Semantics Hardening Tests', (
   });
 
   // -------------------------------------------------------------------------
-  // 9. Visual QA Patch P1 — Presence Scale, Non-Acoustic Thinking, and Action Styling
+  // 9. Visual QA Patch P1.1 — Non-Acoustic Living Wave & Transition Hardening
   // -------------------------------------------------------------------------
-  describe('9. Visual QA Patch P1 — Presence Scale, Non-Acoustic Thinking, and Action Styling', () => {
-    it('Thinking state renders non-acoustic cognitive pulse sequence and zero audio waveform', () => {
+  describe('9. Visual QA Patch P1.1 — Non-Acoustic Living Wave & Transition Hardening', () => {
+    it('Thinking state renders non-acoustic living wave (UI Kit spec) and zero audio waveform', () => {
       const htmlThinking = renderToStaticMarkup(
         <PresenceSurface state="thinking" onCancelThinking={() => {}} />
       );
 
-      // Must render cognitive shimmer indicator
+      // Must render cognitive living wave indicator
       expect(htmlThinking).toContain('data-testid="presence-thinking-indicator"');
-      expect(htmlThinking).toContain('mave-v3-cognitive-pulse');
+      expect(htmlThinking).toContain('mave-v3-cognitive-wave');
 
       // Invariant: Non-acoustic, zero waveform in thinking
       expect(htmlThinking).not.toContain('data-testid="presence-waveform"');
+    });
+
+    it('Presence capsule and controls use explicit transitioned properties without transition: all', () => {
+      const htmlListening = renderToStaticMarkup(
+        <PresenceSurface state="listening" onStopListening={() => {}} />
+      );
+
+      // Capsule must use explicit morph properties
+      expect(htmlListening).toContain('transition:width 400ms');
+      expect(htmlListening).toContain('max-width 400ms');
+      expect(htmlListening).toContain('border-radius 350ms');
+
+      // Action buttons must use explicit properties, not transition: all
+      expect(htmlListening).toContain('background-color var(--mave-v2-motion-fast)');
+      expect(htmlListening).not.toContain('transition:all');
     });
 
     it('Eliminates square stop button glyph in favor of subtle circular action controls', () => {

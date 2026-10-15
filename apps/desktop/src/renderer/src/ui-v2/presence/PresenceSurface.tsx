@@ -96,43 +96,59 @@ const HarmonicWaveform: React.FC<{
 };
 
 /**
- * CognitiveShimmer
+ * CognitiveWave
  *
- * Restrained non-acoustic cognitive pulse sequence for Thinking state.
- * Employs alternating cyan/violet luminous points with a calm, compact rhythm.
+ * Dedicated non-acoustic living wave for Thinking state (UI Kit authoritative spec).
+ * Renders a compact series of vertical rounded bars undulating in an autonomous,
+ * low-amplitude harmonious traveling wave with steady rhythm.
+ * Zero RMS or audio coupling; communicates calm cognition ("MAVE is processing").
  */
-const CognitiveShimmer: React.FC = () => {
+const CognitiveWave: React.FC = () => {
+  const barCount = 14;
   return (
     <div
       style={{
         display: 'inline-flex',
         alignItems: 'center',
-        gap: '6px',
+        justifyContent: 'center',
+        gap: '3px',
         padding: '0 4px',
-        height: '20px'
+        height: '20px',
+        width: '74px',
+        boxSizing: 'border-box'
       }}
       data-testid="presence-thinking-indicator"
     >
-      {[0, 1, 2, 3].map((i) => (
-        <span
-          key={i}
-          style={{
-            width: '5px',
-            height: '5px',
-            borderRadius: '50%',
-            background: i % 2 === 0 ? 'var(--mave-violet, #9A72FF)' : 'var(--mave-cyan, #5FD2FF)',
-            boxShadow:
-              i % 2 === 0
-                ? '0 0 6px rgba(154, 114, 255, 0.7)'
-                : '0 0 6px rgba(95, 210, 255, 0.7)',
-            animation: 'mave-v3-cognitive-pulse 1.8s ease-in-out infinite',
-            animationDelay: `${i * 0.22}s`
-          }}
-        />
-      ))}
+      {[...Array(barCount)].map((_, i) => {
+        const x = i / (barCount - 1);
+        // Sinusoidal bell envelope for natural wave bounds (calm center, soft edges)
+        const env = Math.pow(Math.sin(Math.PI * x), 1.2);
+        // Low amplitude: base heights range between 3.5px (edges) and 8.5px (center)
+        const baseHeight = Math.max(3, Math.round(3.5 + 5 * env));
+        const colorRatio = 1 - Math.abs(x - 0.5) * 2;
+        // Calm violet-cyan cognitive balance
+        const barColor = `color-mix(in srgb, var(--mave-violet, #9A72FF) ${Math.round(65 - colorRatio * 25)}%, var(--mave-cyan, #5FD2FF))`;
+
+        return (
+          <span
+            key={i}
+            style={{
+              width: '2.5px',
+              height: `${baseHeight}px`,
+              borderRadius: '1.5px',
+              background: barColor,
+              transformOrigin: 'center',
+              animation: 'mave-v3-cognitive-wave 1.8s ease-in-out infinite',
+              animationDelay: `-${((i / barCount) * 1.8).toFixed(2)}s`,
+              boxShadow: '0 0 4px rgba(154, 114, 255, 0.3)'
+            }}
+          />
+        );
+      })}
     </div>
   );
 };
+
 
 /**
  * PresenceSurface
@@ -420,7 +436,7 @@ export const PresenceSurface: React.FC<PresenceSurfaceProps> = ({
           boxSizing: 'border-box',
           gap: isIdle ? '12px' : '10px',
           overflow: 'hidden',
-          transition: 'width 400ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 350ms ease, border-color 350ms ease',
+          transition: 'width 400ms cubic-bezier(0.16, 1, 0.3, 1), max-width 400ms cubic-bezier(0.16, 1, 0.3, 1), border-radius 350ms ease, opacity 350ms ease, transform 350ms ease, background-color 350ms ease, border-color 350ms ease, box-shadow 350ms ease',
           animation: isIdle ? 'mave-v2-breathe 4.8s ease-in-out infinite' : undefined
         }}
         data-testid="presence-capsule"
@@ -435,7 +451,7 @@ export const PresenceSurface: React.FC<PresenceSurfaceProps> = ({
             height: '1px',
             background: 'linear-gradient(90deg, transparent, rgba(95, 210, 255, 0.85), transparent)',
             pointerEvents: 'none',
-            transition: 'all 400ms cubic-bezier(0.16, 1, 0.3, 1)'
+            transition: 'left 400ms cubic-bezier(0.16, 1, 0.3, 1), width 400ms cubic-bezier(0.16, 1, 0.3, 1), opacity 350ms ease'
           }}
         />
 
@@ -606,8 +622,8 @@ export const PresenceSurface: React.FC<PresenceSurfaceProps> = ({
                 />
               )}
 
-              {/* Thinking: Restrained Non-Acoustic Cognitive Flow (Luminous Points) */}
-              {isThinking && <CognitiveShimmer />}
+              {/* Thinking: Dedicated Non-Acoustic Living Wave (UI Kit Spec) */}
+              {isThinking && <CognitiveWave />}
 
               {/* Error: Subdued Alert Notice */}
               {isError && (
@@ -687,7 +703,8 @@ export const PresenceSurface: React.FC<PresenceSurfaceProps> = ({
                     alignItems: 'center',
                     justifyContent: 'center',
                     padding: 0,
-                    transition: 'all var(--mave-v2-motion-fast)'
+                    transition:
+                      'background-color var(--mave-v2-motion-fast), border-color var(--mave-v2-motion-fast), color var(--mave-v2-motion-fast), transform var(--mave-v2-motion-fast), opacity var(--mave-v2-motion-fast)'
                   }}
                   data-testid="presence-action-stop-listening"
                 >
@@ -714,7 +731,8 @@ export const PresenceSurface: React.FC<PresenceSurfaceProps> = ({
                     alignItems: 'center',
                     justifyContent: 'center',
                     padding: 0,
-                    transition: 'all var(--mave-v2-motion-fast)'
+                    transition:
+                      'background-color var(--mave-v2-motion-fast), border-color var(--mave-v2-motion-fast), color var(--mave-v2-motion-fast), transform var(--mave-v2-motion-fast), opacity var(--mave-v2-motion-fast)'
                   }}
                   data-testid="presence-action-cancel-thinking"
                 >
@@ -741,7 +759,8 @@ export const PresenceSurface: React.FC<PresenceSurfaceProps> = ({
                     alignItems: 'center',
                     justifyContent: 'center',
                     padding: 0,
-                    transition: 'all var(--mave-v2-motion-fast)'
+                    transition:
+                      'background-color var(--mave-v2-motion-fast), border-color var(--mave-v2-motion-fast), color var(--mave-v2-motion-fast), transform var(--mave-v2-motion-fast), opacity var(--mave-v2-motion-fast)'
                   }}
                   data-testid="presence-action-stop-speaking"
                 >
@@ -768,7 +787,8 @@ export const PresenceSurface: React.FC<PresenceSurfaceProps> = ({
                     alignItems: 'center',
                     justifyContent: 'center',
                     padding: 0,
-                    transition: 'all var(--mave-v2-motion-fast)'
+                    transition:
+                      'background-color var(--mave-v2-motion-fast), border-color var(--mave-v2-motion-fast), color var(--mave-v2-motion-fast), transform var(--mave-v2-motion-fast), opacity var(--mave-v2-motion-fast)'
                   }}
                   data-testid="presence-action-retry-error"
                 >

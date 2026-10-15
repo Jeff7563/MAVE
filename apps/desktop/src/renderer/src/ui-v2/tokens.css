@@ -319,7 +319,19 @@
   }
 }
 
-/* Non-acoustic cognitive pulse sequence for Thinking */
+/* Non-acoustic living wave for Thinking state (UI Kit authoritative spec) */
+@keyframes mave-v3-cognitive-wave {
+  0%, 100% {
+    transform: scaleY(0.40);
+    opacity: 0.40;
+  }
+  50% {
+    transform: scaleY(1.0);
+    opacity: 0.95;
+  }
+}
+
+/* Non-acoustic cognitive pulse sequence for Thinking fallback */
 @keyframes mave-v3-cognitive-pulse {
   0%, 100% {
     opacity: 0.3;
@@ -330,6 +342,7 @@
     transform: scale(1.25);
   }
 }
+
 
 /* Reduced Motion Override */
 @media (prefers-reduced-motion: reduce) {

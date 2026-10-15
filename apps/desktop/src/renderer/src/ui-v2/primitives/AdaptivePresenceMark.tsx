@@ -173,7 +173,7 @@ export const AdaptivePresenceMark: React.FC<AdaptivePresenceMarkProps> = ({
               rx="1.1"
               fill="#ffffff"
               opacity={0.9}
-              style={{ transition: 'all 80ms ease-out' }}
+              style={{ transition: 'y 80ms ease-out, height 80ms ease-out, opacity 80ms ease-out' }}
             />
             <rect
               x="5"
@@ -183,7 +183,7 @@ export const AdaptivePresenceMark: React.FC<AdaptivePresenceMarkProps> = ({
               rx="1.1"
               fill="#ffffff"
               opacity={0.95}
-              style={{ transition: 'all 80ms ease-out' }}
+              style={{ transition: 'y 80ms ease-out, height 80ms ease-out, opacity 80ms ease-out' }}
             />
             <rect
               x="9"
@@ -193,7 +193,7 @@ export const AdaptivePresenceMark: React.FC<AdaptivePresenceMarkProps> = ({
               rx="1.1"
               fill="#ffffff"
               opacity={0.9}
-              style={{ transition: 'all 80ms ease-out' }}
+              style={{ transition: 'y 80ms ease-out, height 80ms ease-out, opacity 80ms ease-out' }}
             />
           </g>
         )}
