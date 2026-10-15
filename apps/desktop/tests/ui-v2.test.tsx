@@ -308,13 +308,13 @@ describe('MAVE UI V2 — U0 Adaptive Surface Foundation & UI Lab', () => {
           state="speaking"
           quickResponse={{
             text: 'Temperature is 28C today',
-            sourceLabel: 'Local Fast Brain'
+            sourceLabel: 'Weather Service'
           }}
         />
       );
       expect(html).toContain('data-testid="presence-quick-response"');
       expect(html).toContain('Temperature is 28C today');
-      expect(html).toContain('Local Fast Brain');
+      expect(html).toContain('Weather Service');
     });
   });
 

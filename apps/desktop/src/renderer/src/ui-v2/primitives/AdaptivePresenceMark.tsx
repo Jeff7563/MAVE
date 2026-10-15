@@ -1,6 +1,6 @@
 import React from 'react';
 import type { PresenceState, OrbSize } from '../types';
-import { smoothRms } from '../presence/presence-rules';
+import { normalizeAudioRms } from '../presence/presence-rules';
 
 export interface AdaptivePresenceMarkProps {
   state?: PresenceState;
@@ -23,7 +23,7 @@ const SIZE_MAP: Record<OrbSize, number> = {
  * MAVE's visual identity mark. Adapts in size and motion across:
  * - Idle: quiet, calm resting core (zero outer glow)
  * - Waking: fast intentional pulse ("I heard you")
- * - Listening: audio-reactive acoustic waveform reacting to smoothed RMS
+ * - Listening: audio-reactive acoustic waveform reacting to normalized RMS
  * - Thinking: restrained subtle cognitive loop (low visual noise, no fake progress)
  * - Speaking: vocal playback wave
  * - Error: calm restrained alert indicator
@@ -36,13 +36,13 @@ export const AdaptivePresenceMark: React.FC<AdaptivePresenceMarkProps> = ({
   onClick
 }) => {
   const pixelSize = SIZE_MAP[size];
-  const smoothedAudio = smoothRms(audioLevel);
+  const normalizedAudio = normalizeAudioRms(audioLevel);
 
   // Compute dynamic heights for acoustic bars in listening & speaking modes
   const isAudioActive = state === 'listening' || state === 'speaking';
-  const bar1Scale = isAudioActive ? 0.35 + smoothedAudio * 0.65 : 0.45;
-  const bar2Scale = isAudioActive ? 0.45 + smoothedAudio * 0.75 : 0.60;
-  const bar3Scale = isAudioActive ? 0.35 + smoothedAudio * 0.65 : 0.45;
+  const bar1Scale = isAudioActive ? 0.35 + normalizedAudio * 0.65 : 0.45;
+  const bar2Scale = isAudioActive ? 0.45 + normalizedAudio * 0.75 : 0.60;
+  const bar3Scale = isAudioActive ? 0.35 + normalizedAudio * 0.65 : 0.45;
 
   // Semantic color per state
   const stateColor =

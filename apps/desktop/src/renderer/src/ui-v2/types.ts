@@ -35,10 +35,11 @@ export interface ExpansionEligibility {
   triggerType:
     | 'single_compact'
     | 'rich_cards'
+    | 'structured_content'
     | 'long_text'
-    | 'code_snippet'
-    | 'task_workflow'
-    | 'interactive_approval';
+    | 'code_inspection'
+    | 'interactive_approval'
+    | 'explicit_user_request';
 }
 
 export interface QuickResponseData {

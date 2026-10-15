@@ -4,7 +4,7 @@ import { MOCK_SCENARIOS, type MockScenario } from '../mocks/mock-scenarios';
 import { PresenceSurface } from '../presence/PresenceSurface';
 import { ConversationShell } from '../conversation/ConversationShell';
 import { WorkspaceShell } from '../workspace/WorkspaceShell';
-import { evaluateExpansionEligibility } from '../presence/presence-rules';
+import { evaluateExpansionEligibility, normalizeAudioRms } from '../presence/presence-rules';
 import './MaveUiLab.css';
 import '../tokens.css';
 
@@ -73,7 +73,7 @@ export const MaveUiLab: React.FC = () => {
               audioLevel: 0.5,
               quickResponse: {
                 text: 'In French, that’s “Bonjour”. It means “Hello”.',
-                sourceLabel: 'Local Fast Brain'
+                sourceLabel: 'French Reference'
               }
             }
           }));
@@ -155,7 +155,7 @@ export const MaveUiLab: React.FC = () => {
           ...prev.presence,
           quickResponse: {
             text: 'In French, that’s “Bonjour”. It means “Hello”.',
-            sourceLabel: 'Local Fast Brain'
+            sourceLabel: 'French Reference'
           }
         }
       }));
@@ -165,8 +165,7 @@ export const MaveUiLab: React.FC = () => {
         presence: {
           ...prev.presence,
           quickResponse: {
-            text: 'Timer set for 15 minutes.',
-            sourceLabel: 'MAVE Clock'
+            text: 'Timer set for 15 minutes.'
           }
         }
       }));
@@ -177,7 +176,7 @@ export const MaveUiLab: React.FC = () => {
           ...prev.presence,
           quickResponse: {
             text: 'This is a long analytical explanation of quantum entanglement that exceeds single quick response capacity and would normally expand into Conversation surface.',
-            sourceLabel: 'Antigravity Research'
+            sourceLabel: 'Science Reference'
           }
         }
       }));
@@ -336,8 +335,10 @@ export const MaveUiLab: React.FC = () => {
           {/* Audio RMS Level Slider */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#94a3b8' }}>
-              <span>Simulated Audio Level:</span>
-              <span>{(audioLevelOverride * 100).toFixed(0)}%</span>
+              <span>RMS Level:</span>
+              <span title="Raw vs Normalized perceptual amplitude">
+                Raw: {(audioLevelOverride * 100).toFixed(0)}% │ Norm: {(normalizeAudioRms(audioLevelOverride) * 100).toFixed(0)}%
+              </span>
             </div>
             <input
               type="range"

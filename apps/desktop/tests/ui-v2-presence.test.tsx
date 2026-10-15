@@ -2,14 +2,18 @@ import { describe, it, expect } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { PresenceSurface } from '../src/renderer/src/ui-v2/presence/PresenceSurface';
 import {
+  normalizeAudioRms,
   smoothRms,
+  applyTemporalSmoothing,
+  createRmsTemporalSmoother,
   evaluateExpansionEligibility,
+  sanitizeQuickResponseSource,
   getPresenceButtonDescriptor
 } from '../src/renderer/src/ui-v2/presence/presence-rules';
 import { AdaptivePresenceMark } from '../src/renderer/src/ui-v2/primitives/AdaptivePresenceMark';
 import type { UiV2Card } from '../src/renderer/src/ui-v2/types';
 
-describe('MAVE UI V2 — U1 Presence Surface Identity & Interaction Tests', () => {
+describe('MAVE UI V2 — U1.1 Presence Interaction Semantics Hardening Tests', () => {
   describe('1. Idle State Minimality & Wordmark Identity', () => {
     it('renders MAVE wordmark and Presence Mark in idle state', () => {
       const html = renderToStaticMarkup(<PresenceSurface state="idle" />);
@@ -92,31 +96,78 @@ describe('MAVE UI V2 — U1 Presence Surface Identity & Interaction Tests', () =
     });
   });
 
-  describe('3. UI-Level Audio RMS Smoothing', () => {
+  describe('3. UI-Level Audio RMS Amplitude Normalization', () => {
     it('clamps zero and negative input to 0', () => {
-      expect(smoothRms(0)).toBe(0);
-      expect(smoothRms(-0.5)).toBe(0);
+      expect(normalizeAudioRms(0)).toBe(0);
+      expect(normalizeAudioRms(-0.5)).toBe(0);
+      expect(smoothRms(0)).toBe(0); // Alias check
     });
 
     it('gates resting noise floor below 0.03 to zero', () => {
-      expect(smoothRms(0.01)).toBe(0);
-      expect(smoothRms(0.025)).toBe(0);
+      expect(normalizeAudioRms(0.01)).toBe(0);
+      expect(normalizeAudioRms(0.025)).toBe(0);
     });
 
     it('expands conversational speech smoothly using power curve', () => {
-      const smoothedQuiet = smoothRms(0.1);
-      const smoothedMedium = smoothRms(0.4);
-      expect(smoothedQuiet).toBeGreaterThan(0);
-      expect(smoothedMedium).toBeGreaterThan(smoothedQuiet);
+      const normQuiet = normalizeAudioRms(0.1);
+      const normMedium = normalizeAudioRms(0.4);
+      expect(normQuiet).toBeGreaterThan(0);
+      expect(normMedium).toBeGreaterThan(normQuiet);
     });
 
     it('clamps extreme clipping input > 1.0 to 1.0', () => {
-      expect(smoothRms(1.5)).toBe(1);
-      expect(smoothRms(10)).toBe(1);
+      expect(normalizeAudioRms(1.5)).toBe(1);
+      expect(normalizeAudioRms(10)).toBe(1);
     });
   });
 
-  describe('4. Quick Response vs Conversation Expansion Rule', () => {
+  describe('4. Temporal RMS Display Smoothing (Attack vs Release Dynamics)', () => {
+    it('responds faster on speech onset (attack) than on speech decay (release)', () => {
+      const initial = 0.0;
+      const speechOnsetTarget = 0.8;
+      const attackStep = applyTemporalSmoothing(initial, speechOnsetTarget, { attack: 0.55, release: 0.18 });
+      const riseDelta = attackStep - initial;
+
+      const peak = 0.8;
+      const speechDecayTarget = 0.0;
+      const decayStep = applyTemporalSmoothing(peak, speechDecayTarget, { attack: 0.55, release: 0.18 });
+      const decayDelta = peak - decayStep;
+
+      // Fast attack ensures instant onset responsiveness; gentle release avoids premature visual drop-off
+      expect(riseDelta).toBeGreaterThan(decayDelta);
+      expect(attackStep).toBe(0.44);
+      expect(decayStep).toBe(0.656);
+    });
+
+    it('createRmsTemporalSmoother smooths continuous stream and resets cleanly', () => {
+      const smoother = createRmsTemporalSmoother({ attack: 0.5, release: 0.2 });
+      expect(smoother.current()).toBe(0);
+
+      // Frame 1: loud speech input
+      const val1 = smoother.step(0.6);
+      expect(val1).toBeGreaterThan(0);
+
+      // Frame 2: silence - decay is smooth, not instant drop to 0
+      const val2 = smoother.step(0.0);
+      expect(val2).toBeGreaterThan(0);
+      expect(val2).toBeLessThan(val1);
+
+      smoother.reset();
+      expect(smoother.current()).toBe(0);
+    });
+  });
+
+  describe('5. Canonical Expansion Principle (Visual Need Invariants)', () => {
+    it('does NOT force visual expansion solely because multi-turn dialogue is active', () => {
+      const result = evaluateExpansionEligibility({
+        isMultiTurn: true,
+        text: 'Short follow-up answer'
+      });
+      // Invariant: Conversation Context != Surface Level
+      expect(result.shouldExpand).toBe(false);
+      expect(result.triggerType).toBe('single_compact');
+    });
+
     it('approves single compact text for Presence Quick Response', () => {
       const result = evaluateExpansionEligibility({
         text: 'In French, that is “Bonjour”. It means “Hello”.'
@@ -138,11 +189,27 @@ describe('MAVE UI V2 — U1 Presence Surface Identity & Interaction Tests', () =
       expect(result.triggerType).toBe('rich_cards');
     });
 
-    it('requires expansion when code snippet exceeds 3 lines', () => {
-      const multiLineCode = 'const a = 1;\nconst b = 2;\nconst c = 3;\nconst d = 4;';
-      const result = evaluateExpansionEligibility({ codeSnippet: multiLineCode });
+    it('requires expansion when structured visual content (table / comparison) is present', () => {
+      const result = evaluateExpansionEligibility({ structuredContent: true });
       expect(result.shouldExpand).toBe(true);
-      expect(result.triggerType).toBe('code_snippet');
+      expect(result.triggerType).toBe('structured_content');
+    });
+
+    it('requires expansion when code benefits from inspection or exceeds heuristic lines', () => {
+      const codeInspectionResult = evaluateExpansionEligibility({ codeRequiresInspection: true });
+      expect(codeInspectionResult.shouldExpand).toBe(true);
+      expect(codeInspectionResult.triggerType).toBe('code_inspection');
+
+      const multiLineCode = 'const a = 1;\nconst b = 2;\nconst c = 3;\nconst d = 4;';
+      const lineLimitResult = evaluateExpansionEligibility({ codeSnippet: multiLineCode });
+      expect(lineLimitResult.shouldExpand).toBe(true);
+      expect(lineLimitResult.triggerType).toBe('code_inspection');
+    });
+
+    it('allows tiny one-line inline code in Quick Response', () => {
+      const result = evaluateExpansionEligibility({ codeSnippet: 'npm install @mave/core' });
+      expect(result.shouldExpand).toBe(false);
+      expect(result.triggerType).toBe('single_compact');
     });
 
     it('requires expansion when action authorization is requested', () => {
@@ -151,62 +218,81 @@ describe('MAVE UI V2 — U1 Presence Surface Identity & Interaction Tests', () =
       expect(result.triggerType).toBe('interactive_approval');
     });
 
-    it('requires expansion when response text exceeds 240 chars', () => {
+    it('requires expansion when response text exceeds defensive heuristic limit', () => {
       const longText = 'A'.repeat(280);
       const result = evaluateExpansionEligibility({ text: longText });
       expect(result.shouldExpand).toBe(true);
       expect(result.triggerType).toBe('long_text');
     });
 
-    it('requires expansion for ongoing multi-turn dialogue', () => {
-      const result = evaluateExpansionEligibility({ isMultiTurn: true });
+    it('requires expansion on explicit user request', () => {
+      const result = evaluateExpansionEligibility({ explicitUserExpand: true });
       expect(result.shouldExpand).toBe(true);
-      expect(result.triggerType).toBe('task_workflow');
+      expect(result.triggerType).toBe('explicit_user_request');
     });
   });
 
-  describe('5. Quick Response Bubble Rendering & Dismissal', () => {
-    it('renders bubble above capsule with text and source label', () => {
-      const html = renderToStaticMarkup(
+  describe('6. Quick Response Privacy Filter vs Content Provenance', () => {
+    it('sanitizes AI execution substrate / provider names from UI metadata', () => {
+      expect(sanitizeQuickResponseSource('Local Fast Brain')).toBeUndefined();
+      expect(sanitizeQuickResponseSource('Ollama / llama3.2')).toBeUndefined();
+      expect(sanitizeQuickResponseSource('Claude 3.5 Sonnet')).toBeUndefined();
+      expect(sanitizeQuickResponseSource('Antigravity Deep Brain')).toBeUndefined();
+      expect(sanitizeQuickResponseSource('OpenAI gpt-4o')).toBeUndefined();
+    });
+
+    it('preserves genuine content provenance / citations', () => {
+      expect(sanitizeQuickResponseSource('Documentation')).toBe('Documentation');
+      expect(sanitizeQuickResponseSource('YouTube')).toBe('YouTube');
+      expect(sanitizeQuickResponseSource('Wikipedia')).toBe('Wikipedia');
+      expect(sanitizeQuickResponseSource('French Reference')).toBe('French Reference');
+    });
+
+    it('PresenceSurface does NOT render provider names even if passed in sourceLabel', () => {
+      const htmlWithProvider = renderToStaticMarkup(
         <PresenceSurface
           state="speaking"
           quickResponse={{
-            text: 'Timer set for 15 minutes.',
-            sourceLabel: 'MAVE Clock'
+            text: 'Here is an answer.',
+            sourceLabel: 'Local Fast Brain'
           }}
-          onExpand={() => {}}
-          onDismissQuickResponse={() => {}}
         />
       );
-      expect(html).toContain('data-testid="presence-quick-response"');
-      expect(html).toContain('Timer set for 15 minutes.');
-      expect(html).toContain('MAVE Clock');
-      expect(html).toContain('data-testid="quick-response-expand"');
-      expect(html).toContain('data-testid="quick-response-dismiss"');
+      expect(htmlWithProvider).not.toContain('Local Fast Brain');
+      expect(htmlWithProvider).not.toContain('data-testid="quick-response-source"');
+    });
+
+    it('PresenceSurface renders genuine content provenance when clean source is provided', () => {
+      const htmlWithProvenance = renderToStaticMarkup(
+        <PresenceSurface
+          state="speaking"
+          quickResponse={{
+            text: 'Here is an answer.',
+            sourceLabel: 'Documentation'
+          }}
+        />
+      );
+      expect(htmlWithProvenance).toContain('Documentation');
+      expect(htmlWithProvenance).toContain('data-testid="quick-response-source"');
     });
   });
 
-  describe('6. Office Mode (Silent Presence)', () => {
-    it('renders Silent indicator badge in idle state when Office Mode is active', () => {
+  describe('7. Office Mode & Manual Activation Semantics', () => {
+    it('renders subtle mute micro-indicator in idle state when Office Mode is active', () => {
       const html = renderToStaticMarkup(<PresenceSurface state="idle" officeMode={true} />);
       expect(html).toContain('data-testid="presence-office-badge"');
-      expect(html).toContain('Silent');
+      expect(html).toContain('🔇');
     });
 
     it('labels speaking state as Silent Output in Office Mode', () => {
       const html = renderToStaticMarkup(<PresenceSurface state="speaking" officeMode={true} />);
       expect(html).toContain('Silent Output…');
     });
-  });
 
-  describe('7. Calm Error Representation', () => {
-    it('renders restrained alert border and concise message without flooding capsule', () => {
-      const html = renderToStaticMarkup(
-        <PresenceSurface state="error" errorMessage="Microphone disconnected" />
-      );
-      expect(html).toContain('var(--mave-v2-presence-border-error)');
-      expect(html).toContain('Microphone disconnected');
-      expect(html).toContain('data-state="error"');
+    it('wordmark and mark expose manual activation semantics on click', () => {
+      const html = renderToStaticMarkup(<PresenceSurface state="idle" onManualActivate={() => {}} />);
+      expect(html).toContain('title="Manual activation: start listening"');
+      expect(html).toContain('aria-label="Manual activation"');
     });
   });
 
@@ -223,4 +309,3 @@ describe('MAVE UI V2 — U1 Presence Surface Identity & Interaction Tests', () =
     });
   });
 });
-

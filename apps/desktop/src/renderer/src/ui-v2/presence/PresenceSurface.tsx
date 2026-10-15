@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import type { PresenceState, QuickResponseData } from '../types';
 import { AdaptivePresenceMark } from '../primitives/AdaptivePresenceMark';
-import { getPresenceButtonDescriptor } from './presence-rules';
+import { getPresenceButtonDescriptor, sanitizeQuickResponseSource } from './presence-rules';
 import '../tokens.css';
 
 export interface PresenceSurfaceProps {
@@ -12,6 +12,7 @@ export interface PresenceSurfaceProps {
   errorMessage?: string;
   onExpand?: () => void;
   onWakeToggle?: () => void;
+  onManualActivate?: () => void;
   onStopListening?: () => void;
   onCancelThinking?: () => void;
   onStopSpeaking?: () => void;
@@ -44,6 +45,7 @@ export const PresenceSurface: React.FC<PresenceSurfaceProps> = ({
   errorMessage,
   onExpand,
   onWakeToggle,
+  onManualActivate,
   onStopListening,
   onCancelThinking,
   onStopSpeaking,
@@ -53,6 +55,17 @@ export const PresenceSurface: React.FC<PresenceSurfaceProps> = ({
   className = ''
 }) => {
   const [isHovered, setIsHovered] = useState(false);
+
+  // Content provenance sanitized: provider/runtime execution substrate is stripped
+  const sanitizedSource = sanitizeQuickResponseSource(quickResponse?.sourceLabel);
+
+  const handleActivation = () => {
+    if (onManualActivate) {
+      onManualActivate();
+    } else if (onWakeToggle) {
+      onWakeToggle();
+    }
+  };
 
   const isIdle = state === 'idle';
   const isWaking = state === 'waking';
@@ -159,7 +172,11 @@ export const PresenceSurface: React.FC<PresenceSurfaceProps> = ({
               color: 'var(--mave-v2-text-dim)'
             }}
           >
-            <span>{quickResponse.sourceLabel || 'MAVE Quick Answer'}</span>
+            {sanitizedSource ? (
+              <span data-testid="quick-response-source">{sanitizedSource}</span>
+            ) : (
+              <span />
+            )}
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               {onExpand && (
                 <button
@@ -222,45 +239,46 @@ export const PresenceSurface: React.FC<PresenceSurfaceProps> = ({
         }}
         data-testid="presence-capsule"
       >
-        {/* Presence Mark / Orb */}
+        {/* Presence Mark / Orb (Manual activation when clicked) */}
         <AdaptivePresenceMark
           state={state}
           size="compact"
           audioLevel={audioLevel}
-          onClick={onWakeToggle}
+          onClick={handleActivation}
         />
 
-        {/* Brand Wordmark (MAVE) */}
+        {/* Brand Wordmark (MAVE) — Manual activation when clicked */}
         <span
           style={{
             fontWeight: 700,
             fontSize: '13px',
             color: 'var(--mave-v2-text-primary)',
             letterSpacing: '0.6px',
-            cursor: onWakeToggle ? 'pointer' : 'default'
+            cursor: onManualActivate || onWakeToggle ? 'pointer' : 'default'
           }}
-          onClick={onWakeToggle}
+          onClick={handleActivation}
+          title="Manual activation: start listening"
+          aria-label="Manual activation"
           data-testid="presence-wordmark"
         >
           MAVE
         </span>
 
-        {/* Office Mode Silent Pill (visible in idle/listening when active) */}
+        {/* Office Mode Subtle Indicator (Ultra-quiet mute icon, non-distracting) */}
         {officeMode && isIdle && (
           <span
             style={{
-              fontSize: '10px',
-              fontWeight: 600,
+              fontSize: '11px',
               color: 'var(--mave-v2-text-muted)',
-              background: 'rgba(255, 255, 255, 0.05)',
-              padding: '1px 5px',
-              borderRadius: '4px',
-              border: '1px solid var(--mave-v2-border-subtle)'
+              opacity: 0.65,
+              display: 'inline-flex',
+              alignItems: 'center'
             }}
             title="Office Mode (Voice output muted)"
+            aria-label="Office Mode (Voice output muted)"
             data-testid="presence-office-badge"
           >
-            Silent
+            🔇
           </span>
         )}
 

@@ -202,11 +202,15 @@ stateDiagram-v2
 - **Presence Mark (`AdaptivePresenceMark`)**: Visual state and cognitive activity indicator. Activates dynamically during waking, listening, thinking, and speaking.
 - **Scale Hierarchy**: As content density increases (from Presence $\to$ Conversation $\to$ Workspace), the Presence Mark scales down from `hero` ($64\text{px}$) to `compact` ($28\text{px}$) to `status` ($18\text{px}$).
 
-### 4. Audio RMS Mapping & UI-Level Smoothing
-- Raw microphone RMS is processed through an ergonomic UI smoothing filter:
-  1. **Noise Floor Gate**: Levels below $0.03$ are clamped to $0$ to guarantee calm stillness during ambient silence.
-  2. **Perceptual Power Curve**: Speech levels ($0.05 - 0.45$) are normalized via $\text{RMS}^{0.75}$ to elevate natural quiet speech into visible bar dynamics.
-  3. **Ceiling Clamping**: Levels exceeding $1.0$ are strictly clamped to avoid SVG or layout blowout.
+### 4. Audio RMS Normalization vs Temporal Display Smoothing
+Raw microphone RMS is processed through two distinct stages:
+1. **Amplitude Normalization & Perceptual Mapping (`normalizeAudioRms`)**:
+   - **Noise Floor Gate**: Levels below $0.03$ are clamped to $0.0$ to guarantee calm stillness during ambient room silence.
+   - **Perceptual Power Curve**: Speech levels ($0.05 - 0.45$) are normalized via $\text{RMS}^{0.75}$ to elevate natural conversational speech into visible dynamics.
+   - **Ceiling Clamping**: Levels exceeding $1.0$ are strictly clamped to avoid SVG or layout blowout.
+2. **Temporal Display Smoothing (`applyTemporalSmoothing`)**:
+   - **Asymmetric Attack / Release**: Attack coefficient ($\alpha = 0.55$) responds rapidly to spoken onset, while release coefficient ($\alpha = 0.18$) decays gently, smoothing micro-jitter between syllables.
+   - **No Fake Precision**: Waveform is conversational voice activity visualization, not calibrated laboratory audio metering.
 
 ### 5. Restrained Thinking Invariant
 - **Thinking animation $\neq$ progress claim**: Thinking state represents cognitive processing; it must **never** fabricate fictional progress substeps ("Analyzing cultural context...", "Synthesizing answer...").
@@ -218,31 +222,39 @@ stateDiagram-v2
 - Transition latency must feel immediate and responsive without animation locks.
 
 ### 7. Office Mode (Silent Presence)
-- Designed for quiet workplace environments where audio TTS is disabled.
-- Surface displays a compact `Silent` badge in Idle.
-- Speech output is suppressed; state renders as `Silent Output…` and immediately surfaces the Quick Response bubble.
+- Designed for quiet workplace environments where audio TTS playback is disabled.
+- Surface displays an ultra-subtle mute micro-indicator (`🔇`) in resting Idle, preserving minimal MAVE presence without heavy persistent text badges.
+- Speech output is suppressed; state renders as `Silent Output…` and routes directly to the Quick Response bubble.
 
-### 8. Quick Response Bubble vs Conversation Expansion Rules
-A floating Quick Response bubble appears above the Presence capsule **only** when content fits within single-answer visual parameters:
+### 8. Visual Need Expansion Principle & Quick Response Privacy
+
+> [!IMPORTANT]
+> **Canonical Invariants**
+> - **Conversation Context $\neq$ Surface Level**: Multi-turn dialogue history is runtime/context state and does **NOT** force visual expansion. MAVE can sustain long voice conversations entirely within the ambient Presence surface.
+> - **Visual Need Drives Expansion**: Expansion from Presence $\to$ Conversation occurs **only** when there is a genuine visual interaction need.
+> - **Source Provenance $\neq$ Runtime Provider**: Content citations (YouTube, Documentation, Wikipedia) may render when answers depend on external sources. Intelligence execution substrate (Ollama, Claude, Codex, Antigravity, OpenAI, model IDs) must **never** leak into normal conversational UI metadata.
 
 ```text
 Evaluate Expansion Eligibility:
-  ├─ Contains rich cards (sources, video, tasks, diffs, approvals) → EXPAND to Conversation
+  ├─ Explicit user request (user clicks ↗ Expand)                 → EXPAND to Conversation
   ├─ Contains interactive decision (M5 Approval request)          → EXPAND to Conversation
-  ├─ Contains multi-line code snippet (> 3 lines)                  → EXPAND to Conversation
+  ├─ Structured visual content (table / comparison grid)          → EXPAND to Conversation
+  ├─ Contains rich cards (sources, video, tasks, diffs, approvals) → EXPAND to Conversation
+  ├─ Code requiring inspection / copying / editing                → EXPAND to Conversation
+  ├─ Multi-line code block (> 3 lines defensive heuristic)        → EXPAND to Conversation
   ├─ Exceeds single quick-response capacity (> 240 chars)          → EXPAND to Conversation
-  ├─ Part of ongoing multi-turn conversational history             → EXPAND to Conversation
-  └─ Single compact confirmation / translation / status            → FIT in Quick Response Bubble
+  └─ Single compact confirmation / translation / spoken answer     → FIT in Quick Response Bubble
+     (even when part of an ongoing multi-turn dialogue!)
 ```
 
 ### 9. Contextual Control Disclosure & Unambiguous Semantics
 
 | Control Action | State Active | Aria Label | Visual Icon | Purpose |
 | :--- | :--- | :--- | :---: | :--- |
-| `wake` | Idle | "Wake MAVE" | `•` | Activates listening mode |
+| `wake` | Idle | "Manual activation" | `•` | Manually activates listening mode (distinct from voice wake) |
 | `stop-listening` | Listening | "Stop listening" | `⏹` | Stops mic capture and returns to idle / submits |
 | `cancel-thinking`| Thinking | "Cancel thinking" | `✕` | Cancels active in-flight request |
-| `stop-speaking` | Speaking | "Stop speaking" | `⏹` | Stops voice playback (user interruption) |
+| `stop-speaking` | Speaking | "Stop speaking" | `⏹` | Stops voice playback (user interruption / barge-in) |
 | `retry` | Error | "Retry request" | `↻` | Retries previous failed operation |
 | `dismiss` | Error | "Dismiss error" | `✕` | Dismisses error banner and resets to idle |
 | `expand` | Contextual | "Expand to Conversation" | `↗` | Transitions surface to Level 2 Conversation |
