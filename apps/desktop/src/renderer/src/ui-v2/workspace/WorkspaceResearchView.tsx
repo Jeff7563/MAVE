@@ -40,8 +40,11 @@ export const WorkspaceResearchView: React.FC<WorkspaceResearchViewProps> = ({
         display: 'flex',
         flexDirection: 'column',
         height: '100%',
+        minWidth: 0,
+        minHeight: 0,
         gap: '14px',
         overflowY: 'auto',
+        overflowX: 'hidden',
         color: 'var(--mave-v2-text-primary)'
       }}
       data-testid="workspace-research-view"

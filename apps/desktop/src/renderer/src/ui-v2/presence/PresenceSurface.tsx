@@ -43,12 +43,13 @@ const HarmonicWaveform: React.FC<{
   isSpeaking?: boolean;
   width?: number;
   height?: number;
-}> = ({ audioLevel, isSpeaking = false, width = 240, height = 30 }) => {
+}> = ({ audioLevel, isSpeaking = false, width = 120, height = 20 }) => {
   const norm = normalizeAudioRms(audioLevel);
-  // Visual dynamic floor so bars stay alive during active listening / speaking
-  const amp = Math.max(isSpeaking ? 0.28 : 0.22, norm);
-  // Bar count based on width with ~11px pitch
-  const n = Math.max(9, Math.floor(width / 11));
+  // Listening: slightly calmer amplitude / cyan dominant
+  // Speaking: slightly stronger energy / controlled violet fringe
+  const amp = isSpeaking ? Math.max(0.24, norm * 1.1) : Math.max(0.18, norm * 0.85);
+  // Compact bar count based on width with ~8px pitch
+  const n = Math.max(9, Math.floor(width / 8));
 
   return (
     <div
@@ -72,15 +73,17 @@ const HarmonicWaveform: React.FC<{
         const hFactor = 0.08 + amp * env * (0.35 + 0.65 * osc);
         const barH = Math.max(3, Math.round(height * Math.min(1, hFactor)));
         const colorRatio = 1 - Math.abs(x - 0.5) * 2;
-        const barColor = `color-mix(in srgb, var(--mave-cyan, #5FD2FF) ${Math.round(colorRatio * 100)}%, var(--mave-violet, #9A72FF))`;
+        const barColor = isSpeaking
+          ? `color-mix(in srgb, var(--mave-cyan, #5FD2FF) ${Math.round(colorRatio * 60 + 20)}%, var(--mave-violet, #9A72FF))`
+          : `color-mix(in srgb, var(--mave-cyan, #5FD2FF) 85%, var(--mave-violet, #9A72FF) 15%)`;
 
         return (
           <span
             key={i}
             style={{
-              width: '3px',
+              width: '2.5px',
               height: `${barH}px`,
-              borderRadius: '2px',
+              borderRadius: '1.5px',
               background: barColor,
               opacity: 0.35 + 0.65 * env,
               transition: 'height 80ms ease-out'
@@ -88,6 +91,45 @@ const HarmonicWaveform: React.FC<{
           />
         );
       })}
+    </div>
+  );
+};
+
+/**
+ * CognitiveShimmer
+ *
+ * Restrained non-acoustic cognitive pulse sequence for Thinking state.
+ * Employs alternating cyan/violet luminous points with a calm, compact rhythm.
+ */
+const CognitiveShimmer: React.FC = () => {
+  return (
+    <div
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '6px',
+        padding: '0 4px',
+        height: '20px'
+      }}
+      data-testid="presence-thinking-indicator"
+    >
+      {[0, 1, 2, 3].map((i) => (
+        <span
+          key={i}
+          style={{
+            width: '5px',
+            height: '5px',
+            borderRadius: '50%',
+            background: i % 2 === 0 ? 'var(--mave-violet, #9A72FF)' : 'var(--mave-cyan, #5FD2FF)',
+            boxShadow:
+              i % 2 === 0
+                ? '0 0 6px rgba(154, 114, 255, 0.7)'
+                : '0 0 6px rgba(95, 210, 255, 0.7)',
+            animation: 'mave-v3-cognitive-pulse 1.8s ease-in-out infinite',
+            animationDelay: `${i * 0.22}s`
+          }}
+        />
+      ))}
     </div>
   );
 };
@@ -250,17 +292,18 @@ export const PresenceSurface: React.FC<PresenceSurfaceProps> = ({
       {quickResponse && (
         <div
           style={{
-            maxWidth: 'min(420px, 92vw)',
+            maxWidth: 'min(420px, 28vw)',
+            width: 'fit-content',
             background: 'linear-gradient(180deg, rgba(255, 255, 255, 0.065), rgba(255, 255, 255, 0.018)), rgba(12, 14, 30, 0.72)',
             backdropFilter: 'blur(22px) saturate(140%)',
             WebkitBackdropFilter: 'blur(22px) saturate(140%)',
             border: '1px solid var(--mave-edge, rgba(180, 190, 255, 0.14))',
-            borderRadius: 'var(--mave-radius-card, 24px)',
-            padding: '16px 20px',
+            borderRadius: '20px',
+            padding: '12px 18px',
             boxShadow: 'var(--mave-shadow-glass)',
             color: 'var(--mave-ink, #EEF0FB)',
             fontFamily: "var(--mave-font-sans, 'Manrope', sans-serif)",
-            fontSize: '15px',
+            fontSize: '14px',
             lineHeight: 1.5,
             animation: 'mave-v3-materialize var(--mave-dur-enter, 450ms) var(--mave-ease-enter)',
             position: 'relative'
@@ -348,17 +391,23 @@ export const PresenceSurface: React.FC<PresenceSurfaceProps> = ({
       )}
 
       {/* --------------------------------------------------------------------
-          3. Main Presence Capsule (Authentic Prototype Morphing Geometry)
-          - Idle: 300 × 96, radius 48, centered Jost 300 wordmark
-          - Active: 760 × 72, radius 36, wordmark left, divider, waveform, label
+          3. Main Presence Capsule (Restrained Morphing Geometry & Snug Gap)
+          - Idle: 250 × 50, radius 25, centered Jost 300 wordmark
+          - Active: min(460px, 30vw) × 50, radius 25, content-aware layout
           -------------------------------------------------------------------- */}
       <div
         style={{
           position: 'relative',
-          width: isIdle ? '300px' : '760px',
-          maxWidth: isIdle ? 'min(300px, 94vw)' : 'min(760px, 94vw)',
-          height: isIdle ? '96px' : '72px',
-          borderRadius: isIdle ? 'var(--mave-radius-pill-idle, 48px)' : 'var(--mave-radius-pill-active, 36px)',
+          width: isIdle
+            ? '250px'
+            : isThinking
+            ? 'min(380px, 26vw)'
+            : isError
+            ? 'min(380px, 26vw)'
+            : 'min(460px, 30vw)',
+          maxWidth: 'min(480px, 92vw)',
+          height: '50px',
+          borderRadius: '25px',
           background: 'linear-gradient(180deg, rgba(255, 255, 255, 0.065), rgba(255, 255, 255, 0.018)), rgba(12, 14, 30, 0.60)',
           border: `1px solid ${borderColor}`,
           boxShadow: isIdle ? 'var(--mave-v2-presence-glow-resting)' : `${glowShadow}, var(--mave-shadow-pill)`,
@@ -367,11 +416,11 @@ export const PresenceSurface: React.FC<PresenceSurfaceProps> = ({
           display: 'flex',
           alignItems: 'center',
           justifyContent: isIdle ? 'center' : 'flex-start',
-          padding: isIdle ? '0 24px' : '0 24px',
+          padding: '0 18px',
           boxSizing: 'border-box',
-          gap: isIdle ? '12px' : '16px',
+          gap: isIdle ? '12px' : '10px',
           overflow: 'hidden',
-          transition: 'width var(--mave-dur-glide, 800ms) var(--mave-ease-glide), height var(--mave-dur-glide, 800ms) var(--mave-ease-glide), border-radius var(--mave-dur-glide, 800ms) var(--mave-ease-glide), padding var(--mave-dur-glide, 800ms) var(--mave-ease-glide), box-shadow var(--mave-dur-glide, 800ms) var(--mave-ease-glide), border-color var(--mave-dur-glide, 800ms) var(--mave-ease-glide)',
+          transition: 'width 400ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 350ms ease, border-color 350ms ease',
           animation: isIdle ? 'mave-v2-breathe 4.8s ease-in-out infinite' : undefined
         }}
         data-testid="presence-capsule"
@@ -386,7 +435,7 @@ export const PresenceSurface: React.FC<PresenceSurfaceProps> = ({
             height: '1px',
             background: 'linear-gradient(90deg, transparent, rgba(95, 210, 255, 0.85), transparent)',
             pointerEvents: 'none',
-            transition: 'all var(--mave-dur-glide, 800ms) var(--mave-ease-glide)'
+            transition: 'all 400ms cubic-bezier(0.16, 1, 0.3, 1)'
           }}
         />
 
@@ -399,7 +448,7 @@ export const PresenceSurface: React.FC<PresenceSurfaceProps> = ({
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: '14px',
+              gap: '12px',
               width: '100%',
               cursor: onManualActivate || onWakeToggle ? 'pointer' : 'default'
             }}
@@ -420,9 +469,9 @@ export const PresenceSurface: React.FC<PresenceSurfaceProps> = ({
               style={{
                 fontFamily: "var(--mave-font-wordmark, 'Jost', sans-serif)",
                 fontWeight: 300,
-                fontSize: '30px',
-                letterSpacing: '0.42em',
-                paddingLeft: '0.42em',
+                fontSize: '18px',
+                letterSpacing: '0.38em',
+                paddingLeft: '0.38em',
                 color: '#f3f4fc',
                 lineHeight: 1,
                 whiteSpace: 'nowrap'
@@ -438,7 +487,7 @@ export const PresenceSurface: React.FC<PresenceSurfaceProps> = ({
                 display: 'flex',
                 alignItems: 'center',
                 gap: '3px',
-                paddingLeft: '4px',
+                paddingLeft: '2px',
                 opacity: 0.45
               }}
               data-testid="presence-dots"
@@ -465,7 +514,7 @@ export const PresenceSurface: React.FC<PresenceSurfaceProps> = ({
                 style={{
                   fontSize: '12px',
                   color: 'var(--mave-faint, rgba(222, 226, 255, 0.38))',
-                  marginLeft: '4px',
+                  marginLeft: '2px',
                   opacity: 0.75
                 }}
                 title="Office Mode (Voice output muted)"
@@ -487,7 +536,7 @@ export const PresenceSurface: React.FC<PresenceSurfaceProps> = ({
               display: 'flex',
               alignItems: 'center',
               width: '100%',
-              gap: '12px',
+              gap: '10px',
               minWidth: 0
             }}
           >
@@ -496,7 +545,7 @@ export const PresenceSurface: React.FC<PresenceSurfaceProps> = ({
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: '10px',
+                gap: '8px',
                 flexShrink: 0,
                 cursor: onManualActivate || onWakeToggle ? 'pointer' : 'default'
               }}
@@ -514,9 +563,9 @@ export const PresenceSurface: React.FC<PresenceSurfaceProps> = ({
                 style={{
                   fontFamily: "var(--mave-font-wordmark, 'Jost', sans-serif)",
                   fontWeight: 300,
-                  fontSize: '19px',
-                  letterSpacing: '0.42em',
-                  paddingLeft: '0.42em',
+                  fontSize: '16.5px',
+                  letterSpacing: '0.36em',
+                  paddingLeft: '0.36em',
                   color: '#f3f4fc',
                   lineHeight: 1,
                   whiteSpace: 'nowrap'
@@ -531,66 +580,43 @@ export const PresenceSurface: React.FC<PresenceSurfaceProps> = ({
             <div
               style={{
                 width: '1px',
-                height: '28px',
-                background: 'rgba(255, 255, 255, 0.14)',
+                height: '20px',
+                background: 'rgba(255, 255, 255, 0.12)',
                 flexShrink: 0,
                 margin: '0 2px'
               }}
             />
 
-            {/* Waveform / Activity Region */}
+            {/* Waveform / Activity Region (Content-Aware, Zero Empty Gap) */}
             <div
               style={{
-                flex: 1,
                 display: 'flex',
                 alignItems: 'center',
                 minWidth: 0,
                 overflow: 'hidden'
               }}
             >
-              {/* Listening & Speaking: Authentic Sinusoidal Waveform */}
+              {/* Listening & Speaking: Compact Harmonic Waveform */}
               {(isListening || isSpeaking || isWaking) && (
                 <HarmonicWaveform
                   audioLevel={audioLevel}
                   isSpeaking={isSpeaking}
-                  width={220}
-                  height={28}
+                  width={120}
+                  height={20}
                 />
               )}
 
-              {/* Thinking: Restrained Non-Acoustic Cognitive Flow (Audio State Truthfulness) */}
-              {isThinking && (
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    padding: '0 10px',
-                    width: '100%',
-                    maxWidth: '220px'
-                  }}
-                >
-                  <div
-                    style={{
-                      height: '3px',
-                      flex: 1,
-                      borderRadius: '2px',
-                      background: 'linear-gradient(90deg, rgba(154, 114, 255, 0.2), rgba(154, 114, 255, 0.8), rgba(95, 210, 255, 0.6), rgba(154, 114, 255, 0.2))',
-                      backgroundSize: '200% 100%',
-                      animation: 'mave-v3-gradient-flow 2s linear infinite'
-                    }}
-                  />
-                </div>
-              )}
+              {/* Thinking: Restrained Non-Acoustic Cognitive Flow (Luminous Points) */}
+              {isThinking && <CognitiveShimmer />}
 
               {/* Error: Subdued Alert Notice */}
               {isError && (
                 <div
                   style={{
-                    fontSize: '13px',
+                    fontSize: '12px',
                     color: 'var(--mave-err, #ff7a85)',
                     fontFamily: "var(--mave-font-sans, sans-serif)",
-                    paddingLeft: '6px'
+                    paddingLeft: '4px'
                   }}
                 >
                   {errorMessage || 'Connection interrupted'}
@@ -603,16 +629,17 @@ export const PresenceSurface: React.FC<PresenceSurfaceProps> = ({
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: '8px',
-                flexShrink: 0
+                gap: '6px',
+                flexShrink: 0,
+                marginLeft: 'auto'
               }}
               data-testid="presence-state-label"
             >
               <div
                 style={{
-                  width: '6px',
-                  height: '6px',
-                  borderRadius: '3px',
+                  width: '5px',
+                  height: '5px',
+                  borderRadius: '50%',
                   background: stateAccentColor,
                   boxShadow: `0 0 8px ${stateAccentColor}`
                 }}
@@ -620,7 +647,7 @@ export const PresenceSurface: React.FC<PresenceSurfaceProps> = ({
               <span
                 style={{
                   fontFamily: "var(--mave-font-sans, 'Manrope', sans-serif)",
-                  fontSize: '15px',
+                  fontSize: '13.5px',
                   fontWeight: 400,
                   color: 'var(--mave-dim, rgba(222, 226, 255, 0.60))',
                   whiteSpace: 'nowrap'
@@ -631,13 +658,13 @@ export const PresenceSurface: React.FC<PresenceSurfaceProps> = ({
             </div>
 
             {/* --------------------------------------------------------------
-                Contextual Control Actions (Integrated cleanly without admin look)
+                Contextual Control Actions (Subtle Circular Glyph, Non-Bulky)
                 -------------------------------------------------------------- */}
             <div
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: '6px',
+                gap: '4px',
                 flexShrink: 0
               }}
             >
@@ -648,17 +675,19 @@ export const PresenceSurface: React.FC<PresenceSurfaceProps> = ({
                   title={stopListeningDesc.tooltip}
                   aria-label={stopListeningDesc.label}
                   style={{
-                    background: 'rgba(95, 210, 255, 0.12)',
-                    border: '1px solid rgba(95, 210, 255, 0.35)',
+                    background: 'rgba(255, 255, 255, 0.05)',
+                    border: '1px solid rgba(95, 210, 255, 0.25)',
                     color: 'var(--mave-cyan, #5FD2FF)',
                     cursor: 'pointer',
-                    padding: '3px 8px',
+                    width: '24px',
+                    height: '24px',
+                    borderRadius: '50%',
                     fontSize: '11px',
-                    borderRadius: '12px',
-                    fontFamily: "var(--mave-font-sans, sans-serif)",
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '3px'
+                    justifyContent: 'center',
+                    padding: 0,
+                    transition: 'all var(--mave-v2-motion-fast)'
                   }}
                   data-testid="presence-action-stop-listening"
                 >
@@ -673,16 +702,19 @@ export const PresenceSurface: React.FC<PresenceSurfaceProps> = ({
                   title={cancelThinkingDesc.tooltip}
                   aria-label={cancelThinkingDesc.label}
                   style={{
-                    background: 'rgba(154, 114, 255, 0.12)',
-                    border: '1px solid rgba(154, 114, 255, 0.35)',
+                    background: 'rgba(255, 255, 255, 0.05)',
+                    border: '1px solid rgba(154, 114, 255, 0.25)',
                     color: 'var(--mave-violet, #9A72FF)',
                     cursor: 'pointer',
-                    padding: '3px 8px',
+                    width: '24px',
+                    height: '24px',
+                    borderRadius: '50%',
                     fontSize: '11px',
-                    borderRadius: '12px',
-                    fontFamily: "var(--mave-font-sans, sans-serif)",
                     display: 'flex',
-                    alignItems: 'center'
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: 0,
+                    transition: 'all var(--mave-v2-motion-fast)'
                   }}
                   data-testid="presence-action-cancel-thinking"
                 >
@@ -697,16 +729,19 @@ export const PresenceSurface: React.FC<PresenceSurfaceProps> = ({
                   title={stopSpeakingDesc.tooltip}
                   aria-label={stopSpeakingDesc.label}
                   style={{
-                    background: 'rgba(95, 210, 255, 0.12)',
-                    border: '1px solid rgba(95, 210, 255, 0.35)',
+                    background: 'rgba(255, 255, 255, 0.05)',
+                    border: '1px solid rgba(95, 210, 255, 0.25)',
                     color: 'var(--mave-cyan, #5FD2FF)',
                     cursor: 'pointer',
-                    padding: '3px 8px',
+                    width: '24px',
+                    height: '24px',
+                    borderRadius: '50%',
                     fontSize: '11px',
-                    borderRadius: '12px',
-                    fontFamily: "var(--mave-font-sans, sans-serif)",
                     display: 'flex',
-                    alignItems: 'center'
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: 0,
+                    transition: 'all var(--mave-v2-motion-fast)'
                   }}
                   data-testid="presence-action-stop-speaking"
                 >
@@ -721,16 +756,19 @@ export const PresenceSurface: React.FC<PresenceSurfaceProps> = ({
                   title={retryDesc.tooltip}
                   aria-label={retryDesc.label}
                   style={{
-                    background: 'rgba(255, 122, 133, 0.14)',
-                    border: '1px solid rgba(255, 122, 133, 0.40)',
+                    background: 'rgba(255, 122, 133, 0.1)',
+                    border: '1px solid rgba(255, 122, 133, 0.35)',
                     color: 'var(--mave-err, #FF7A85)',
                     cursor: 'pointer',
-                    padding: '3px 8px',
+                    width: '24px',
+                    height: '24px',
+                    borderRadius: '50%',
                     fontSize: '11px',
-                    borderRadius: '12px',
-                    fontFamily: "var(--mave-font-sans, sans-serif)",
                     display: 'flex',
-                    alignItems: 'center'
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: 0,
+                    transition: 'all var(--mave-v2-motion-fast)'
                   }}
                   data-testid="presence-action-retry-error"
                 >
@@ -750,7 +788,7 @@ export const PresenceSurface: React.FC<PresenceSurfaceProps> = ({
                     color: isHovered || !isIdle ? 'var(--mave-dim)' : 'var(--mave-faint)',
                     cursor: 'pointer',
                     padding: '3px 6px',
-                    fontSize: '14px',
+                    fontSize: '13px',
                     borderRadius: '4px',
                     display: 'flex',
                     alignItems: 'center',

@@ -67,8 +67,11 @@ export const WorkspaceProjectView: React.FC<WorkspaceProjectViewProps> = ({
         display: 'flex',
         flexDirection: 'column',
         height: '100%',
+        minWidth: 0,
+        minHeight: 0,
         gap: '14px',
         overflowY: 'auto',
+        overflowX: 'hidden',
         color: 'var(--mave-v2-text-primary)'
       }}
       data-testid="workspace-project-view"
@@ -171,13 +174,13 @@ export const WorkspaceProjectView: React.FC<WorkspaceProjectViewProps> = ({
           </div>
           <div
             style={{
-              flex: 1,
               padding: '16px',
-              overflowY: 'auto',
               fontFamily: artifactLanguage === 'markdown' ? 'inherit' : 'Consolas, monospace',
               fontSize: '13px',
               lineHeight: '1.6',
               whiteSpace: 'pre-wrap',
+              wordBreak: 'break-word',
+              overflowWrap: 'anywhere',
               color: 'var(--mave-v2-text-primary)'
             }}
             data-testid="artifact-content-view"

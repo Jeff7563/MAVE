@@ -58,6 +58,8 @@ export const WorkspaceDiffView: React.FC<WorkspaceDiffViewProps> = ({
         display: 'flex',
         flexDirection: 'column',
         height: '100%',
+        minWidth: 0,
+        minHeight: 0,
         gap: '12px',
         overflow: 'hidden',
         color: 'var(--mave-v2-text-primary)'
@@ -72,8 +74,10 @@ export const WorkspaceDiffView: React.FC<WorkspaceDiffViewProps> = ({
             alignItems: 'center',
             gap: '6px',
             overflowX: 'auto',
+            scrollbarWidth: 'none',
             paddingBottom: '4px',
-            borderBottom: '1px solid var(--mave-v2-border-subtle)'
+            borderBottom: '1px solid var(--mave-v2-border-subtle)',
+            flexShrink: 0
           }}
           data-testid="diff-file-selector"
         >
@@ -250,6 +254,8 @@ export const WorkspaceDiffView: React.FC<WorkspaceDiffViewProps> = ({
       <div
         style={{
           flex: 1,
+          minHeight: 0,
+          minWidth: 0,
           overflowY: 'auto',
           overflowX: 'auto',
           background: 'rgba(0, 0, 0, 0.35)',

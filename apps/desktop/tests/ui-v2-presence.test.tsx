@@ -308,4 +308,74 @@ describe('MAVE UI V2 — U1.1 Presence Interaction Semantics Hardening Tests', (
       expect(html).toContain('mave-v2-wake-pulse');
     });
   });
+
+  // -------------------------------------------------------------------------
+  // 9. Visual QA Patch P1 — Presence Scale, Non-Acoustic Thinking, and Action Styling
+  // -------------------------------------------------------------------------
+  describe('9. Visual QA Patch P1 — Presence Scale, Non-Acoustic Thinking, and Action Styling', () => {
+    it('Thinking state renders non-acoustic cognitive pulse sequence and zero audio waveform', () => {
+      const htmlThinking = renderToStaticMarkup(
+        <PresenceSurface state="thinking" onCancelThinking={() => {}} />
+      );
+
+      // Must render cognitive shimmer indicator
+      expect(htmlThinking).toContain('data-testid="presence-thinking-indicator"');
+      expect(htmlThinking).toContain('mave-v3-cognitive-pulse');
+
+      // Invariant: Non-acoustic, zero waveform in thinking
+      expect(htmlThinking).not.toContain('data-testid="presence-waveform"');
+    });
+
+    it('Eliminates square stop button glyph in favor of subtle circular action controls', () => {
+      const htmlListening = renderToStaticMarkup(
+        <PresenceSurface state="listening" onStopListening={() => {}} />
+      );
+      const htmlSpeaking = renderToStaticMarkup(
+        <PresenceSurface state="speaking" onStopSpeaking={() => {}} />
+      );
+
+      // Must NOT contain heavy square stop glyph
+      expect(htmlListening).not.toContain('⏹');
+      expect(htmlSpeaking).not.toContain('⏹');
+
+      // Uses subtle dismiss glyph and circular button styling
+      expect(htmlListening).toContain('border-radius:50%');
+      expect(htmlListening).toContain('data-testid="presence-action-stop-listening"');
+      expect(htmlSpeaking).toContain('border-radius:50%');
+      expect(htmlSpeaking).toContain('data-testid="presence-action-stop-speaking"');
+    });
+
+    it('Presence capsule maintains constant 50px height across states for seamless morphing', () => {
+      const htmlIdle = renderToStaticMarkup(<PresenceSurface state="idle" />);
+      const htmlListening = renderToStaticMarkup(<PresenceSurface state="listening" />);
+      const htmlThinking = renderToStaticMarkup(<PresenceSurface state="thinking" />);
+      const htmlSpeaking = renderToStaticMarkup(<PresenceSurface state="speaking" />);
+
+      // Height is constant 50px, border-radius 25px across all states
+      expect(htmlIdle).toContain('height:50px');
+      expect(htmlIdle).toContain('border-radius:25px');
+      expect(htmlListening).toContain('height:50px');
+      expect(htmlListening).toContain('border-radius:25px');
+      expect(htmlThinking).toContain('height:50px');
+      expect(htmlThinking).toContain('border-radius:25px');
+      expect(htmlSpeaking).toContain('height:50px');
+      expect(htmlSpeaking).toContain('border-radius:25px');
+    });
+
+    it('Optional regions collapse completely with zero unexplained blank visual gap', () => {
+      const htmlActiveMinimal = renderToStaticMarkup(
+        <PresenceSurface state="listening" />
+      );
+
+      // No cancel or stop actions rendered when handlers are absent
+      expect(htmlActiveMinimal).not.toContain('data-testid="presence-action-stop-listening"');
+      expect(htmlActiveMinimal).not.toContain('data-testid="presence-action-expand"');
+      expect(htmlActiveMinimal).not.toContain('data-testid="presence-background-task"');
+      expect(htmlActiveMinimal).not.toContain('data-testid="presence-live-transcript"');
+
+      // Status label is present with state dot
+      expect(htmlActiveMinimal).toContain('data-testid="presence-state-label"');
+      expect(htmlActiveMinimal).toContain('Listening…');
+    });
+  });
 });

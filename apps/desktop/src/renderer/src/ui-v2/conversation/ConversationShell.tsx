@@ -579,13 +579,13 @@ export const ConversationShell: React.FC<ConversationShellProps> = ({
               }}
               data-testid={`response-group-${group.id}`}
             >
-              {/* User Message — Open Spatial Typography */}
+              {/* User Message — Open Spatial Typography (Aligned Right) */}
               {group.userMessage && (
                 <div
                   style={{
                     display: 'flex',
                     flexDirection: 'column',
-                    alignItems: 'flex-start',
+                    alignItems: 'flex-end',
                     width: '100%',
                     gap: '4px'
                   }}
@@ -598,16 +598,16 @@ export const ConversationShell: React.FC<ConversationShellProps> = ({
                       letterSpacing: '0.18em',
                       color: 'var(--mave-faint)',
                       textTransform: 'uppercase',
-                      paddingLeft: '2px',
-                      fontFamily: 'var(--mave-font-mono)'
+                      paddingRight: '2px',
+                      fontFamily: 'var(--mave-font-mono)',
+                      textAlign: 'right'
                     }}
                   >
                     YOU
                   </div>
                   <div
                     style={{
-                      maxWidth: '100%',
-                      width: '100%',
+                      maxWidth: '85%',
                       boxSizing: 'border-box',
                       padding: '2px 2px 6px 2px',
                       color: 'var(--mave-dim)',
@@ -616,10 +616,11 @@ export const ConversationShell: React.FC<ConversationShellProps> = ({
                       lineHeight: '1.55',
                       letterSpacing: '-0.005em',
                       wordBreak: 'break-word',
-                      overflowWrap: 'anywhere'
+                      overflowWrap: 'anywhere',
+                      textAlign: 'right'
                     }}
                   >
-                    <div style={{ whiteSpace: 'pre-wrap' }}>{group.userMessage.content}</div>
+                    <div style={{ whiteSpace: 'pre-wrap', textAlign: 'right' }}>{group.userMessage.content}</div>
                   </div>
                 </div>
               )}

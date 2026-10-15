@@ -319,6 +319,18 @@
   }
 }
 
+/* Non-acoustic cognitive pulse sequence for Thinking */
+@keyframes mave-v3-cognitive-pulse {
+  0%, 100% {
+    opacity: 0.3;
+    transform: scale(0.85);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.25);
+  }
+}
+
 /* Reduced Motion Override */
 @media (prefers-reduced-motion: reduce) {
   :root {

@@ -282,7 +282,7 @@ export function getPresenceButtonDescriptor(action: PresenceControlAction): {
       return {
         label: 'Stop listening',
         tooltip: 'Stop listening to microphone',
-        icon: '⏹'
+        icon: '✕'
       };
     case 'cancel-thinking':
       return {
@@ -294,7 +294,7 @@ export function getPresenceButtonDescriptor(action: PresenceControlAction): {
       return {
         label: 'Stop speaking',
         tooltip: 'Stop voice speech playback immediately',
-        icon: '⏹'
+        icon: '✕'
       };
     case 'retry':
       return {

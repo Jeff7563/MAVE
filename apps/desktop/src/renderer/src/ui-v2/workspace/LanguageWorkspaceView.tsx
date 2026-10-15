@@ -129,6 +129,8 @@ export const LanguageWorkspaceView: React.FC<LanguageWorkspaceViewProps> = ({
         gridTemplateColumns: hasRightPanel ? 'minmax(0, 1fr) 280px' : '1fr',
         gap: '16px',
         height: '100%',
+        minWidth: 0,
+        minHeight: 0,
         overflow: 'hidden',
         color: 'var(--mave-v2-text-primary)'
       }}
@@ -142,7 +144,10 @@ export const LanguageWorkspaceView: React.FC<LanguageWorkspaceViewProps> = ({
           display: 'flex',
           flexDirection: 'column',
           gap: '14px',
+          minWidth: 0,
+          minHeight: 0,
           overflowY: 'auto',
+          overflowX: 'hidden',
           paddingRight: '4px'
         }}
         data-testid="language-primary-practice-area"
@@ -403,7 +408,10 @@ export const LanguageWorkspaceView: React.FC<LanguageWorkspaceViewProps> = ({
             display: 'flex',
             flexDirection: 'column',
             gap: '14px',
-            overflowY: 'auto'
+            minWidth: 0,
+            minHeight: 0,
+            overflowY: 'auto',
+            overflowX: 'hidden'
           }}
           data-testid="language-context-panel"
         >

@@ -523,8 +523,8 @@ export const MaveUiLab: React.FC = () => {
             }}
             data-testid="showcase-scene-conversation"
           >
-            {/* User turn — Open Spatial Typography */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignSelf: 'flex-start', width: '100%' }}>
+            {/* User turn — Open Spatial Typography (Aligned Right) */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignSelf: 'flex-end', width: '85%', textAlign: 'right' }}>
               <span
                 style={{
                   fontSize: '11px',
@@ -532,7 +532,8 @@ export const MaveUiLab: React.FC = () => {
                   fontWeight: 600,
                   color: 'var(--mave-faint)',
                   letterSpacing: '0.18em',
-                  textTransform: 'uppercase'
+                  textTransform: 'uppercase',
+                  paddingRight: '2px'
                 }}
               >
                 YOU

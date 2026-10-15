@@ -417,7 +417,9 @@ export const WorkspaceShell: React.FC<WorkspaceShellProps> = ({
           flex: 1,
           display: 'flex',
           overflow: 'hidden',
-          position: 'relative'
+          position: 'relative',
+          minWidth: 0,
+          minHeight: 0
         }}
       >
         {/* REGION A: Conversation Rail (Left, Collapsible) */}
@@ -432,7 +434,8 @@ export const WorkspaceShell: React.FC<WorkspaceShellProps> = ({
               backdropFilter: 'blur(16px)',
               display: 'flex',
               flexDirection: 'column',
-              overflow: 'hidden'
+              overflow: 'hidden',
+              minHeight: 0
             }}
             data-testid="workspace-conversation-region"
           >
@@ -445,7 +448,8 @@ export const WorkspaceShell: React.FC<WorkspaceShellProps> = ({
                 color: 'var(--mave-v2-text-secondary)',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'space-between'
+                justifyContent: 'space-between',
+                flexShrink: 0
               }}
             >
               <span>Conversation Context</span>
@@ -457,7 +461,7 @@ export const WorkspaceShell: React.FC<WorkspaceShellProps> = ({
                 ◀
               </button>
             </div>
-            <div style={{ flex: 1, overflow: 'hidden' }}>
+            <div style={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
               <ConversationShell
                 state={activeConversation}
                 officeMode={officeMode}
@@ -473,6 +477,8 @@ export const WorkspaceShell: React.FC<WorkspaceShellProps> = ({
         <main
           style={{
             flex: 1,
+            minWidth: 0,
+            minHeight: 0,
             display: 'flex',
             flexDirection: 'column',
             overflow: 'hidden',
@@ -670,6 +676,8 @@ export const WorkspaceShell: React.FC<WorkspaceShellProps> = ({
               display: 'flex',
               flexDirection: 'column',
               overflowY: 'auto',
+              overflowX: 'hidden',
+              minHeight: 0,
               padding: '14px',
               gap: '14px'
             }}

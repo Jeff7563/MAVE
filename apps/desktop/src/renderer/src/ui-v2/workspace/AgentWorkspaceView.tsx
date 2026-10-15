@@ -20,9 +20,11 @@ export const AgentWorkspaceView: React.FC<AgentWorkspaceViewProps> = ({
     <div
       style={{
         display: 'grid',
-        gridTemplateColumns: hasSidePanel ? '1fr 300px' : '1fr',
+        gridTemplateColumns: hasSidePanel ? 'minmax(0, 1fr) 300px' : '1fr',
         gap: '16px',
         height: '100%',
+        minWidth: 0,
+        minHeight: 0,
         overflow: 'hidden'
       }}
       data-testid="agent-workspace-view"
@@ -33,7 +35,10 @@ export const AgentWorkspaceView: React.FC<AgentWorkspaceViewProps> = ({
           display: 'flex',
           flexDirection: 'column',
           gap: '14px',
+          minWidth: 0,
+          minHeight: 0,
           overflowY: 'auto',
+          overflowX: 'hidden',
           paddingRight: '4px'
         }}
       >
@@ -170,7 +175,10 @@ export const AgentWorkspaceView: React.FC<AgentWorkspaceViewProps> = ({
             display: 'flex',
             flexDirection: 'column',
             gap: '14px',
-            overflowY: 'auto'
+            minWidth: 0,
+            minHeight: 0,
+            overflowY: 'auto',
+            overflowX: 'hidden'
           }}
         >
           {/* Active Approval Card if waiting */}

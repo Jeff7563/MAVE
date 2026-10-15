@@ -467,23 +467,26 @@ describe('MAVE UI V2 — U4 Chat-Only Sidecar Surface & Multitasking Experience 
       ]
     };
 
-    it('Rule 1 & 4: Uses open spatial typography (YOU label + dimmed text, • MAVE mark + ink text) instead of rigid chat bubbles', () => {
+    it('Rule 1 & 4: Uses open spatial typography with clear speaker alignment (YOU aligned right, • MAVE aligned left)', () => {
       const html = renderToStaticMarkup(
         <ConversationShell state={vsm2State} presentationMode="sidecar" />
       );
 
-      // User turn uses uppercase YOU label and dimmed typography
+      // User turn uses uppercase YOU label, dimmed typography, and right alignment
       expect(html).toContain('YOU');
       expect(html).toContain('หาคลิปอธิบาย React state');
       expect(html).toContain('data-testid="message-card-user"');
       expect(html).toContain('var(--mave-dim)');
+      expect(html).toContain('align-items:flex-end');
+      expect(html).toContain('text-align:right');
 
-      // Assistant turn uses MAVE identity indicator and crisp ink typography
+      // Assistant turn uses MAVE identity indicator, crisp ink typography, and left alignment
       expect(html).toContain('data-testid="response-group-header"');
       expect(html).toContain('MAVE');
       expect(html).toContain('Here is an explanation of React state');
       expect(html).toContain('data-testid="response-answer-text"');
       expect(html).toContain('var(--mave-ink)');
+      expect(html).toContain('align-items:flex-start');
     });
 
     it('Rule 2 & 3: Sidecar acts as primary desktop companion without center occlusion', () => {
