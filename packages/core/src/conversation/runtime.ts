@@ -1253,6 +1253,12 @@ export class ConversationRuntime {
             }
           }
         }
+      } finally {
+        try {
+          await chatIterator.return?.();
+        } catch {
+          // safe disposal
+        }
       }
     } finally {
       if (record.timeoutTimer) {

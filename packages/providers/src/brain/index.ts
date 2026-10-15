@@ -41,6 +41,13 @@ export {
 } from './ollama.js';
 export { CANONICAL_LOCAL_MODEL_QUALIFICATIONS } from './qualification-data.js';
 export {
+  OllamaResidencyManager,
+  type LocalModelResidencyState,
+  type ModelResidencyStatus,
+  type ModelLease,
+  type OllamaResidencyManagerOptions
+} from './residency.js';
+export {
   ClaudeCodeBrainProvider,
   type ClaudeCodeBrainProviderOptions
 } from './claude.js';

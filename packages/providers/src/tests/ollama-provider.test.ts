@@ -67,12 +67,12 @@ describe('OllamaBrainProvider (F1.5-C1.1 Local Provider Qualification & Catalog 
       expect(desc.capabilities.streaming).toBe(true);
       expect(desc.capabilities.cancellation).toBe(true);
 
-      // Section 10: Provider capabilities represent transport abilities, NOT model claims
-      expect(desc.capabilities.fastChat).toBe(false);
+      // C3 promotion: Promoted qwen2.5:1.5b reflects in provider capabilities
+      expect(desc.capabilities.fastChat).toBe(true);
       expect(desc.capabilities.reasoning).toBe(false);
       expect(desc.capabilities.coding).toBe(false);
-      expect(desc.capabilities.supportsThai).toBe(false);
-      expect(desc.capabilities.supportsEnglish).toBe(false);
+      expect(desc.capabilities.supportsThai).toBe(true);
+      expect(desc.capabilities.supportsEnglish).toBe(true);
       // Pre-M5 Safety invariant: NO autonomous tool execution authority
       expect(desc.capabilities.toolUse).toBe(false);
     });
@@ -238,7 +238,7 @@ describe('OllamaBrainProvider (F1.5-C1.1 Local Provider Qualification & Catalog 
       };
 
       const mockFetch = vi.fn().mockResolvedValue(createJsonResponse(mockTags, 200));
-      const provider = new OllamaBrainProvider({ fetchFn: mockFetch });
+      const provider = new OllamaBrainProvider({ fetchFn: mockFetch, qualifications: [] });
 
       const catalog = await provider.getCatalog();
       expect(() => ModelCatalogSnapshotSchema.parse(catalog)).not.toThrow();

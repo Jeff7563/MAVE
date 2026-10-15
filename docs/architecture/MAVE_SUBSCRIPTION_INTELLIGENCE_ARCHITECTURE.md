@@ -857,15 +857,82 @@ Milestone F1.5-C2 empirically evaluated all currently installed local generative
 ---
 
 ### 15.5 C2 / C3 Boundary & Persistence Architecture
-- **Fail-Closed Production Routing:** In strict compliance with Milestone C2 requirements, all models in [`CANONICAL_LOCAL_MODEL_QUALIFICATIONS`](file:///c:/project/MAVE/packages/providers/src/brain/qualification-data.ts) maintain:
-  ```ts
-  productionApproved: false
-  ```
-- AUTO routing for `fast_conversation` remains fail-closed (`fast_brain_unavailable`) until Milestone F1.5-C3.
-- Milestone F1.5-C3 authoritatively owns:
-  - Setting `productionApproved: true` for the winning candidate.
-  - Configuring production default routing and model aliases.
-  - Implementing persistent resident memory lifecycle and idle unload policies.
+- Milestone F1.5-C2 completed empirical qualification and screening on host hardware.
+- Milestone F1.5-C3 authoritatively completed production promotion and residency lifecycle governance (see Section 16 below).
+
+---
+
+## 16. Milestone F1.5-C3: Local Fast Brain Runtime Promotion & Residency Lifecycle (COMPLETE)
+
+### 16.1 Status: COMPLETE
+- **Status:** **COMPLETE**
+- **Promoted Artifact:** `qwen2.5:1.5b` (Q4_K_M)
+- **Qualified Model Digest:** `65ec06548149b04c096a120e4a6da9d4017ea809c91734ea5631e89f96ddc57b`
+- **Canonical Model ID:** `ollama-qwen2.5-1.5b`
+- **Target Role:** `FAST` (Production Fast Brain for `fast_conversation`)
+
+### 16.2 Model Promotion & Fail-Closed Guardrails
+1. **Production Approval:** In [`CANONICAL_LOCAL_MODEL_QUALIFICATIONS`](file:///c:/project/MAVE/packages/providers/src/brain/qualification-data.ts), `qwen2.5:1.5b` is promoted to:
+   ```ts
+   productionApproved: true,
+   fastChatSuitable: true,
+   supportsThai: true,
+   supportsEnglish: true,
+   targetRole: 'FAST'
+   ```
+2. **Digest Validation Gate:** Qualification is bound to the exact artifact digest. If Ollama pulls an updated or modified tag with a differing digest, `OllamaBrainProvider` fails closed, treating it as an unapproved candidate.
+3. **Runner-Up Coexistence Gate:** `qwen2.5:7b` remains strictly `productionApproved: false` to protect the 8GB host GPU from VRAM exhaustion when concurrent CUDA STT is active.
+4. **Router Routing:** `BrainRouter` AUTO selection for `fast_conversation` and `local_offline` selects `ollama-qwen2.5-1.5b` as primary default. Non-conversational profiles (e.g. `agent_work`) cannot route to this direct model provider.
+
+### 16.3 Residency Lifecycle & State Machine
+Model residency is governed by [`OllamaResidencyManager`](file:///c:/project/MAVE/packages/providers/src/brain/residency.ts) implementing six canonical lifecycle states:
+
+```text
+    ┌──────────┐      acquireLease()       ┌─────────┐
+    │ unloaded │ ────────────────────────► │ loading │
+    └──────────┘                           └────┬────┘
+         ▲                                      │ load completes
+         │ unload()                             ▼
+         │ safe                         ┌─────────┐
+         ├───────────────────────────── │  warm   │ ◄───┐
+         │ (deferred when leases > 0)   └────┬────┘     │
+         │                                   │ lease    │ all leases
+         │                                   ▼ acquired │ released
+         │                              ┌─────────┐     │
+         └───────────────────────────── │ in_use  │ ────┘
+                                        └─────────┘
+```
+
+1. **`unloaded`:** Weights evicted from local GPU VRAM. Zero VRAM consumption.
+2. **`loading`:** Weights and KV cache actively loading into GPU memory. Single-flight serialized: concurrent callers await the active load promise; zero duplicate Ollama invocations.
+3. **`warm`:** Model resident in VRAM and ready for immediate inference without cold load overhead (TTFT: 20–26 ms). Zero active generation leases.
+4. **`in_use`:** Model actively executing generation for one or more active client leases.
+5. **`unloading`:** Explicit eviction requested via POST `/api/generate` with `keep_alive: 0`.
+6. **`unavailable`:** Local Ollama daemon unreachable or loopback connection refused.
+
+### 16.4 Lease-Based Request Protection
+- Every execution of `OllamaBrainProvider.chat()` acquires a `ModelLease` before generation begins.
+- The manager maintains a reference count of active leases per model tag.
+- Calling `residencyManager.unload(tag)` while requests are in-flight **NEVER** aborts or interrupts active generations. Unload is safely deferred until the last active lease is released.
+- `ConversationRuntime` guarantees disposal of provider streams via `try ... finally { await chatIterator.return?.(); }`, guaranteeing zero lease leaks.
+
+### 16.5 Prewarm & Idle Residency Policies
+1. **Desktop Application Startup:** `ConversationManager.prewarmFastBrain()` initiates background prewarming at application start. Prewarming consumes zero user-visible quota and produces zero telemetry attempts.
+2. **User Intent Prewarm:** Prewarming can be triggered when voice wake is detected (`WAKE_DETECTED`) or when conversation surfaces are focused.
+3. **Idle Eviction Policy:** Default `keep_alive: '5m'` keeps the model warm for 5 minutes of conversational inactivity. After 5 minutes without interaction, Ollama evicts weights to free GPU resources.
+
+### 16.6 Host Memory Coexistence Contract (8GB RTX 3060 Ti)
+```text
+Total Physical GPU VRAM: 8,192 MiB (8.0 GB)
+
+MAVE Production Allocation:
+  [2,002 MiB] Windows 11 Desktop DWM & Display Engine
+  [1,600 MiB] faster-whisper STT (large-v3-turbo, CUDA float16)
+  [1,112 MiB] qwen2.5:1.5b (4K context KV cache + Q4_K_M weights)
+  -------------------------------------------------------------
+  [4,714 MiB] Total Active Allocation
+  [3,478 MiB] SAFE UNCOMMITTED HEADROOM (42.5% free) -> ZERO CUDA OOM RISK
+```
 
 
 

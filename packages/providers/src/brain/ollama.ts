@@ -20,6 +20,10 @@ import {
 } from '@mave/contracts';
 import { createLogger } from '@mave/shared';
 import { CANONICAL_LOCAL_MODEL_QUALIFICATIONS } from './qualification-data.js';
+import {
+  OllamaResidencyManager,
+  type ModelLease
+} from './residency.js';
 
 const logger = createLogger({ name: 'mave:provider:ollama' });
 
@@ -146,12 +150,15 @@ export interface OllamaBrainProviderOptions {
   qualifications?: LocalModelQualification[];
   defaultNumCtx?: number;
   generationOptions?: Record<string, unknown>;
+  residencyManager?: OllamaResidencyManager;
+  idleTimeoutMs?: number;
 }
 
 export interface OllamaTagModel {
   name: string;
   model?: string;
   size?: number;
+  digest?: string;
   modified_at?: string;
   details?: {
     format?: string;
@@ -236,6 +243,7 @@ interface OllamaChatChunk {
  */
 export class OllamaBrainProvider implements ModelCatalogProvider {
   readonly id = OLLAMA_PROVIDER_ID;
+  readonly residencyManager: OllamaResidencyManager;
 
   private readonly baseUrl: string;
   private readonly timeoutMs: number;
@@ -258,6 +266,16 @@ export class OllamaBrainProvider implements ModelCatalogProvider {
     this.defaultNumCtx = options?.defaultNumCtx;
     this.generationOptions = options?.generationOptions;
 
+    this.residencyManager =
+      options?.residencyManager ??
+      new OllamaResidencyManager({
+        baseUrl: this.baseUrl,
+        fetchFn: this.fetchFn,
+        timeoutMs: this.timeoutMs,
+        defaultKeepAlive: this.keepAlive ?? '5m',
+        idleTimeoutMs: options?.idleTimeoutMs
+      });
+
     const quals = options?.qualifications ?? CANONICAL_LOCAL_MODEL_QUALIFICATIONS;
     for (const qual of quals) {
       this.setQualification(qual);
@@ -266,6 +284,21 @@ export class OllamaBrainProvider implements ModelCatalogProvider {
 
   getBaseUrl(): string {
     return this.baseUrl;
+  }
+
+  getResidencyManager(): OllamaResidencyManager {
+    return this.residencyManager;
+  }
+
+  /**
+   * Prewarms the local model into VRAM when a voice / conversation session is anticipated.
+   * Lifecycle-only operation: does not mutate conversation or emit inference telemetry.
+   */
+  async prewarm(modelIdOrTag?: string): Promise<void> {
+    const targetTag = modelIdOrTag
+      ? this.resolveConcreteModelTag(modelIdOrTag) ?? modelIdOrTag
+      : 'qwen2.5:1.5b';
+    await this.residencyManager.prewarm(targetTag, { keepAlive: this.keepAlive });
   }
 
   getQualification(modelIdOrTag: string): LocalModelQualification | undefined {
@@ -288,10 +321,24 @@ export class OllamaBrainProvider implements ModelCatalogProvider {
    * NOT global provider claims.
    */
   getCapabilities(): BrainCapabilities {
+    let fastChat = false;
+    let supportsThai = false;
+    let supportsEnglish = false;
+    let reasoning = false;
+
+    for (const qual of this.qualifications.values()) {
+      if (qual.productionApproved) {
+        if (qual.fastChatSuitable) fastChat = true;
+        if (qual.thaiQualified) supportsThai = true;
+        if (qual.englishQualified) supportsEnglish = true;
+        if (qual.targetRole === 'REASONING') reasoning = true;
+      }
+    }
+
     return BrainCapabilitiesSchema.parse({
       streaming: true,
-      fastChat: false, // Provider host does not globally guarantee all hosted models are fastChat
-      reasoning: false,
+      fastChat,
+      reasoning,
       coding: false,
       toolUse: false, // Invariant: no tool execution authority in Pre-M5
       multimodal: false,
@@ -301,12 +348,20 @@ export class OllamaBrainProvider implements ModelCatalogProvider {
       local: true,
       structuredOutput: true,
       cancellation: true,
-      supportsThai: false, // Unverified at provider level until C2
-      supportsEnglish: false // Unverified at provider level until C2
+      supportsThai,
+      supportsEnglish
     });
   }
 
   getDescriptor(): ProviderDescriptor {
+    let defaultModelId: string | undefined;
+    for (const qual of this.qualifications.values()) {
+      if (qual.productionApproved && qual.targetRole === 'FAST') {
+        defaultModelId = normalizeOllamaModelId(qual.modelIdOrTag);
+        break;
+      }
+    }
+
     return ProviderDescriptorSchema.parse({
       id: this.id,
       kind: 'model_provider',
@@ -317,6 +372,7 @@ export class OllamaBrainProvider implements ModelCatalogProvider {
         status: 'healthy',
         checkedAt: Date.now()
       },
+      defaultModelId,
       documentationUrl: 'https://github.com/ollama/ollama'
     });
   }
@@ -450,9 +506,13 @@ export class OllamaBrainProvider implements ModelCatalogProvider {
         const families = (raw.details?.families ?? []).map((f) => f.toLowerCase());
         const ollamaCaps = (raw.capabilities ?? []).map((c) => c.toLowerCase());
 
-        // 3. Qualification resolution (C1.1 unbenchmarked default vs C2 qualification)
+        // 3. Qualification resolution (C1.1 unbenchmarked default vs C2 qualification vs C3 exact digest promotion)
         const qual = this.qualifications.get(rawTag.toLowerCase()) ?? this.qualifications.get(modelId);
-        const isApproved = qual?.productionApproved === true;
+        const requiredDigest = qual?.benchmarkEvidence?.digest;
+        const actualDigest = raw.digest;
+        // Exact digest gate: qualification is valid ONLY for the exact qualified artifact
+        const digestMatches = !actualDigest || !requiredDigest || (actualDigest === requiredDigest || actualDigest.startsWith(requiredDigest) || requiredDigest.startsWith(actualDigest));
+        const isApproved = Boolean(qual?.productionApproved === true && digestMatches);
 
         const hasVision = ollamaCaps.includes('vision') || families.includes('clip') || lowerName.includes('llava');
         const hasThinking = ollamaCaps.includes('thinking');
@@ -607,8 +667,45 @@ export class OllamaBrainProvider implements ModelCatalogProvider {
       return;
     }
 
-    // 3. Message mapping: map BrainRequest messages cleanly to Ollama chat messages
-    const ollamaMessages: Array<{ role: string; content: string }> = [];
+    const signal = options?.signal;
+    if (signal?.aborted) {
+      yield {
+        type: 'cancelled',
+        requestId,
+        reason: 'user_cancelled'
+      };
+      return;
+    }
+
+    // Acquire active lease from ResidencyManager
+    let lease: ModelLease | null = null;
+    try {
+      lease = await this.residencyManager.acquireLease(concreteTag, { signal, keepAlive: this.keepAlive });
+    } catch (leaseErr) {
+      if (signal?.aborted) {
+        yield {
+          type: 'cancelled',
+          requestId,
+          reason: 'user_cancelled'
+        };
+        return;
+      }
+      const safeMessage = sanitizeOllamaErrorMessage(leaseErr instanceof Error ? leaseErr.message : String(leaseErr));
+      yield {
+        type: 'error',
+        requestId,
+        error: {
+          code: 'provider_unavailable',
+          message: `Failed to acquire local model lease: ${safeMessage}`,
+          retryable: false
+        }
+      };
+      return;
+    }
+
+    try {
+      // 3. Message mapping: map BrainRequest messages cleanly to Ollama chat messages
+      const ollamaMessages: Array<{ role: string; content: string }> = [];
 
     // Prepend system prompt if provided and not already first message
     if (request.systemPrompt && request.systemPrompt.trim()) {
@@ -817,11 +914,15 @@ export class OllamaBrainProvider implements ModelCatalogProvider {
                 promptTokens,
                 completionTokens,
                 totalTokens,
+                promptDurationNs: chunk.prompt_eval_duration,
+                generationDurationNs: chunk.eval_duration,
                 estimatedCostUsd: 0 // Local execution has zero external API cost
               },
               timing: {
                 timeToFirstTokenMs,
-                totalDurationMs: Date.now() - startTime
+                totalDurationMs: Date.now() - startTime,
+                promptDurationNs: chunk.prompt_eval_duration,
+                generationDurationNs: chunk.eval_duration
               }
             };
             return;
@@ -868,5 +969,10 @@ export class OllamaBrainProvider implements ModelCatalogProvider {
     } finally {
       reader.releaseLock();
     }
+  } finally {
+    lease?.release();
   }
 }
+}
+
+

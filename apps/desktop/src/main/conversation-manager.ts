@@ -257,6 +257,18 @@ export class ConversationManager {
     return this.ollamaProvider;
   }
 
+  /**
+   * Prewarms the local Fast Brain into VRAM when a voice / conversation session is anticipated.
+   * Clean runtime API for C4 integration.
+   */
+  async prewarmFastBrain(modelIdOrTag?: string): Promise<void> {
+    try {
+      await this.ollamaProvider.prewarm(modelIdOrTag);
+    } catch (err) {
+      logger.warn({ err }, 'Fast brain prewarm ignored or failed gracefully');
+    }
+  }
+
   getSessionManager(): SessionManager {
     return this.sessionManager;
   }

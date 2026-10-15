@@ -300,13 +300,17 @@ export const GenerationUsageSchema = z.object({
   promptTokens: z.number().nonnegative().optional(),
   completionTokens: z.number().nonnegative().optional(),
   totalTokens: z.number().nonnegative().optional(),
-  estimatedCostUsd: z.number().nonnegative().optional()
+  estimatedCostUsd: z.number().nonnegative().optional(),
+  promptDurationNs: z.number().nonnegative().optional(),
+  generationDurationNs: z.number().nonnegative().optional()
 });
 export type GenerationUsage = z.infer<typeof GenerationUsageSchema>;
 
 export const GenerationTimingSchema = z.object({
   timeToFirstTokenMs: z.number().nonnegative().optional(),
-  totalDurationMs: z.number().nonnegative().optional()
+  totalDurationMs: z.number().nonnegative().optional(),
+  promptDurationNs: z.number().nonnegative().optional(),
+  generationDurationNs: z.number().nonnegative().optional()
 });
 export type GenerationTiming = z.infer<typeof GenerationTimingSchema>;
 
@@ -347,7 +351,9 @@ export const BrainUsageSchema = z.object({
   promptTokens: z.number().nonnegative().optional(),
   completionTokens: z.number().nonnegative().optional(),
   totalTokens: z.number().nonnegative().optional(),
-  estimatedCostUsd: z.number().nonnegative().optional()
+  estimatedCostUsd: z.number().nonnegative().optional(),
+  promptDurationNs: z.number().nonnegative().optional(),
+  generationDurationNs: z.number().nonnegative().optional()
 });
 export type BrainUsage = z.infer<typeof BrainUsageSchema>;
 
