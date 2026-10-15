@@ -1,6 +1,12 @@
 /* ==========================================================================
    MAVE UI V2 — Semantic Design Tokens & Motion Foundation
-   Track: U0 Adaptive Surface Foundation
+   Track: U1 Presence Surface Identity
+ *
+   IMPORTANT NOTICE:
+   Numeric values (dimensions, colors, radii, glow intensities, animation durations)
+   in this file are DEVELOPER PROTOTYPE / LAB VALUES ONLY and must not be treated
+   as frozen production specifications. Final design system tokens will be
+   established in the dedicated UI Redesign pass.
    ========================================================================== */
 
 :root {
@@ -9,6 +15,21 @@
   --mave-v2-surface-active: rgba(17, 24, 39, 0.96);
   --mave-v2-surface-elevated: rgba(26, 34, 48, 0.94);
   --mave-v2-surface-overlay: rgba(8, 11, 16, 0.85);
+
+  /* Presence Specific Semantic Tokens */
+  --mave-v2-presence-bg: rgba(13, 17, 23, 0.94);
+  --mave-v2-presence-border: rgba(255, 255, 255, 0.08);
+  --mave-v2-presence-border-listening: rgba(56, 189, 248, 0.40);
+  --mave-v2-presence-border-thinking: rgba(168, 85, 247, 0.35);
+  --mave-v2-presence-border-speaking: rgba(139, 92, 246, 0.40);
+  --mave-v2-presence-border-error: rgba(239, 68, 68, 0.40);
+
+  /* Presence Glow Rules (Strict: Zero glow in Idle, controlled in Active) */
+  --mave-v2-presence-glow-resting: none;
+  --mave-v2-presence-glow-listening: 0 0 14px -2px rgba(56, 189, 248, 0.28);
+  --mave-v2-presence-glow-thinking: 0 0 14px -2px rgba(168, 85, 247, 0.25);
+  --mave-v2-presence-glow-speaking: 0 0 14px -2px rgba(139, 92, 246, 0.28);
+  --mave-v2-presence-glow-error: 0 0 10px -2px rgba(239, 68, 68, 0.22);
 
   /* Borders & Dividers */
   --mave-v2-border-subtle: rgba(255, 255, 255, 0.08);
@@ -95,6 +116,32 @@
   }
   100% {
     background-position: 200% 0;
+  }
+}
+
+@keyframes mave-v2-wake-pulse {
+  0% {
+    transform: scale(0.96);
+    opacity: 0.5;
+  }
+  50% {
+    transform: scale(1.08);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 0.9;
+  }
+}
+
+@keyframes mave-v2-restrained-thinking {
+  0%, 100% {
+    opacity: 0.5;
+    transform: scale(0.98);
+  }
+  50% {
+    opacity: 0.9;
+    transform: scale(1.02);
   }
 }
 

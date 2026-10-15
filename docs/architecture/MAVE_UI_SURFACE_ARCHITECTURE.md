@@ -156,6 +156,99 @@ Exact runtime mapping may remain implementation-specific, but the UI must only e
 
 ---
 
+## 2.1 Presence Surface Interaction Contract (U1 Lock)
+
+> [!IMPORTANT]
+> **Prototype Values Disclaimer**
+> All numeric values (dimensions such as 38px height, color hex codes `#38bdf8`, glow radii, animation durations) implemented in U0/U1 are **developer prototype / lab values only** and must not be treated as a frozen production specification. Final design tokens and palettes will be calibrated during the dedicated UI Redesign pass.
+
+The Presence Surface is MAVE's primary structural interaction identity. It is not a mini-dashboard: it contains no provider selectors, mode pickers, tool buttons, memory panels, or persistent settings. Its singular purpose is **identity, state feedback, voice interaction, and natural entry into Conversation**.
+
+### 1. Canonical State Lifecycle & Visual Structure
+
+```mermaid
+stateDiagram-v2
+    [*] --> Idle
+    Idle --> Waking : Wake Word / Click
+    Waking --> Listening : Mic Active
+    Listening --> Thinking : Speech Ended
+    Thinking --> Speaking : Response Ready
+    Speaking --> Idle : Output Finished
+
+    Listening --> Idle : Timeout / Stop
+    Thinking --> Idle : Cancel Request
+    Speaking --> Listening : Barge-in (User Speaks)
+    Thinking --> Error : Failure
+    Error --> Idle : Dismiss / Timeout
+    Error --> Thinking : Retry
+```
+
+| State | Canonical Capsule Structure | Contextual Controls | Visual Energy / Glow |
+| :--- | :--- | :--- | :--- |
+| **IDLE** | `[ • MAVE ]` or `[ MAVE ]` | Expand (`↗`) on hover/focus | **Strict zero glow**; resting calm |
+| **WAKING** | `[ • MAVE \| Waking… ]` | None (rapid transition) | Soft border ignition pulse ("I heard you") |
+| **LISTENING** | `[ • MAVE \| reactive waveform \| Listening… ]` | Stop Listening (`⏹`) | Cyan active glow, audio-reactive RMS bars |
+| **THINKING** | `[ • MAVE \| restrained arc \| Thinking… ]` | Cancel Request (`✕`) | Purple restrained glow; gentle cognitive arc |
+| **SPEAKING** | `[ • MAVE \| voice wave \| Speaking… ]` | Stop Speaking (`⏹`) | Purple output wave; quick response bubble above |
+| **ERROR** | `[ • MAVE \| alert dot \| Offline / Unavailable ]` | Retry (`↻`) or Dismiss (`✕`) | Restrained red/amber accent; **no screaming red flood** |
+
+### 2. Idle State Minimality
+- In normal user-facing idle mode, the wordmark **MAVE** and the subtle Presence Mark are sufficient.
+- The UI **must not** render status labels like `"IDLE"`, persistent animated waveform bars, large Orbs, or multiple buttons while resting.
+- Hover or keyboard focus contextually surfaces the Expand (`↗`) action.
+
+### 3. Wordmark vs Presence Mark
+- **Wordmark (`MAVE`)**: Primary product identity. Emphasized in resting idle state.
+- **Presence Mark (`AdaptivePresenceMark`)**: Visual state and cognitive activity indicator. Activates dynamically during waking, listening, thinking, and speaking.
+- **Scale Hierarchy**: As content density increases (from Presence $\to$ Conversation $\to$ Workspace), the Presence Mark scales down from `hero` ($64\text{px}$) to `compact` ($28\text{px}$) to `status` ($18\text{px}$).
+
+### 4. Audio RMS Mapping & UI-Level Smoothing
+- Raw microphone RMS is processed through an ergonomic UI smoothing filter:
+  1. **Noise Floor Gate**: Levels below $0.03$ are clamped to $0$ to guarantee calm stillness during ambient silence.
+  2. **Perceptual Power Curve**: Speech levels ($0.05 - 0.45$) are normalized via $\text{RMS}^{0.75}$ to elevate natural quiet speech into visible bar dynamics.
+  3. **Ceiling Clamping**: Levels exceeding $1.0$ are strictly clamped to avoid SVG or layout blowout.
+
+### 5. Restrained Thinking Invariant
+- **Thinking animation $\neq$ progress claim**: Thinking state represents cognitive processing; it must **never** fabricate fictional progress substeps ("Analyzing cultural context...", "Synthesizing answer...").
+- Animations remain restrained (slow $3.5\text{s}$ subtle arc sweep, low visual noise) to avoid game-like or sci-fi "loading spinner" fatigue.
+
+### 6. Barge-in Visual Semantics
+- When the user interrupts MAVE while speaking:
+  $$\text{Speaking} \xrightarrow{\text{Interruption Detected}} \text{Voice Output Terminates Visually} \xrightarrow{\text{Immediate}} \text{Listening State Active}$$
+- Transition latency must feel immediate and responsive without animation locks.
+
+### 7. Office Mode (Silent Presence)
+- Designed for quiet workplace environments where audio TTS is disabled.
+- Surface displays a compact `Silent` badge in Idle.
+- Speech output is suppressed; state renders as `Silent Output…` and immediately surfaces the Quick Response bubble.
+
+### 8. Quick Response Bubble vs Conversation Expansion Rules
+A floating Quick Response bubble appears above the Presence capsule **only** when content fits within single-answer visual parameters:
+
+```text
+Evaluate Expansion Eligibility:
+  ├─ Contains rich cards (sources, video, tasks, diffs, approvals) → EXPAND to Conversation
+  ├─ Contains interactive decision (M5 Approval request)          → EXPAND to Conversation
+  ├─ Contains multi-line code snippet (> 3 lines)                  → EXPAND to Conversation
+  ├─ Exceeds single quick-response capacity (> 240 chars)          → EXPAND to Conversation
+  ├─ Part of ongoing multi-turn conversational history             → EXPAND to Conversation
+  └─ Single compact confirmation / translation / status            → FIT in Quick Response Bubble
+```
+
+### 9. Contextual Control Disclosure & Unambiguous Semantics
+
+| Control Action | State Active | Aria Label | Visual Icon | Purpose |
+| :--- | :--- | :--- | :---: | :--- |
+| `wake` | Idle | "Wake MAVE" | `•` | Activates listening mode |
+| `stop-listening` | Listening | "Stop listening" | `⏹` | Stops mic capture and returns to idle / submits |
+| `cancel-thinking`| Thinking | "Cancel thinking" | `✕` | Cancels active in-flight request |
+| `stop-speaking` | Speaking | "Stop speaking" | `⏹` | Stops voice playback (user interruption) |
+| `retry` | Error | "Retry request" | `↻` | Retries previous failed operation |
+| `dismiss` | Error | "Dismiss error" | `✕` | Dismisses error banner and resets to idle |
+| `expand` | Contextual | "Expand to Conversation" | `↗` | Transitions surface to Level 2 Conversation |
+
+---
+
 # 3. Presence Mark / Orb
 
 The MAVE Orb is a **Presence Mark**, not the main content area.

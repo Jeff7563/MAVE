@@ -1,5 +1,6 @@
 import React from 'react';
 import type { PresenceState, OrbSize } from '../types';
+import { smoothRms } from '../presence/presence-rules';
 
 export interface AdaptivePresenceMarkProps {
   state?: PresenceState;
@@ -20,12 +21,12 @@ const SIZE_MAP: Record<OrbSize, number> = {
  * AdaptivePresenceMark
  *
  * MAVE's visual identity mark. Adapts in size and motion across:
- * - Idle: calm breathing core
- * - Waking: active pulse
- * - Listening: audio-reactive acoustic waveform
- * - Thinking: purple orbital intelligence loop
- * - Speaking: cyan/blue vocal output waveform
- * - Error: red restrained alert state
+ * - Idle: quiet, calm resting core (zero outer glow)
+ * - Waking: fast intentional pulse ("I heard you")
+ * - Listening: audio-reactive acoustic waveform reacting to smoothed RMS
+ * - Thinking: restrained subtle cognitive loop (low visual noise, no fake progress)
+ * - Speaking: vocal playback wave
+ * - Error: calm restrained alert indicator
  */
 export const AdaptivePresenceMark: React.FC<AdaptivePresenceMarkProps> = ({
   state = 'idle',
@@ -35,18 +36,13 @@ export const AdaptivePresenceMark: React.FC<AdaptivePresenceMarkProps> = ({
   onClick
 }) => {
   const pixelSize = SIZE_MAP[size];
-  const boundedLevel = Math.max(0, Math.min(1, audioLevel));
+  const smoothedAudio = smoothRms(audioLevel);
 
   // Compute dynamic heights for acoustic bars in listening & speaking modes
-  const bar1Scale = state === 'listening' || state === 'speaking'
-    ? 0.5 + boundedLevel * 0.5
-    : 0.6;
-  const bar2Scale = state === 'listening' || state === 'speaking'
-    ? 0.7 + boundedLevel * 0.7
-    : 0.9;
-  const bar3Scale = state === 'listening' || state === 'speaking'
-    ? 0.55 + boundedLevel * 0.55
-    : 0.65;
+  const isAudioActive = state === 'listening' || state === 'speaking';
+  const bar1Scale = isAudioActive ? 0.35 + smoothedAudio * 0.65 : 0.45;
+  const bar2Scale = isAudioActive ? 0.45 + smoothedAudio * 0.75 : 0.60;
+  const bar3Scale = isAudioActive ? 0.35 + smoothedAudio * 0.65 : 0.45;
 
   // Semantic color per state
   const stateColor =
@@ -56,6 +52,8 @@ export const AdaptivePresenceMark: React.FC<AdaptivePresenceMarkProps> = ({
       ? 'var(--mave-v2-accent-error)'
       : state === 'listening' || state === 'waking'
       ? 'var(--mave-v2-accent-listening)'
+      : state === 'speaking'
+      ? 'var(--mave-v2-accent-thinking)'
       : 'var(--mave-v2-accent-retrieval)';
 
   return (
@@ -94,35 +92,37 @@ export const AdaptivePresenceMark: React.FC<AdaptivePresenceMarkProps> = ({
           </radialGradient>
         </defs>
 
-        {/* Outer ambient glow halo (only active when live) */}
+        {/* Outer ambient glow halo (only active when live, quiet in idle) */}
         {state !== 'idle' && (
           <circle
             cx="20"
             cy="20"
             r="19"
             fill={`url(#orbGrad-${size}-${state})`}
+            opacity={state === 'thinking' ? 0.35 : 0.75}
             style={{
               animation:
-                state === 'thinking'
-                  ? 'mave-v2-orbit 2s linear infinite'
-                  : state === 'waking'
-                  ? 'mave-v2-pulse-ring 1.5s ease-out infinite'
+                state === 'waking'
+                  ? 'mave-v2-wake-pulse 0.5s ease-out'
+                  : state === 'thinking'
+                  ? 'mave-v2-restrained-thinking 2.5s ease-in-out infinite'
                   : undefined
             }}
           />
         )}
 
-        {/* Orbit ring for thinking state */}
+        {/* Restrained cognitive arc for thinking state (low visual noise, no fake progress) */}
         {state === 'thinking' && (
           <circle
             cx="20"
             cy="20"
             r="16"
             stroke="var(--mave-v2-accent-thinking)"
-            strokeWidth="1.5"
-            strokeDasharray="14 12"
+            strokeWidth="1.2"
+            strokeDasharray="8 22"
             strokeLinecap="round"
-            style={{ animation: 'mave-v2-orbit 2.2s linear infinite', transformOrigin: '20px 20px' }}
+            opacity="0.85"
+            style={{ animation: 'mave-v2-orbit 3.5s linear infinite', transformOrigin: '20px 20px' }}
           />
         )}
 

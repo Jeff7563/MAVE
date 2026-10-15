@@ -15,10 +15,37 @@ export type PresenceState =
 
 export type OrbSize = 'hero' | 'medium' | 'compact' | 'status';
 
+export type PresenceControlAction =
+  | 'wake'
+  | 'stop-listening'
+  | 'cancel-thinking'
+  | 'stop-speaking'
+  | 'retry'
+  | 'dismiss'
+  | 'expand';
+
+export interface OfficeModeState {
+  enabled: boolean;
+  silentListening?: boolean;
+}
+
+export interface ExpansionEligibility {
+  shouldExpand: boolean;
+  reason: string;
+  triggerType:
+    | 'single_compact'
+    | 'rich_cards'
+    | 'long_text'
+    | 'code_snippet'
+    | 'task_workflow'
+    | 'interactive_approval';
+}
+
 export interface QuickResponseData {
   text: string;
   sourceLabel?: string;
   timestamp?: number;
+  canExpand?: boolean;
 }
 
 export type CardType =

@@ -4,6 +4,7 @@ import { MOCK_SCENARIOS, type MockScenario } from '../mocks/mock-scenarios';
 import { PresenceSurface } from '../presence/PresenceSurface';
 import { ConversationShell } from '../conversation/ConversationShell';
 import { WorkspaceShell } from '../workspace/WorkspaceShell';
+import { evaluateExpansionEligibility } from '../presence/presence-rules';
 import './MaveUiLab.css';
 import '../tokens.css';
 
@@ -32,6 +33,77 @@ export const MaveUiLab: React.FC = () => {
   const [snapshot, setSnapshot] = useState<UiV2Snapshot>(MOCK_SCENARIOS[0]!.snapshot);
   const [viewportPreset, setViewportPreset] = useState<ViewportPreset>('fill');
   const [audioLevelOverride, setAudioLevelOverride] = useState<number>(0);
+  const [officeMode, setOfficeMode] = useState<boolean>(false);
+  const [reducedMotion, setReducedMotion] = useState<boolean>(false);
+  const [isFlowRunning, setIsFlowRunning] = useState<boolean>(false);
+  const [flowStep, setFlowStep] = useState<string>('');
+
+  // Automatic Lifecycle Demo: idle -> waking -> listening -> thinking -> speaking -> idle
+  const handlePlayLifecycle = () => {
+    if (isFlowRunning) return;
+    setIsFlowRunning(true);
+    setFlowStep('Waking…');
+    setSnapshot((prev) => ({
+      ...prev,
+      level: 'presence',
+      presence: { ...prev.presence, state: 'waking', audioLevel: 0.1, quickResponse: undefined }
+    }));
+
+    setTimeout(() => {
+      setFlowStep('Listening…');
+      setSnapshot((prev) => ({
+        ...prev,
+        presence: { ...prev.presence, state: 'listening', audioLevel: 0.7 }
+      }));
+
+      setTimeout(() => {
+        setFlowStep('Thinking…');
+        setSnapshot((prev) => ({
+          ...prev,
+          presence: { ...prev.presence, state: 'thinking', audioLevel: 0 }
+        }));
+
+        setTimeout(() => {
+          setFlowStep('Speaking…');
+          setSnapshot((prev) => ({
+            ...prev,
+            presence: {
+              ...prev.presence,
+              state: 'speaking',
+              audioLevel: 0.5,
+              quickResponse: {
+                text: 'In French, that’s “Bonjour”. It means “Hello”.',
+                sourceLabel: 'Local Fast Brain'
+              }
+            }
+          }));
+
+          setTimeout(() => {
+            setFlowStep('');
+            setIsFlowRunning(false);
+            setSnapshot((prev) => ({
+              ...prev,
+              presence: { ...prev.presence, state: 'idle', audioLevel: 0 }
+            }));
+          }, 2600);
+        }, 1600);
+      }, 2000);
+    }, 600);
+  };
+
+  // Immediate Barge-in transition: Interruption detected -> switch to listening instantly
+  const handleBargeIn = () => {
+    setSnapshot((prev) => ({
+      ...prev,
+      level: 'presence',
+      presence: {
+        ...prev.presence,
+        state: 'listening',
+        audioLevel: 0.85,
+        quickResponse: undefined
+      }
+    }));
+  };
 
   // Load a scenario
   const handleSelectScenario = (scenario: MockScenario) => {
@@ -67,6 +139,49 @@ export const MaveUiLab: React.FC = () => {
         state
       }
     }));
+  };
+
+  // Quick Response preset selector
+  const handleSetQuickResponsePreset = (type: 'none' | 'translation' | 'timer' | 'long') => {
+    if (type === 'none') {
+      setSnapshot((prev) => ({
+        ...prev,
+        presence: { ...prev.presence, quickResponse: undefined }
+      }));
+    } else if (type === 'translation') {
+      setSnapshot((prev) => ({
+        ...prev,
+        presence: {
+          ...prev.presence,
+          quickResponse: {
+            text: 'In French, that’s “Bonjour”. It means “Hello”.',
+            sourceLabel: 'Local Fast Brain'
+          }
+        }
+      }));
+    } else if (type === 'timer') {
+      setSnapshot((prev) => ({
+        ...prev,
+        presence: {
+          ...prev.presence,
+          quickResponse: {
+            text: 'Timer set for 15 minutes.',
+            sourceLabel: 'MAVE Clock'
+          }
+        }
+      }));
+    } else if (type === 'long') {
+      setSnapshot((prev) => ({
+        ...prev,
+        presence: {
+          ...prev.presence,
+          quickResponse: {
+            text: 'This is a long analytical explanation of quantum entanglement that exceeds single quick response capacity and would normally expand into Conversation surface.',
+            sourceLabel: 'Antigravity Research'
+          }
+        }
+      }));
+    }
   };
 
   // Mock message sending
@@ -242,11 +357,11 @@ export const MaveUiLab: React.FC = () => {
             />
           </div>
 
-          {/* Quick Presence State Selector */}
+          {/* Presence State Selector */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
             <div style={{ fontSize: '11px', color: '#94a3b8' }}>Presence State:</div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '4px' }}>
-              {(['idle', 'listening', 'thinking', 'speaking', 'waking', 'error'] as PresenceState[]).map((st) => (
+              {(['idle', 'waking', 'listening', 'thinking', 'speaking', 'error'] as PresenceState[]).map((st) => (
                 <button
                   key={st}
                   onClick={() => handleSetPresenceState(st)}
@@ -260,11 +375,134 @@ export const MaveUiLab: React.FC = () => {
                     cursor: 'pointer',
                     textTransform: 'capitalize'
                   }}
+                  data-testid={`btn-presence-state-${st}`}
                 >
                   {st}
                 </button>
               ))}
             </div>
+          </div>
+
+          {/* U1 Presence Lifecycle & Barge-in Demos */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', paddingTop: '4px', borderTop: '1px solid rgba(255, 255, 255, 0.06)' }}>
+            <div style={{ fontSize: '11px', fontWeight: 600, color: '#94a3b8' }}>
+              Presence Demos (U1):
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px' }}>
+              <button
+                onClick={handlePlayLifecycle}
+                disabled={isFlowRunning}
+                style={{
+                  padding: '5px',
+                  borderRadius: '4px',
+                  border: '1px solid var(--mave-v2-border-subtle)',
+                  background: isFlowRunning ? 'rgba(56, 189, 248, 0.3)' : 'rgba(56, 189, 248, 0.12)',
+                  color: '#38bdf8',
+                  fontSize: '10px',
+                  fontWeight: 600,
+                  cursor: isFlowRunning ? 'default' : 'pointer'
+                }}
+                data-testid="btn-play-flow"
+              >
+                {isFlowRunning ? flowStep || 'Playing…' : '▶ Play Flow'}
+              </button>
+              <button
+                onClick={handleBargeIn}
+                style={{
+                  padding: '5px',
+                  borderRadius: '4px',
+                  border: '1px solid var(--mave-v2-border-subtle)',
+                  background: 'rgba(239, 68, 68, 0.12)',
+                  color: '#f87171',
+                  fontSize: '10px',
+                  fontWeight: 600,
+                  cursor: 'pointer'
+                }}
+                title="Simulate user interrupting MAVE speech output"
+                data-testid="btn-barge-in"
+              >
+                ⚡ Barge-in
+              </button>
+            </div>
+          </div>
+
+          {/* Office Mode & Reduced Motion Toggles */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', paddingTop: '4px', borderTop: '1px solid rgba(255, 255, 255, 0.06)' }}>
+            <div style={{ fontSize: '11px', color: '#94a3b8' }}>Modes & Accessibility:</div>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px', color: '#cbd5e1', cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={officeMode}
+                  onChange={(e) => setOfficeMode(e.target.checked)}
+                  data-testid="checkbox-office-mode"
+                />
+                Office (Silent)
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px', color: '#cbd5e1', cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={reducedMotion}
+                  onChange={(e) => setReducedMotion(e.target.checked)}
+                  data-testid="checkbox-reduced-motion"
+                />
+                Reduced Motion
+              </label>
+            </div>
+          </div>
+
+          {/* Quick Response Preset Selector */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', paddingTop: '4px', borderTop: '1px solid rgba(255, 255, 255, 0.06)' }}>
+            <div style={{ fontSize: '11px', color: '#94a3b8' }}>Quick Response Bubble:</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '4px' }}>
+              <button
+                onClick={() => handleSetQuickResponsePreset('none')}
+                style={{ padding: '3px', borderRadius: '4px', border: '1px solid rgba(255, 255, 255, 0.08)', background: !snapshot.presence.quickResponse ? 'rgba(255,255,255,0.1)' : 'transparent', color: '#94a3b8', fontSize: '10px', cursor: 'pointer' }}
+              >
+                None
+              </button>
+              <button
+                onClick={() => handleSetQuickResponsePreset('translation')}
+                style={{ padding: '3px', borderRadius: '4px', border: '1px solid rgba(255, 255, 255, 0.08)', background: 'transparent', color: '#38bdf8', fontSize: '10px', cursor: 'pointer' }}
+              >
+                Translation
+              </button>
+              <button
+                onClick={() => handleSetQuickResponsePreset('timer')}
+                style={{ padding: '3px', borderRadius: '4px', border: '1px solid rgba(255, 255, 255, 0.08)', background: 'transparent', color: '#38bdf8', fontSize: '10px', cursor: 'pointer' }}
+              >
+                Confirmation
+              </button>
+              <button
+                onClick={() => handleSetQuickResponsePreset('long')}
+                style={{ padding: '3px', borderRadius: '4px', border: '1px solid rgba(255, 255, 255, 0.08)', background: 'transparent', color: '#f59e0b', fontSize: '10px', cursor: 'pointer' }}
+                title="Triggers expansion rule due to text length"
+              >
+                Long Payload
+              </button>
+            </div>
+            {/* Expansion Rule Evaluator Pill */}
+            {(() => {
+              const evalResult = evaluateExpansionEligibility({
+                text: snapshot.presence.quickResponse?.text,
+                cards: snapshot.level === 'presence' ? undefined : snapshot.conversation.cards
+              });
+              return (
+                <div
+                  style={{
+                    fontSize: '9px',
+                    color: evalResult.shouldExpand ? '#f59e0b' : '#38bdf8',
+                    background: evalResult.shouldExpand ? 'rgba(245, 158, 11, 0.1)' : 'rgba(56, 189, 248, 0.1)',
+                    padding: '3px 5px',
+                    borderRadius: '4px',
+                    lineHeight: 1.3
+                  }}
+                  data-testid="expansion-eval-result"
+                >
+                  Rule: {evalResult.reason}
+                </div>
+              );
+            })()}
           </div>
         </div>
       </aside>
@@ -315,7 +553,7 @@ export const MaveUiLab: React.FC = () => {
         </header>
 
         {/* Live Canvas Area */}
-        <div className="mave-ui-lab-canvas-area">
+        <div className={`mave-ui-lab-canvas-area ${reducedMotion ? 'mave-v2-reduced-motion-preview' : ''}`}>
           <div
             className="mave-ui-lab-viewport-frame"
             style={{
@@ -330,12 +568,19 @@ export const MaveUiLab: React.FC = () => {
                 state={snapshot.presence.state}
                 audioLevel={snapshot.presence.audioLevel}
                 quickResponse={snapshot.presence.quickResponse}
+                officeMode={officeMode}
                 onExpand={() => handleSetLevel('conversation')}
                 onWakeToggle={() =>
                   handleSetPresenceState(
                     snapshot.presence.state === 'idle' ? 'listening' : 'idle'
                   )
                 }
+                onStopListening={() => handleSetPresenceState('idle')}
+                onCancelThinking={() => handleSetPresenceState('idle')}
+                onStopSpeaking={() => handleSetPresenceState('idle')}
+                onRetryError={() => handleSetPresenceState('thinking')}
+                onDismissError={() => handleSetPresenceState('idle')}
+                onDismissQuickResponse={() => handleSetQuickResponsePreset('none')}
               />
             )}
 
