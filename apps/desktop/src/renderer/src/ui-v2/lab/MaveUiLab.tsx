@@ -52,6 +52,7 @@ export const MaveUiLab: React.FC = () => {
   const [sidecarPlacement, setSidecarPlacement] = useState<SidecarPlacement>('right');
   const [isPinned, setIsPinned] = useState<boolean>(false);
   const [simulatedBackdrop, setSimulatedBackdrop] = useState<'none' | 'vscode' | 'browser' | 'word'>('none');
+  const [selectedTrack, setSelectedTrack] = useState<string>('all');
 
   // Automatic Lifecycle Demo: idle -> waking -> listening -> thinking -> speaking -> idle
   const handlePlayLifecycle = () => {
@@ -284,6 +285,17 @@ export const MaveUiLab: React.FC = () => {
 
   const currentDimensions = VIEWPORT_DIMENSIONS[viewportPreset];
 
+  const filteredScenarios = MOCK_SCENARIOS.filter((sc) => {
+    if (selectedTrack === 'all') return true;
+    if (selectedTrack === 'presence') return sc.id.startsWith('u1_') || sc.category === 'presence' || sc.snapshot.level === 'presence';
+    if (selectedTrack === 'conversation') return sc.id.startsWith('u2_') || (sc.category === 'conversation' && !sc.id.startsWith('u3_') && !sc.id.startsWith('u4_'));
+    if (selectedTrack === 'cards') return sc.id.startsWith('u3_');
+    if (selectedTrack === 'sidecar') return sc.id.startsWith('u4_');
+    if (selectedTrack === 'workspace') return sc.id.startsWith('u5_') || (sc.category === 'workspace' && !sc.id.startsWith('u6_'));
+    if (selectedTrack === 'language') return sc.id.startsWith('u6_');
+    return true;
+  });
+
   return (
     <div className="mave-ui-lab-root" data-testid="mave-ui-lab-root">
       {/* 1. Left Sidebar: Scenarios and Live Controls */}
@@ -303,20 +315,76 @@ export const MaveUiLab: React.FC = () => {
                 borderRadius: '4px'
               }}
             >
-              U0 Prototype
+              U0–U6 CLOSED
             </span>
           </div>
-          <div style={{ fontSize: '11px', color: '#64748b' }}>
+          <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
             Adaptive Surface V2 Foundation Harness
+          </div>
+          <div
+            style={{
+              fontSize: '10px',
+              color: '#f59e0b',
+              background: 'rgba(245, 158, 11, 0.1)',
+              padding: '4px 8px',
+              borderRadius: '4px',
+              border: '1px solid rgba(245, 158, 11, 0.25)',
+              marginTop: '6px',
+              lineHeight: 1.4
+            }}
+            data-testid="ui-lab-safety-banner"
+          >
+            ⚠️ DEV UI LAB • Synthetic Prototype Data • No Real Providers / Audio Connected
           </div>
         </div>
 
-        {/* 12 One-Click Scenarios */}
+        {/* Track Filter Bar */}
+        <div
+          style={{
+            padding: '6px 8px',
+            borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: '4px'
+          }}
+          data-testid="track-filter-bar"
+        >
+          {[
+            { id: 'all', label: 'All' },
+            { id: 'presence', label: 'Presence' },
+            { id: 'conversation', label: 'Chat' },
+            { id: 'cards', label: 'Cards' },
+            { id: 'sidecar', label: 'Sidecar' },
+            { id: 'workspace', label: 'Workspace' },
+            { id: 'language', label: 'Language' }
+          ].map((trk) => (
+            <button
+              key={trk.id}
+              onClick={() => setSelectedTrack(trk.id)}
+              style={{
+                background: selectedTrack === trk.id ? 'var(--mave-v2-accent-listening)' : 'rgba(255, 255, 255, 0.05)',
+                color: selectedTrack === trk.id ? '#0f172a' : '#94a3b8',
+                border: '1px solid var(--mave-v2-border-subtle)',
+                borderRadius: '4px',
+                fontSize: '10px',
+                fontWeight: 600,
+                padding: '2px 6px',
+                cursor: 'pointer'
+              }}
+              data-testid={`btn-filter-track-${trk.id}`}
+            >
+              {trk.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Scenarios Catalog */}
         <div className="mave-ui-lab-scenario-list" data-testid="scenario-list">
-          <div style={{ fontSize: '10px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', padding: '4px 6px' }}>
-            Interactive Scenarios
+          <div style={{ fontSize: '10px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', padding: '4px 6px', display: 'flex', justifyContent: 'space-between' }}>
+            <span>Interactive Scenarios</span>
+            <span>({filteredScenarios.length})</span>
           </div>
-          {MOCK_SCENARIOS.map((sc) => {
+          {filteredScenarios.map((sc) => {
             const isSelected = sc.id === selectedScenarioId;
             return (
               <button

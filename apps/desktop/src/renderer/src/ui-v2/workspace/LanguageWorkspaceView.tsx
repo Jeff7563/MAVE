@@ -339,7 +339,7 @@ export const LanguageWorkspaceView: React.FC<LanguageWorkspaceViewProps> = ({
                   data-testid="btn-speaking-practice-toggle"
                 >
                   <span>🎤</span>
-                  <span>{isSpeakingMockActive ? 'Stop Practice (Mock)' : 'Speak Answer (Mock)'}</span>
+                  <span>{isSpeakingMockActive ? 'Stop Practice' : 'Speak Answer'}</span>
                 </button>
 
                 <button
@@ -359,7 +359,7 @@ export const LanguageWorkspaceView: React.FC<LanguageWorkspaceViewProps> = ({
                   data-testid="btn-listen-prompt-mock"
                 >
                   <span>🔊</span>
-                  <span>Listen Example (Mock)</span>
+                  <span>Listen Example</span>
                 </button>
               </div>
             )}

@@ -266,7 +266,7 @@ export const PronunciationGuideCard: React.FC<PronunciationGuideCardProps> = ({
             }}
             data-testid="btn-listen-example-mock"
           >
-            <span>🔊</span> Listen (Mock)
+            <span>🔊</span> Listen Example
           </button>
           <button
             onClick={() => onStartSpeakingPractice?.(targetPhrase)}
@@ -285,7 +285,7 @@ export const PronunciationGuideCard: React.FC<PronunciationGuideCardProps> = ({
             }}
             data-testid="btn-speak-practice-mock"
           >
-            <span>🎤</span> Practice Speaking (Mock)
+            <span>🎤</span> Practice Speaking
           </button>
         </div>
       )}
@@ -426,7 +426,7 @@ export const VocabularyPanel: React.FC<VocabularyPanelProps> = ({
                       data-testid={`btn-save-vocab-${item.id}`}
                       title="Save to session vocabulary (mock)"
                     >
-                      {item.isSavedMock ? '✓ Saved' : '+ Save (Mock)'}
+                      {item.isSavedMock ? '✓ Saved' : '+ Save'}
                     </button>
                   ) : item.isSavedMock ? (
                     <span
@@ -538,7 +538,7 @@ export const SessionSummaryCard: React.FC<SessionSummaryCardProps> = ({
             }}
             data-testid="btn-practice-again"
           >
-            Practice Again (Mock)
+            Practice Again
           </button>
         )}
       </div>

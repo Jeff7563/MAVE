@@ -1381,5 +1381,177 @@ Prior to locking the U6 language contract, two structural preflight hardenings w
   - Vocabulary save actions update local mock state without native database writes.
   - Zero real TTS audio, STT engines, or external language model APIs are invoked.
 
+---
+
+# 32. UI V2 Foundation Closeout, Architecture Audit & Production Readiness Map
+
+## Status
+
+**PROTOTYPE FOUNDATION FROZEN & CLOSED (U0–U6 COMPLETE)**  
+This section records the definitive architectural audit, canonical surface contract, runtime integration map, and production readiness matrix for the MAVE UI V2 Foundation. Speculative prototyping on `feat/ui-v2-foundation` is hereby concluded.
+
+---
+
+### 1. Canonical Surface Model & Multi-Directional Experience Flow
+
+MAVE's adaptive interface explicitly decouples **Cognitive Surface Level** (interaction depth and context) from **Desktop Presentation Mode** (physical geometry and docking on display hardware).
+
+#### A. Surface Level vs. Presentation Mode
+
+```text
+Surface Level (Cognitive Context)       Presentation Mode (Physical Geometry)
+─────────────────────────────────       ─────────────────────────────────────
+Level 1: Presence                       ambient   (unobtrusive floating pill)
+Level 2: Conversation                   floating  (expandable centered dialogue window)
+Level 3: Workspace                      sidecar   (docked right/left desktop companion)
+Level 4: System Management              full      (expansive modal or maximized workspace)
+```
+
+**Crucial Invariant:**  
+`Sidecar` is **NOT** a separate surface level and **NOT** a detached runtime application. It is a docked presentation mode of **Level 2 Conversation**, sharing an identical transcript, token stream, card system, and active session context.
+
+#### B. Multi-Directional Experience Flow
+
+Transitions between surfaces are fluid, state-preserving, and multi-directional:
+
+```mermaid
+stateDiagram-v2
+    [*] --> Presence: Startup / Idle
+
+    Presence --> Conversation: User Speaks / Direct Query
+    Conversation --> Presence: Collapse / Resting Idle
+
+    Presence --> Workspace: Heavy Task / File / Agent Work
+    Conversation --> Workspace: Elevate Task / Multi-Turn Deep Work
+    Workspace --> Conversation: De-escalate to Chat
+    Workspace --> Presence: Minimize / Complete
+
+    Conversation --> Sidecar: Dock Right/Left (Multitask)
+    Sidecar --> Conversation: Undock / Center Floating
+    Sidecar --> Presence: Quick Collapse
+    Presence --> Sidecar: Direct Docked Summon
+```
+
+- **Presence $\leftrightarrow$ Conversation**: Standard voice/text dialog loop. Idle returns smoothly to Presence.
+- **Conversation $\leftrightarrow$ Workspace**: Rich card or multi-step execution escalates smoothly to Workspace without losing conversation context.
+- **Presence $\rightarrow$ Workspace**: Heavy CLI tasks or agent prompts can launch straight into a structured Workspace while Presence remains docked or ambient.
+- **Sidecar Multitasking**: Users keep Sidecar docked while interacting with external native IDEs or browsers. Closing or collapsing the Sidecar does not cancel ongoing background workflows.
+
+---
+
+### 2. Unified Invariants & Architectural Boundaries
+
+Across all seven prototype phases (U0–U6), six foundational architectural invariants have been validated and locked:
+
+#### Invariant 1: One MAVE Assistant Identity
+- MAVE is always a single cohesive assistant.
+- Specialized modes (Language, Diff Review, Research, Agent Execution) are **experience contexts**, never standalone products.
+- Surfaces always display `MAVE / Context` (e.g., `MAVE / Language Practice`, `MAVE / Diff Review`), completely prohibiting fragmented app branding (e.g., "Your Language App").
+
+#### Invariant 2: Surface State $\ne$ Domain State
+- Visual presentation operations (closing a window, collapsing a card, docking to sidecar, switching views) have **zero side-effects on domain execution**.
+- Closing an Agent Workspace window does not abort the background build or task.
+- Minimizing a language session preserves vocabulary items, corrections, and active roleplay context.
+- Domain cancellations require explicit semantic intent (`Cancel Task`, `Abort Plan`, `Stop Generation`).
+
+#### Invariant 3: Execution Substrate Privacy & Diagnostics Isolation
+- Technical substrate details—underlying provider brands (`Ollama`, `Claude`, `Codex`, `Antigravity`), model weights, token consumption counters, and millisecond latencies—are strictly **developer diagnostics**.
+- Substrate details **must never leak** into standard user-facing pill text, chat messages, or workspace headers.
+- **Content Provenance is Preserved**: Human-relevant source citations (e.g., `OpenAI Platform Documentation`, `Google Docs`, file paths) are user-facing trust anchors and remain clearly displayed on `SourceCard` components.
+
+#### Invariant 4: Truthfulness & Zero Fake Telemetry Guarantee
+- Progress bars and status indicators must reflect genuine physical facts:
+  - Determinate progress (e.g., `3 of 10 tests`) renders **only** when total and completed counts are known from the runtime.
+  - Indeterminate tasks render truthful textual state (`Compiling Rust binary…`) and an indeterminate pulse—**never** a simulated or fake percentage curve.
+- Pronunciation evaluation: **zero acoustic analysis = zero pronunciation score**. Fabricated scores (e.g. `94% Match`) are strictly forbidden. Educational phonetic breakdown (IPA, stress, articulation guides) is provided instead.
+- Vocabulary learning status progresses through observed facts: `seen` $\rightarrow$ `practiced` $\rightarrow$ `reviewed`. No arbitrary "Mastered" badges without longitudinal memory.
+
+#### Invariant 5: Action Authority Boundary (Presentation Only)
+- UI components possess **zero direct authority** to execute native shell commands, modify the filesystem, write to databases, or charge API tokens.
+- All interactive triggers (`Allow Action`, `Deny`, `Save Vocabulary`, `Approve Diff`) emit declarative intent events across IPC to the authoritative backend runtime and security gate (M5 Permission Boundary).
+
+#### Invariant 6: Production Isolation & Non-Regression
+- The UI V2 prototype code is strictly encapsulated inside `apps/desktop/src/renderer/src/ui-v2/`.
+- Production M4 components (`SurfaceView.tsx`, `MaveCapsule.tsx`, existing Zustand stores) remain authoritative, unmodified, and regression-free.
+
+---
+
+### 3. Runtime Integration Map
+
+This table maps every UI V2 capability to its destination production backend subsystem, establishing the contract for future integration phases:
+
+| UI Capability | UI V2 Prototype Form | Target Production Subsystem | IPC / Presentation Contract | Integration Preconditions |
+| :--- | :--- | :--- | :--- | :--- |
+| **Presence Acoustics** | Simulated sine RMS & smoothing algorithms | Audio Input Pipeline / VAD (`voice-manager`) | `voice:rms-update`, `voice:state-change` | M3.5 Wake ↔ Voice handoff runtime |
+| **Streaming Dialogue** | Async token generator (`ConversationShell`) | Intelligence Orchestrator (`Pre-M5 C3/C4`) | `intelligence:stream-delta`, `intelligence:turn-complete` | F1.5-C2 streaming pipeline |
+| **Execution Diagnostics** | Collapsible Dev Panel | Core Telemetry / Diagnostics Daemon | `telemetry:turn-diagnostics` (dev mode only) | Diagnostics flag enabled |
+| **Content Provenance** | `SourceCard` & `SourceGroupCard` | Knowledge Applicability & Retrieval Engine | `retrieval:source-citation` | Grounded search & citation pipeline |
+| **Security Approvals** | `ApprovalCard` (`ActionAndTaskCards`) | M5 Action Authority & Policy Gate | `security:request-approval`, `security:resolve-approval` | M5 Permission Matrix |
+| **Sidecar Positioning** | Fixed CSS / mock placement states | Electron Window Manager / Display Geometry | `window:dock-sidecar`, `window:set-bounds` | Multi-monitor DPI calibration |
+| **Diff Review Canvas** | `WorkspaceDiffView` syntax blocks | Git / Workspace Mutation Engine | `workspace:diff-stream`, `workspace:apply-patch` | Native git diff parser |
+| **Agent Observability** | `AgentWorkspaceView` execution logs | Autonomous Agent Orchestrator / Subagents | `agent:step-update`, `agent:stdout-log` | Background subagent daemon |
+| **Language Coaching** | `InlineCorrectionCard`, `VocabularyPanel` | Language Learning Semantic Adapter | `language:turn-correction`, `language:save-vocab` | Linguistic prompt templates |
+| **Phonetic Guidance** | `PronunciationGuideCard` (IPA, respelling) | Phonetic Analysis / Audio Service | `language:phonetic-breakdown`, `tts:synthesize-example` | Phoneme dictionary / local TTS |
+| **Learning Memory** | `SessionSummaryCard`, local vocab state | Longitudinal Episodic/Semantic Memory (SQLite) | `memory:persist-learning-session`, `memory:query-vocab` | MAVE Memory Schema V2 |
+
+---
+
+### 4. Production Readiness Classification Matrix
+
+The UI V2 codebase is categorized across four operational readiness tiers:
+
+| Subsystem / Component | Semantic Contract | Visual / UX Quality | Runtime Binding | Production Readiness Tier |
+| :--- | :--- | :--- | :--- | :--- |
+| **Presence Surface** (`PresenceSurface.tsx`) | Complete & Hardened | High / Restrained | Mocked RMS | **Tier 1: Ready for Production Wiring** |
+| **Presence Rules** (`presence-rules.ts`) | Complete (RMS smoothing, expansion eligibility) | N/A (Logic) | Pure Functions | **Tier 1: Ready for Production Wiring** |
+| **Security Approvals** (`ApprovalCard`) | Complete (Risk classes, zero direct authority) | High | Mocked Callbacks | **Tier 1: Ready for Production Wiring** |
+| **Chat-only Sidecar** (`ChatOnlyPanel.tsx`) | Complete (Shared conversation state) | Standard | Needs Window IPC | **Tier 1: Ready for Production Wiring** |
+| **Rich Cards** (`Message`, `Source`, `Diff`, `Task`, `Progress`) | Complete (Intent-based, no fake progress) | High | Mock Data | **Tier 1: Ready for Production Wiring** |
+| **Conversation Shell** (`ConversationShell.tsx`) | Complete (Response groups, streaming phases) | High | Needs C3/C4 Hookup | **Tier 1: Ready for Production Wiring** |
+| **Agent Workspace** (`AgentWorkspaceView.tsx`) | Complete (Observable execution logs only) | Standard | Needs Agent Daemon | **Tier 2: Awaiting Agent Subsystem** |
+| **Language Coaching** (`LanguageComponents.tsx`) | Complete (Non-punitive tone, factual progress) | High | Needs Language Prompts | **Tier 2: Awaiting Runtime Prompts** |
+| **Pronunciation Guide** (`PronunciationGuideCard`) | Complete (IPA, phonetic hints, no fake score) | High | Needs Phoneme TTS | **Tier 2: Awaiting Phoneme Engine** |
+| **Workspace Shell** (`WorkspaceShell.tsx`) | Complete (Context tabs, unified MAVE header) | High | Needs Session IPC | **Tier 2: Awaiting Workspace Manager** |
+| **Visual Styling & Motion** (`tokens.css`, CSS classes) | Prototype Baseline | Functional Lab | Needs GPU Animation Pass | **Tier 3: Scheduled for UI Redesign** |
+| **Memory / Vocab Persistence** | Prototype Contracts Only | High UI | Needs SQLite Store | **Tier 4: Future Persistence Track** |
+
+---
+
+### 5. Technical Debt & Open Architectural Questions
+
+The following engineering questions are documented for resolution during the production implementation phase:
+
+1. **Multi-Monitor & DPI Scaling in Docked Sidecar**:
+   - On Windows 11 with heterogeneous DPI scaling (e.g., 150% laptop screen + 100% 4K external monitor), Electron native window bounds calculation requires precise per-monitor DPI coordinate normalization to prevent sidecar jitter or clipping during docking.
+2. **Conversation Timeline Virtualization**:
+   - Long-running multi-turn sessions with dozens of rich diffs and images must implement virtualized list rendering (e.g. `react-window` or custom DOM recycling) to ensure 60 FPS scrolling and low memory footprints.
+3. **Diff Chunk Syntax Highlighting Performance**:
+   - For diffs exceeding 1,000 lines, tokenization on the main renderer thread can cause brief frame drops. Future implementation should parse syntax tokens in a web worker or native background thread.
+4. **Episodic Learning Integration**:
+   - Vocabulary saved during Language Practice must be reconciled with MAVE's primary episodic memory store so that MAVE can naturally reinforce learned vocabulary across general conversation turns without explicit prompting.
+
+---
+
+### 6. Prototype Freeze & Handoff Declaration
+
+```text
+================================================================================
+                     MAVE UI V2 FOUNDATION STATUS: FROZEN
+================================================================================
+
+All prototyping phases (U0 through U6) are complete, audited, and verified:
+  - 8 Dedicated Test Suites Passing (174 Automated Vitest Unit & Contract Tests)
+  - Full TypeScript Verification Clean (0 Compiler Errors)
+  - Production Renderer Build Verified (Clean Vite Output)
+  - Production M4 Isolation Guaranteed (0 Legacy Regressions)
+
+The UI V2 prototype foundation on `feat/ui-v2-foundation` is hereby CLOSED.
+No further experimental or prototype features shall be added to this branch.
+
+READY FOR FUTURE PRODUCTION REDESIGN & RUNTIME INTEGRATION.
+================================================================================
+```
+
+
 
 

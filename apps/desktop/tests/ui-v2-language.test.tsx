@@ -326,8 +326,8 @@ describe('MAVE UI V2 — U6 Language Experience & Conversational Learning System
       expect(html).toContain('par-TIK-yuh-ler-lee');
       expect(html).toContain('Stress falls firmly on the second syllable');
       expect(html).toContain('Keep lips neutral');
-      expect(html).toContain('Listen (Mock)');
-      expect(html).toContain('Practice Speaking (Mock)');
+      expect(html).toContain('Listen Example');
+      expect(html).toContain('Practice Speaking');
       expect(html).toContain('Practiced 3 times');
     });
 
@@ -450,7 +450,7 @@ describe('MAVE UI V2 — U6 Language Experience & Conversational Learning System
       expect(html).toContain('System Architecture Discussion');
       expect(html).toContain('Edge Case Handling');
       expect(html).toContain('Practice past tense irregular verbs');
-      expect(html).toContain('Practice Again (Mock)');
+      expect(html).toContain('Practice Again');
     });
 
     it('Truthfulness Invariant: Strictly NO gamification XP, fake CEFR score, or fake improvement percentages', () => {
