@@ -85,14 +85,35 @@ export interface ExecutionSubstrate {
   tokensUsed?: number;
 }
 
+/**
+ * Card Intent
+ *
+ * Defines the semantic emphasis/urgency/role of a card, independent of its content type.
+ * Eliminates ad-hoc "red card" or "green card" type anti-patterns.
+ */
+export type CardIntent =
+  | 'default'
+  | 'elevated'
+  | 'attention'
+  | 'warning'
+  | 'destructive'
+  | 'quiet';
+
+export type CardDensity = 'compact' | 'standard' | 'expanded';
+
 export type CardType =
   | 'message'
   | 'translation'
   | 'source'
+  | 'source_group'
   | 'video'
+  | 'image'
   | 'file'
   | 'code'
+  | 'diff'
+  | 'comparison'
   | 'task'
+  | 'progress'
   | 'approval'
   | 'error';
 
@@ -101,6 +122,8 @@ export interface BaseCardData {
   type: CardType;
   title?: string;
   timestamp?: string;
+  intent?: CardIntent;
+  density?: CardDensity;
 }
 
 export interface MessageCardData extends BaseCardData {
@@ -117,6 +140,7 @@ export interface TranslationCardData extends BaseCardData {
   translatedText: string;
   targetLanguage: string;
   naturalAlternative?: string;
+  pronunciation?: string;
   grammarNote?: string;
   vocabulary?: { term: string; meaning: string }[];
 }
@@ -128,6 +152,13 @@ export interface SourceCardData extends BaseCardData {
   snippet: string;
   authorOrDate?: string;
   provenance?: ContentProvenance;
+  citationIndex?: number;
+}
+
+export interface SourceGroupCardData extends BaseCardData {
+  type: 'source_group';
+  sources: SourceCardData[];
+  defaultExpanded?: boolean;
 }
 
 export interface VideoCardData extends BaseCardData {
@@ -136,6 +167,16 @@ export interface VideoCardData extends BaseCardData {
   duration: string;
   thumbnailPlaceholder?: string;
   summary?: string;
+  url?: string;
+}
+
+export interface ImageCardData extends BaseCardData {
+  type: 'image';
+  caption: string;
+  url?: string;
+  altText?: string;
+  aspectRatio?: string;
+  provenance?: ContentProvenance;
 }
 
 export interface FileCardData extends BaseCardData {
@@ -151,6 +192,47 @@ export interface CodeCardData extends BaseCardData {
   language: string;
   code: string;
   filename?: string;
+  explanation?: string;
+  lineNumbers?: boolean;
+}
+
+export interface DiffLine {
+  type: 'add' | 'remove' | 'context';
+  text: string;
+  oldLineNumber?: number;
+  newLineNumber?: number;
+}
+
+export interface DiffCardData extends BaseCardData {
+  type: 'diff';
+  filename: string;
+  path?: string;
+  additions: number;
+  deletions: number;
+  lines?: DiffLine[];
+  compactPreview?: string[];
+  defaultExpanded?: boolean;
+}
+
+export interface ComparisonColumn {
+  key: string;
+  label: string;
+  isPrimary?: boolean;
+}
+
+export interface ComparisonRow {
+  id: string;
+  values: Record<string, string | number | boolean>;
+  badge?: string;
+  highlighted?: boolean;
+}
+
+export interface ComparisonCardData extends BaseCardData {
+  type: 'comparison';
+  columns: ComparisonColumn[];
+  rows: ComparisonRow[];
+  caption?: string;
+  responsiveStack?: boolean;
 }
 
 export interface TaskCardData extends BaseCardData {
@@ -160,6 +242,18 @@ export interface TaskCardData extends BaseCardData {
   currentStep?: string;
   responsibleRuntime?: string;
   progressPercent?: number;
+  determinate?: boolean;
+}
+
+export interface ProgressCardData extends BaseCardData {
+  type: 'progress';
+  label: string;
+  determinate: boolean; // TRUE: known steps/percent. FALSE: ongoing activity, never fake percentage.
+  currentStep?: string;
+  completedSteps?: number;
+  totalSteps?: number;
+  percent?: number;
+  statusMessage?: string;
 }
 
 export interface ApprovalCardData extends BaseCardData {
@@ -170,6 +264,7 @@ export interface ApprovalCardData extends BaseCardData {
   command?: string;
   directory?: string;
   status?: 'pending' | 'allowed' | 'denied';
+  riskExplanation?: string;
 }
 
 export interface ErrorCardData extends BaseCardData {
@@ -177,16 +272,22 @@ export interface ErrorCardData extends BaseCardData {
   errorMessage: string;
   recoverable?: boolean;
   suggestedAction?: string;
+  technicalDetails?: string;
 }
 
 export type UiV2Card =
   | MessageCardData
   | TranslationCardData
   | SourceCardData
+  | SourceGroupCardData
   | VideoCardData
+  | ImageCardData
   | FileCardData
   | CodeCardData
+  | DiffCardData
+  | ComparisonCardData
   | TaskCardData
+  | ProgressCardData
   | ApprovalCardData
   | ErrorCardData;
 

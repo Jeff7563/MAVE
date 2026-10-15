@@ -1193,8 +1193,880 @@ export const BASELINE_SCENARIOS: MockScenario[] = [
   }
 ];
 
-// Combined full scenarios array (Baseline U0 preserved first, followed by U2 specific)
+// ---------------------------------------------------------------------------
+// U3 Specific Rich Card Scenarios (Prompt Section 38)
+// ---------------------------------------------------------------------------
+
+export const U3_RICH_CARD_SCENARIOS: MockScenario[] = [
+  // U3-01 Single Source
+  {
+    id: 'u3_01_single_source',
+    name: 'U3-01 Single Source',
+    description: 'Answer supported by a single verified source citation with provenance.',
+    category: 'conversation',
+    snapshot: {
+      level: 'conversation',
+      presence: { state: 'idle', audioLevel: 0 },
+      conversation: {
+        status: 'result',
+        messages: [
+          {
+            id: 'm1',
+            type: 'message',
+            role: 'user',
+            content: 'What is the React 19 Compiler?'
+          },
+          {
+            id: 'm2',
+            type: 'message',
+            role: 'assistant',
+            content: 'The React Compiler automatically memoizes components and hooks to optimize rendering performance without requiring manual useMemo or useCallback.'
+          }
+        ],
+        cards: [
+          {
+            id: 'src-react-1',
+            type: 'source',
+            citationIndex: 1,
+            title: 'React Compiler Overview',
+            domain: 'react.dev',
+            url: 'https://react.dev/learn/react-compiler',
+            snippet: 'React Compiler is an optimizing compiler that deeply understands JavaScript and the Rules of React to safely memoize values.',
+            authorOrDate: 'React Team · 2024',
+            provenance: {
+              id: 'prov-1',
+              title: 'React Documentation',
+              sourceType: 'web',
+              domain: 'react.dev',
+              url: 'https://react.dev/learn/react-compiler'
+            }
+          }
+        ]
+      },
+      workspace: {
+        type: 'project',
+        title: 'React Research',
+        status: 'idle',
+        steps: []
+      }
+    }
+  },
+
+  // U3-02 Source Group
+  {
+    id: 'u3_02_source_group',
+    name: 'U3-02 Source Group',
+    description: 'Composite card grouping multiple citations (OpenAI, Microsoft, GitHub, Local).',
+    category: 'conversation',
+    snapshot: {
+      level: 'conversation',
+      presence: { state: 'idle', audioLevel: 0 },
+      conversation: {
+        status: 'result',
+        messages: [
+          {
+            id: 'm1',
+            type: 'message',
+            role: 'user',
+            content: 'Compare subscription runtime architectures across OpenAI, Microsoft, and local models.'
+          },
+          {
+            id: 'm2',
+            type: 'message',
+            role: 'assistant',
+            content: 'Modern agent architectures favor flat monthly subscription CLI runtimes over metered pay-per-token APIs for sustained reasoning tasks, backed by local fast brains for low-latency ambient operations.'
+          }
+        ],
+        cards: [
+          {
+            id: 'src-group-1',
+            type: 'source_group',
+            sources: [
+              {
+                id: 'sg-1',
+                type: 'source',
+                citationIndex: 1,
+                title: 'OpenAI Platform Documentation',
+                domain: 'platform.openai.com',
+                url: 'https://platform.openai.com/docs',
+                snippet: 'API specifications and streaming token architectures for OpenAI language models.',
+                authorOrDate: 'OpenAI Docs · 2024'
+              },
+              {
+                id: 'sg-2',
+                type: 'source',
+                citationIndex: 2,
+                title: 'Microsoft Learn: CLI Agent Patterns',
+                domain: 'learn.microsoft.com',
+                url: 'https://learn.microsoft.com/ai/agents',
+                snippet: 'Subscription runtime patterns and isolated process execution models.',
+                authorOrDate: 'Microsoft · Oct 2024'
+              },
+              {
+                id: 'sg-3',
+                type: 'source',
+                citationIndex: 3,
+                title: 'MAVE GitHub Architecture Discussion #42',
+                domain: 'github.com/mave-ai/desktop',
+                url: 'https://github.com/mave-ai/desktop/issues/42',
+                snippet: 'Analysis of billing policies and subscription-first routing in desktop AI.',
+                authorOrDate: 'MAVE Core · 2026'
+              },
+              {
+                id: 'sg-4',
+                type: 'source',
+                citationIndex: 4,
+                title: 'Local Knowledge Base: Runtime Audit',
+                domain: 'local:docs/architecture/spec.md',
+                url: 'local:///docs/architecture/spec.md',
+                snippet: 'Internal specification locking the Subscription-First Intelligence Foundation.',
+                authorOrDate: 'Local File · Current'
+              }
+            ]
+          }
+        ]
+      },
+      workspace: {
+        type: 'project',
+        title: 'Architecture Audit',
+        status: 'idle',
+        steps: []
+      }
+    }
+  },
+
+  // U3-03 Video Result
+  {
+    id: 'u3_03_video_result',
+    name: 'U3-03 Video Result',
+    description: 'Instructional video recommendation card with synthetic preview and duration.',
+    category: 'conversation',
+    snapshot: {
+      level: 'conversation',
+      presence: { state: 'idle', audioLevel: 0 },
+      conversation: {
+        status: 'result',
+        messages: [
+          {
+            id: 'm1',
+            type: 'message',
+            role: 'user',
+            content: 'Can you recommend a tutorial on TypeScript type predicates?'
+          },
+          {
+            id: 'm2',
+            type: 'message',
+            role: 'assistant',
+            content: 'Here is an excellent technical walkthrough on automatic type narrowing and inferred predicate functions in modern TypeScript:'
+          }
+        ],
+        cards: [
+          {
+            id: 'vid-1',
+            type: 'video',
+            title: 'Mastering TypeScript 5.5 Inferred Type Predicates',
+            channel: 'TechCraft Engineering',
+            duration: '14:20',
+            summary: 'Comprehensive tutorial on how TypeScript 5.5 automatically narrows union types from filter functions without manual type predicates.',
+            url: 'https://youtube.com/watch?v=mock_ts_predicates'
+          }
+        ]
+      },
+      workspace: {
+        type: 'project',
+        title: 'Learning',
+        status: 'idle',
+        steps: []
+      }
+    }
+  },
+
+  // U3-04 Translation Compact
+  {
+    id: 'u3_04_translation_compact',
+    name: 'U3-04 Translation Compact',
+    description: 'Compact density translation card focusing strictly on natural phrasing.',
+    category: 'conversation',
+    snapshot: {
+      level: 'conversation',
+      presence: { state: 'idle', audioLevel: 0 },
+      conversation: {
+        status: 'result',
+        messages: [
+          {
+            id: 'm1',
+            type: 'message',
+            role: 'user',
+            content: 'Translate "Je vous en prie" to English'
+          }
+        ],
+        cards: [
+          {
+            id: 'trans-compact-1',
+            type: 'translation',
+            originalText: 'Je vous en prie',
+            translatedText: 'You are welcome',
+            targetLanguage: 'English',
+            pronunciation: 'zhuh voo zahn pree',
+            density: 'compact'
+          }
+        ]
+      },
+      workspace: {
+        type: 'project',
+        title: 'Quick Translation',
+        status: 'idle',
+        steps: []
+      }
+    }
+  },
+
+  // U3-05 Translation Expanded
+  {
+    id: 'u3_05_translation_expanded',
+    name: 'U3-05 Translation Expanded',
+    description: 'Expanded density translation card with pronunciation, grammar note, and vocabulary.',
+    category: 'conversation',
+    snapshot: {
+      level: 'conversation',
+      presence: { state: 'idle', audioLevel: 0 },
+      conversation: {
+        status: 'result',
+        messages: [
+          {
+            id: 'm1',
+            type: 'message',
+            role: 'user',
+            content: 'Translate and explain: "Es gibt keinen Zweifel daran"'
+          }
+        ],
+        cards: [
+          {
+            id: 'trans-expanded-1',
+            type: 'translation',
+            originalText: 'Es gibt keinen Zweifel daran',
+            translatedText: 'There is no doubt about that',
+            targetLanguage: 'German',
+            naturalAlternative: 'Das steht völlig außer Frage',
+            pronunciation: 'es gipt KY-nən TSY-fəl DAH-rahn',
+            grammarNote: '“Es gibt” takes an accusative object (“keinen Zweifel”). “Daran” is a pronominal adverb connecting to the ensuing clause.',
+            vocabulary: [
+              { term: 'Zweifel', meaning: 'doubt (masculine)' },
+              { term: 'daran', meaning: 'about it / in that' },
+              { term: 'außer Frage', meaning: 'out of the question / beyond doubt' }
+            ],
+            density: 'expanded'
+          }
+        ]
+      },
+      workspace: {
+        type: 'project',
+        title: 'German Practice',
+        status: 'idle',
+        steps: []
+      }
+    }
+  },
+
+  // U3-06 Code Result
+  {
+    id: 'u3_06_code_result',
+    name: 'U3-06 Code Result',
+    description: 'Syntax-highlighted code card with line numbers and safe clipboard copy action.',
+    category: 'conversation',
+    snapshot: {
+      level: 'conversation',
+      presence: { state: 'idle', audioLevel: 0 },
+      conversation: {
+        status: 'result',
+        messages: [
+          {
+            id: 'm1',
+            type: 'message',
+            role: 'user',
+            content: 'Write a TypeScript memoize function.'
+          },
+          {
+            id: 'm2',
+            type: 'message',
+            role: 'assistant',
+            content: 'Here is an in-memory memoization utility with strong generic typing:'
+          }
+        ],
+        cards: [
+          {
+            id: 'code-1',
+            type: 'code',
+            language: 'typescript',
+            filename: 'memoize.ts',
+            lineNumbers: true,
+            explanation: 'Pure memoization wrapper supporting single-argument generic functions.',
+            code: `export function memoize<T, R>(fn: (arg: T) => R): (arg: T) => R {
+  const cache = new Map<T, R>();
+  return (arg: T): R => {
+    if (cache.has(arg)) {
+      return cache.get(arg)!;
+    }
+    const result = fn(arg);
+    cache.set(arg, result);
+    return result;
+  };
+}`
+          }
+        ]
+      },
+      workspace: {
+        type: 'project',
+        title: 'Code Assistance',
+        status: 'idle',
+        steps: []
+      }
+    }
+  },
+
+  // U3-07 File + Diff
+  {
+    id: 'u3_07_file_diff',
+    name: 'U3-07 File + Diff',
+    description: 'Coordinated FileCard and DiffCard showing file changes with additions/deletions.',
+    category: 'conversation',
+    snapshot: {
+      level: 'conversation',
+      presence: { state: 'idle', audioLevel: 0 },
+      conversation: {
+        status: 'result',
+        messages: [
+          {
+            id: 'm1',
+            type: 'message',
+            role: 'user',
+            content: 'Update the billing policy in runtime.ts to prioritize subscriptions.'
+          },
+          {
+            id: 'm2',
+            type: 'message',
+            role: 'assistant',
+            content: 'I have updated the default runtime strategy in `runtime.ts` to enforce subscription-first execution:'
+          }
+        ],
+        cards: [
+          {
+            id: 'file-diff-file-1',
+            type: 'file',
+            path: 'src/config/runtime.ts',
+            fileType: 'typescript',
+            linesModified: 10,
+            previewSnippet: 'export const DEFAULT_RUNTIME = "subscription";'
+          },
+          {
+            id: 'file-diff-diff-1',
+            type: 'diff',
+            filename: 'runtime.ts',
+            path: 'src/config/runtime.ts',
+            additions: 8,
+            deletions: 2,
+            compactPreview: [
+              '- export const DEFAULT_PROVIDER = "openai_api";',
+              '+ export const DEFAULT_PROVIDER = "subscription_runtime";',
+              '+ export const FALLBACK_PROVIDER = "local_fast_brain";'
+            ],
+            lines: [
+              { type: 'context', text: 'import { ProviderPolicy } from "./types";', oldLineNumber: 1, newLineNumber: 1 },
+              { type: 'context', text: '', oldLineNumber: 2, newLineNumber: 2 },
+              { type: 'remove', text: 'export const DEFAULT_PROVIDER = "openai_api";', oldLineNumber: 3 },
+              { type: 'remove', text: 'export const ALLOW_PAID_API = true;', oldLineNumber: 4 },
+              { type: 'add', text: 'export const DEFAULT_PROVIDER = "subscription_runtime";', newLineNumber: 3 },
+              { type: 'add', text: 'export const FALLBACK_PROVIDER = "local_fast_brain";', newLineNumber: 4 },
+              { type: 'add', text: 'export const ALLOW_PAID_API = false; // Default-deny', newLineNumber: 5 },
+              { type: 'context', text: '', oldLineNumber: 5, newLineNumber: 6 },
+              { type: 'context', text: 'export function getActivePolicy(): ProviderPolicy {', oldLineNumber: 6, newLineNumber: 7 }
+            ]
+          }
+        ]
+      },
+      workspace: {
+        type: 'project',
+        title: 'Runtime Config',
+        status: 'idle',
+        steps: []
+      }
+    }
+  },
+
+  // U3-08 Small Comparison
+  {
+    id: 'u3_08_small_comparison',
+    name: 'U3-08 Small Comparison',
+    description: 'Semantic comparison table presenting subscription runtime models on desktop.',
+    category: 'conversation',
+    snapshot: {
+      level: 'conversation',
+      presence: { state: 'idle', audioLevel: 0 },
+      conversation: {
+        status: 'result',
+        messages: [
+          {
+            id: 'm1',
+            type: 'message',
+            role: 'user',
+            content: 'Compare the different intelligence execution lanes in MAVE.'
+          }
+        ],
+        cards: [
+          {
+            id: 'comp-table-1',
+            type: 'comparison',
+            title: 'MAVE Intelligence Substrate Comparison',
+            caption: 'Evaluating subscription runtimes versus local hardware and paid APIs.',
+            columns: [
+              { key: 'runtime', label: 'Runtime', isPrimary: true },
+              { key: 'type', label: 'Category' },
+              { key: 'quota', label: 'Billing Model' },
+              { key: 'cost', label: 'Incremental Cost' }
+            ],
+            rows: [
+              {
+                id: 'codex',
+                badge: 'Primary',
+                highlighted: true,
+                values: {
+                  runtime: 'Codex CLI',
+                  type: 'Subscription',
+                  quota: 'Flat Monthly',
+                  cost: '$0.00 / token'
+                }
+              },
+              {
+                id: 'claude',
+                badge: 'Secondary',
+                values: {
+                  runtime: 'Claude Code',
+                  type: 'Subscription',
+                  quota: 'Flat Monthly',
+                  cost: '$0.00 / token'
+                }
+              },
+              {
+                id: 'ollama',
+                values: {
+                  runtime: 'Ollama Fast Brain',
+                  type: 'Local Hardware',
+                  quota: 'Infinite',
+                  cost: '$0.00'
+                }
+              },
+              {
+                id: 'openai',
+                values: {
+                  runtime: 'OpenAI Direct API',
+                  type: 'Paid API',
+                  quota: 'Token Metered',
+                  cost: 'Pay-per-token (Deny default)'
+                }
+              }
+            ]
+          }
+        ]
+      },
+      workspace: {
+        type: 'project',
+        title: 'Strategy',
+        status: 'idle',
+        steps: []
+      }
+    }
+  },
+
+  // U3-09 Responsive Comparison Narrow
+  {
+    id: 'u3_09_responsive_comparison_narrow',
+    name: 'U3-09 Responsive Comparison Narrow',
+    description: 'Comparison card automatically transformed into stacked key-value records for narrow viewports.',
+    category: 'conversation',
+    snapshot: {
+      level: 'conversation',
+      presence: { state: 'idle', audioLevel: 0 },
+      conversation: {
+        status: 'result',
+        messages: [
+          {
+            id: 'm1',
+            type: 'message',
+            role: 'user',
+            content: 'Show intelligence substrate comparison in narrow layout.'
+          }
+        ],
+        cards: [
+          {
+            id: 'comp-stacked-1',
+            type: 'comparison',
+            title: 'Substrate Comparison (Stacked)',
+            responsiveStack: true,
+            density: 'compact',
+            columns: [
+              { key: 'runtime', label: 'Runtime', isPrimary: true },
+              { key: 'type', label: 'Category' },
+              { key: 'quota', label: 'Billing Model' },
+              { key: 'cost', label: 'Incremental Cost' }
+            ],
+            rows: [
+              {
+                id: 'codex',
+                badge: 'Primary',
+                highlighted: true,
+                values: {
+                  runtime: 'Codex CLI',
+                  type: 'Subscription',
+                  quota: 'Flat Monthly',
+                  cost: '$0.00 / token'
+                }
+              },
+              {
+                id: 'claude',
+                badge: 'Secondary',
+                values: {
+                  runtime: 'Claude Code',
+                  type: 'Subscription',
+                  quota: 'Flat Monthly',
+                  cost: '$0.00 / token'
+                }
+              },
+              {
+                id: 'ollama',
+                values: {
+                  runtime: 'Ollama Fast Brain',
+                  type: 'Local Hardware',
+                  quota: 'Infinite',
+                  cost: '$0.00'
+                }
+              }
+            ]
+          }
+        ]
+      },
+      workspace: {
+        type: 'project',
+        title: 'Strategy',
+        status: 'idle',
+        steps: []
+      }
+    }
+  },
+
+  // U3-10 Determinate Task Progress
+  {
+    id: 'u3_10_determinate_task_progress',
+    name: 'U3-10 Determinate Task Progress',
+    description: 'Progress card with bounded step counts and exact percentage (Progress Truthfulness).',
+    category: 'conversation',
+    snapshot: {
+      level: 'conversation',
+      presence: { state: 'thinking', audioLevel: 0.2 },
+      conversation: {
+        status: 'thinking',
+        observableProgressText: 'Indexing repository codebase (Step 3/5)…',
+        messages: [
+          {
+            id: 'm1',
+            type: 'message',
+            role: 'user',
+            content: 'Index this project for semantic search.'
+          }
+        ],
+        cards: [
+          {
+            id: 'prog-determinate-1',
+            type: 'progress',
+            label: 'Codebase Symbol Indexing',
+            determinate: true,
+            completedSteps: 3,
+            totalSteps: 5,
+            percent: 60,
+            currentStep: 'Extracting TypeScript AST definitions from /packages/core'
+          }
+        ]
+      },
+      workspace: {
+        type: 'project',
+        title: 'Index Task',
+        status: 'running',
+        steps: []
+      }
+    }
+  },
+
+  // U3-11 Indeterminate Task Activity
+  {
+    id: 'u3_11_indeterminate_task_activity',
+    name: 'U3-11 Indeterminate Task Activity',
+    description: 'Progress card for ongoing work without fabricated percentage numbers (Progress Truthfulness).',
+    category: 'conversation',
+    snapshot: {
+      level: 'conversation',
+      presence: { state: 'thinking', audioLevel: 0.1 },
+      conversation: {
+        status: 'thinking',
+        observableProgressText: 'Running integration test matrix…',
+        messages: [
+          {
+            id: 'm1',
+            type: 'message',
+            role: 'user',
+            content: 'Run full verification suite.'
+          }
+        ],
+        cards: [
+          {
+            id: 'prog-indeterminate-1',
+            type: 'progress',
+            label: 'Integration Test Matrix',
+            determinate: false,
+            currentStep: 'Executing suite 4: desktop-e2e-contracts',
+            statusMessage: 'Awaiting async browser process completion…'
+          }
+        ]
+      },
+      workspace: {
+        type: 'project',
+        title: 'Test Matrix',
+        status: 'running',
+        steps: []
+      }
+    }
+  },
+
+  // U3-12 Approval Mock
+  {
+    id: 'u3_12_approval_mock',
+    name: 'U3-12 Approval Mock',
+    description: 'Action approval card in UI prototype mode (synthetic callbacks only, zero system execution).',
+    category: 'conversation',
+    snapshot: {
+      level: 'conversation',
+      presence: { state: 'idle', audioLevel: 0 },
+      conversation: {
+        status: 'result',
+        messages: [
+          {
+            id: 'm1',
+            type: 'message',
+            role: 'user',
+            content: 'Clean up disk space by purging node_modules cache.'
+          },
+          {
+            id: 'm2',
+            type: 'message',
+            role: 'assistant',
+            content: 'I have prepared the cleanup action. Because this permanently removes cached directories, your confirmation is required:'
+          }
+        ],
+        cards: [
+          {
+            id: 'appr-mock-1',
+            type: 'approval',
+            actionRequested: 'Purge cache directory to reclaim 3.8 GB storage space.',
+            riskLevel: 'Level 3 — Destructive',
+            riskClass: 'destructive',
+            command: 'rm -rf ./node_modules/.cache',
+            directory: 'D:\\project\\MAVE',
+            status: 'pending',
+            riskExplanation: 'Permanent deletion of cached artifacts on local filesystem.'
+          }
+        ]
+      },
+      workspace: {
+        type: 'project',
+        title: 'Maintenance',
+        status: 'idle',
+        steps: []
+      }
+    }
+  },
+
+  // U3-13 Error + Retry
+  {
+    id: 'u3_13_error_retry',
+    name: 'U3-13 Error + Retry',
+    description: 'Human-readable error card with collapsible technical details and retry action.',
+    category: 'error',
+    snapshot: {
+      level: 'conversation',
+      presence: { state: 'error', audioLevel: 0 },
+      conversation: {
+        status: 'error',
+        messages: [
+          {
+            id: 'm1',
+            type: 'message',
+            role: 'user',
+            content: 'Summarize the latest meeting transcript.'
+          }
+        ],
+        cards: [
+          {
+            id: 'err-card-1',
+            type: 'error',
+            title: 'Local Fast Brain Offline',
+            errorMessage: 'Cannot connect to local Ollama daemon on http://127.0.0.1:11434. Please verify the service is running.',
+            recoverable: true,
+            suggestedAction: 'Retry Connection',
+            technicalDetails: 'ECONNREFUSED 127.0.0.1:11434 at TCPConnectWrap.afterConnect [as oncomplete]'
+          }
+        ]
+      },
+      workspace: {
+        type: 'project',
+        title: 'Error Diagnostic',
+        status: 'error',
+        steps: []
+      }
+    }
+  },
+
+  // U3-14 Mixed Technical Response
+  {
+    id: 'u3_14_mixed_technical_response',
+    name: 'U3-14 Mixed Technical Response',
+    description: 'Composite response combining answer text, CodeCard, DiffCard, and Source citations.',
+    category: 'conversation',
+    snapshot: {
+      level: 'conversation',
+      presence: { state: 'idle', audioLevel: 0 },
+      conversation: {
+        status: 'result',
+        messages: [
+          {
+            id: 'm1',
+            type: 'message',
+            role: 'user',
+            content: 'How do we fix the race condition in audio normalizer?'
+          },
+          {
+            id: 'm2',
+            type: 'message',
+            role: 'assistant',
+            content: 'We need to decouple instantaneous normalization gain from the temporal exponential smoothing filter. Here is the corrected implementation and diff:'
+          }
+        ],
+        cards: [
+          {
+            id: 'mixed-code-1',
+            type: 'code',
+            language: 'typescript',
+            filename: 'presence-rules.ts',
+            lineNumbers: true,
+            code: `export function normalizeAudioRms(rms: number, peakHistory: number[]): number {
+  const peak = Math.max(0.01, ...peakHistory);
+  return Math.min(1.0, rms / peak);
+}`
+          },
+          {
+            id: 'mixed-diff-1',
+            type: 'diff',
+            filename: 'presence-rules.ts',
+            path: 'src/presence/presence-rules.ts',
+            additions: 3,
+            deletions: 1,
+            compactPreview: [
+              '- const gain = rms * 2.5;',
+              '+ const peak = Math.max(0.01, ...peakHistory);',
+              '+ return Math.min(1.0, rms / peak);'
+            ]
+          },
+          {
+            id: 'mixed-src-1',
+            type: 'source',
+            citationIndex: 1,
+            title: 'Web Audio API: DynamicsCompressorNode Specification',
+            domain: 'developer.mozilla.org',
+            url: 'https://developer.mozilla.org/en-US/docs/Web/API/DynamicsCompressorNode',
+            snippet: 'Dynamic range compression principles for multi-frame digital audio RMS calculations.'
+          }
+        ]
+      },
+      workspace: {
+        type: 'project',
+        title: 'Audio Pipeline',
+        status: 'idle',
+        steps: []
+      }
+    }
+  },
+
+  // U3-15 Rich Response Narrow Width
+  {
+    id: 'u3_15_rich_response_narrow_width',
+    name: 'U3-15 Rich Response Narrow Width',
+    description: 'Rich card set verified inside a 360px viewport preset without horizontal overflow.',
+    category: 'conversation',
+    snapshot: {
+      level: 'conversation',
+      presence: { state: 'idle', audioLevel: 0 },
+      conversation: {
+        status: 'result',
+        messages: [
+          {
+            id: 'm1',
+            type: 'message',
+            role: 'user',
+            content: 'Status update on today’s vocabulary and background indexing.'
+          },
+          {
+            id: 'm2',
+            type: 'message',
+            role: 'assistant',
+            content: 'Here is your daily vocabulary card along with the active background task status:'
+          }
+        ],
+        cards: [
+          {
+            id: 'narrow-trans-1',
+            type: 'translation',
+            originalText: 'Bonjour le monde',
+            translatedText: 'Hello world',
+            targetLanguage: 'French',
+            pronunciation: 'bohn-zhoor luh mohnd',
+            density: 'compact'
+          },
+          {
+            id: 'narrow-comp-1',
+            type: 'comparison',
+            title: 'Quick Metrics',
+            responsiveStack: true,
+            density: 'compact',
+            columns: [
+              { key: 'metric', label: 'Metric', isPrimary: true },
+              { key: 'val', label: 'Value' }
+            ],
+            rows: [
+              { id: '1', values: { metric: 'Cache Hits', val: '98.4%' } },
+              { id: '2', values: { metric: 'Latency', val: '42ms' } }
+            ]
+          },
+          {
+            id: 'narrow-prog-1',
+            type: 'progress',
+            label: 'Background Memory Consolidation',
+            determinate: false,
+            density: 'compact',
+            currentStep: 'Re-indexing episodic entities…'
+          }
+        ]
+      },
+      workspace: {
+        type: 'project',
+        title: 'Daily Review',
+        status: 'idle',
+        steps: []
+      }
+    }
+  }
+];
+
+// Combined full scenarios array (Baseline U0 preserved first, followed by U2, then U3)
 export const MOCK_SCENARIOS: MockScenario[] = [
   ...BASELINE_SCENARIOS,
-  ...U2_CONVERSATION_SCENARIOS
+  ...U2_CONVERSATION_SCENARIOS,
+  ...U3_RICH_CARD_SCENARIOS
 ];
+

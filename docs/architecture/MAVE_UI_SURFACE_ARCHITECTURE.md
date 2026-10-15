@@ -413,38 +413,124 @@ ResponseGroup
 
 ---
 
-# 5. Rich Context Expansion
+# 5. Rich Context Expansion & Card System
 
-The Conversation Surface may expand when the answer requires visual complexity.
+The Conversation Surface expands when an answer requires structured visual complexity.
 
-Examples:
+Cards allow MAVE to present structured, grounded information (sources, media, code, diffs, comparisons, progress, tasks, approvals, errors) in Conversation without turning the floating canvas into a cluttered dashboard.
 
-- video result
-- image
-- file preview
-- translation breakdown
-- code block
-- source list
-- chart
-- comparison
-- approval request
-- task progress
-
-The surface expands because useful information exists, not because MAVE entered an arbitrary visual mode.
-
-### Progressive Disclosure
+### Canonical Hierarchy
 
 ```text
-Compact response
-      ↓
-Quick card
-      ↓
-Conversation panel
-      ↓
-Workspace
+MAVE Response
+│
+├─ Primary Answer (Direct conversational text / streaming response)
+│
+├─ Supporting Information
+│    ├─ Sources (Single citations or grouped composite citations)
+│    ├─ Media (Synthetic video recommendations, image previews)
+│    └─ Structured Data (Code snippets, diffs, tables, comparisons)
+│
+└─ Relevant Actions (Inspect, copy, open in workspace, allow/deny mock)
 ```
 
-Each transition should preserve conversation continuity.
+Cards support the answer; cards do NOT compete with or obscure the answer.
+
+---
+
+## Rich Information Card Contract
+
+### 1. Card Taxonomy (14 Canonical Card Types)
+
+| Card Type | Category | Primary Purpose | Responsive / Progressive Disclosure |
+| :--- | :--- | :--- | :--- |
+| `message` | Dialogue | Conversational turns (user prompt, assistant reply) | Pre-wrapped text, compact bubble layout |
+| `translation` | Language | Natural phrase translation, alternatives, pronunciation | Collapsible grammar notes & vocabulary lists |
+| `source` | Provenance | Grounded citation with title, domain, URL, snippet | Progressive snippet truncation ("▼ Read more") |
+| `source_group` | Provenance | Composite citation group (`Sources · N`) | Collapsed summary list, expand all sources toggle |
+| `video` | Media | Educational/tutorial video recommendation | Synthetic thumbnail placeholder, duration badge |
+| `image` | Media | Diagrams, screenshots, and visual artifacts | Canvas placeholder with aspect ratio preservation |
+| `file` | Artifact | Modified file, breadcrumb path, line metrics | Synthetic paths, inspect file affordance |
+| `code` | Code | Syntax-oriented code snippets | Copy code button with feedback, optional line numbers |
+| `diff` | Code | File modification diffs with additions/deletions | Compact preview, expandable full diff lines |
+| `comparison` | Data | Comparison tables, feature matrices, key-values | Desktop `<table>` transforms to narrow stacked records |
+| `task` | Activity | Task execution state, runtime badge, steps | Truthful progress bar or pulsing indicator |
+| `progress` | Activity | Dedicated multi-step operations & background work | Strict Determinate vs Indeterminate truthfulness |
+| `approval` | Security | Action execution confirmation (Pure presentation) | Prototype boundary disclaimer, mock Allow/Deny buttons |
+| `error` | Diagnostic | Human-readable failure and recovery action | Collapsible technical details, retry affordance |
+
+### 2. Common Card Anatomy (`CardShell`)
+
+All MAVE UI V2 cards share a consistent structural container (`CardShell`):
+
+```text
+CardShell
+├─ Header Region
+│    ├─ Badge (Semantic category pill, e.g. "DIFF", "SOURCES · 4", "PROGRESS")
+│    ├─ Title (Filename, domain, or card descriptor)
+│    ├─ Timestamp / Metric (e.g. "+8 / -2", duration "14:20", "Step 3/5")
+│    └─ Progressive Toggle ("▼ More" / "▲ Less")
+├─ Primary Content Body (Direct readable content, unnested)
+├─ Details Slot (Collapsible extended metadata rendered on demand)
+└─ Action Footer (Right-aligned semantic intent buttons)
+```
+
+### 3. Card Intent vs Card Type
+
+- **Type**: Defines *what* the content is (`file`, `diff`, `progress`, `approval`, `source`).
+- **Intent**: Defines *how* it is visually emphasized (`default`, `elevated`, `attention`, `warning`, `destructive`, `quiet`).
+- Eliminates ad-hoc "red card" or "green card" anti-patterns; any content type can adopt an appropriate semantic intent based on urgency or risk.
+
+### 4. Content Provenance vs Execution Substrate Isolation
+
+- **Invariant**: `ContentProvenance != ExecutionSubstrate`
+- Normal user cards may display legitimate vendor citations (`OpenAI Documentation`, `Microsoft Learn`, `Google Docs`, `React Documentation`), domain URLs, author, and date.
+- Cards must **never** leak internal AI execution substrate metadata (`modelId`, `providerId`, `runtime`, `tokensUsed`, `latencyMs`) into normal user UI. Substrate metrics are strictly reserved for developer diagnostics.
+
+### 5. Card Action Boundary & Runtime Authority
+
+- **Direction**: `Runtime/Presentation State → Card Data → Card Renderer → User Intent Event`
+- Cards emit semantic intent callbacks (`onInspectFile`, `onOpenSource`, `onCopyCode`, `onAllowMock`, `onDenyMock`, `onOpenWorkspace`).
+- Cards **never** possess direct execution authority and **never** invoke shell, filesystem, MCP, or AI providers directly.
+
+### 6. Progress Truthfulness Invariant
+
+- **Determinate Progress** (`determinate: true`):
+  - Backed by real known counts (`completedSteps / totalSteps`) and exact percentage.
+  - Renders accessible progress bar (`role="progressbar"`, `aria-valuenow`).
+- **Indeterminate Activity** (`determinate: false`):
+  - Backed by ongoing observable work without known boundaries.
+  - Renders active pulsing indicator (`Working…`).
+  - **Strict Rule**: NEVER synthesize or fabricate completion percentages from elapsed time (e.g. no fake "73%").
+
+### 7. Approval Presentation Boundary (Pure Presentation)
+
+- In UI V2 (U3), `ApprovalCard` is **presentation only**. M5 security execution gates are not implemented.
+- Low/Medium/High/Critical or Level 0-3 risk levels are mock prototype taxonomy and are explicitly not frozen production policies.
+- Renders `[Prototype Notice]: Buttons trigger synthetic UI callbacks only. No system commands are executed.`
+- Allow/Deny buttons emit synthetic mock events (`onAllowMock` / `onDenyMock`). Zero real system commands are executed.
+
+### 8. Responsive Card Transformation & Density
+
+- **Narrow Widths (<440px)**:
+  - Structured comparison tables transform automatically into vertically stacked key-value records (`data-testid="comparison-stacked-list"`), preventing horizontal clipping and scrollbar overload.
+  - Diff cards collapse to compact preview summaries.
+  - Action buttons wrap smoothly.
+- **Card Density**: Supports `compact`, `standard`, and `expanded` density tokens without branching into divergent component architectures.
+
+### 9. Progressive Disclosure
+
+- Information is structured as **summary first, details on demand**:
+  - Source Card: 120-character snippet with "▼ Read more" toggle.
+  - Diff Card: Compact modification preview with "▼ Show Full Diff" toggle.
+  - Translation Card: Pronunciation and natural alternative visible; educational grammar notes collapsible on compact density.
+  - Error Card: Clean human-readable error with collapsible technical stack trace details.
+
+### 10. U2 Semantic Cleanup Gate Invariants
+
+1. **Streaming Accessibility**: Visual streaming text tokens update in-place with `aria-hidden="true"`, preventing screen-reader spam. A dedicated live region (`aria-live="polite"`, `role="status"`) announces coherent milestones (`Thinking…`, `Response completed.`, `Response stopped.`).
+2. **Follow-up Suggestions Lifetime**: Follow-up chips appear upon response completion and persist until the user sends their next message, selects a suggestion, or explicitly dismisses (`data-testid="btn-dismiss-followups"`).
+3. **Workspace Escalation Copy**: Displays generic semantic wording (`"This task works better in Workspace."`) rather than universal agent execution claims. Agent wording is reserved exclusively for observable agent runtime states.
 
 ---
 

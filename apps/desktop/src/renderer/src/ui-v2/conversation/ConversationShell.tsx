@@ -73,8 +73,28 @@ export const ConversationShell: React.FC<ConversationShellProps> = ({
 }) => {
   const [inputText, setInputText] = useState('');
   const [isScrolledUp, setIsScrolledUp] = useState(state.isScrolledUp ?? false);
+  const [activeFollowUpsDismissed, setActiveFollowUpsDismissed] = useState<boolean>(false);
+  const [liveAnnouncement, setLiveAnnouncement] = useState<string>('');
   const timelineRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  // Screen-reader live region updates (Announces coherent milestones, never token-by-token noise)
+  useEffect(() => {
+    if (state.streamingStatus === 'streaming' || state.status === 'streaming') {
+      if (state.observableProgressText) {
+        setLiveAnnouncement(state.observableProgressText);
+      } else {
+        setLiveAnnouncement('MAVE is generating a response…');
+      }
+    } else if (state.streamingStatus === 'completed' || state.status === 'result' || state.status === 'richResult') {
+      setLiveAnnouncement('Response completed.');
+      setActiveFollowUpsDismissed(false); // Follow-up suggestions appear upon response completion
+    } else if (state.streamingStatus === 'cancelled') {
+      setLiveAnnouncement('Response stopped.');
+    } else if (state.status === 'error' || state.streamingStatus === 'failed') {
+      setLiveAnnouncement('Request encountered an error.');
+    }
+  }, [state.status, state.streamingStatus, state.observableProgressText]);
 
   // Sync isScrolledUp if controlled from props
   useEffect(() => {
@@ -106,6 +126,7 @@ export const ConversationShell: React.FC<ConversationShellProps> = ({
     if (!inputText.trim()) return;
     onSendMessage?.(inputText.trim());
     setInputText('');
+    setActiveFollowUpsDismissed(true); // User begins next turn -> dismiss prior suggestions
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -304,6 +325,27 @@ export const ConversationShell: React.FC<ConversationShellProps> = ({
         ))}
       </div>
 
+      {/* Screen Reader Live Region: Announces coherent milestones, never token-by-token noise */}
+      <div
+        className="mave-v2-sr-live"
+        aria-live="polite"
+        role="status"
+        style={{
+          position: 'absolute',
+          width: '1px',
+          height: '1px',
+          padding: 0,
+          margin: '-1px',
+          overflow: 'hidden',
+          clip: 'rect(0, 0, 0, 0)',
+          whiteSpace: 'nowrap',
+          border: 0
+        }}
+        data-testid="streaming-live-region"
+      >
+        {liveAnnouncement}
+      </div>
+
       {/* 3. Scrollable Timeline (Messages, Structured Answers & Rich Cards) */}
       <div
         ref={timelineRef}
@@ -318,7 +360,6 @@ export const ConversationShell: React.FC<ConversationShellProps> = ({
           position: 'relative'
         }}
         role="log"
-        aria-live="polite"
         data-testid="conversation-timeline"
       >
         {/* Load Earlier Conversation Banner */}
@@ -469,6 +510,7 @@ export const ConversationShell: React.FC<ConversationShellProps> = ({
                   {/* Real-time Streaming Response Text Block */}
                   {group.streamingText && (
                     <div
+                      aria-hidden="true"
                       style={{
                         maxWidth: '92%',
                         background: 'var(--mave-v2-surface-elevated)',
@@ -625,13 +667,14 @@ export const ConversationShell: React.FC<ConversationShellProps> = ({
                           onAllow={onAllowAction}
                           onDeny={onDenyAction}
                           onListen={onListen}
+                          onOpenWorkspace={onExpandToWorkspace}
                         />
                       ))}
                     </div>
                   )}
 
-                  {/* Contextual Follow-up Suggestions */}
-                  {group.followUpSuggestions && group.followUpSuggestions.length > 0 && (
+                  {/* Contextual Follow-up Suggestions (Retained until user begins next turn, selects, or dismisses) */}
+                  {!activeFollowUpsDismissed && group.followUpSuggestions && group.followUpSuggestions.length > 0 && (
                     <div
                       style={{
                         display: 'flex',
@@ -648,6 +691,7 @@ export const ConversationShell: React.FC<ConversationShellProps> = ({
                           onClick={() => {
                             onSelectFollowUp?.(sug);
                             onSendMessage?.(sug);
+                            setActiveFollowUpsDismissed(true);
                           }}
                           style={{
                             background: 'rgba(56, 189, 248, 0.08)',
@@ -664,6 +708,23 @@ export const ConversationShell: React.FC<ConversationShellProps> = ({
                           {sug}
                         </button>
                       ))}
+                      <button
+                        onClick={() => setActiveFollowUpsDismissed(true)}
+                        title="Dismiss suggestions"
+                        aria-label="Dismiss suggestions"
+                        style={{
+                          background: 'transparent',
+                          border: 'none',
+                          color: 'var(--mave-v2-text-muted)',
+                          fontSize: '11px',
+                          cursor: 'pointer',
+                          padding: '2px 4px',
+                          borderRadius: '4px'
+                        }}
+                        data-testid="btn-dismiss-followups"
+                      >
+                        ✕
+                      </button>
                     </div>
                   )}
                 </div>
@@ -725,7 +786,7 @@ export const ConversationShell: React.FC<ConversationShellProps> = ({
           data-testid="workspace-escalation-banner"
         >
           <span>
-            💡 {state.workspaceReason || 'This sustained workflow is eligible for Workspace escalation.'}
+            💡 {state.workspaceReason || 'This task works better in Workspace.'}
           </span>
           {onExpandToWorkspace && (
             <button

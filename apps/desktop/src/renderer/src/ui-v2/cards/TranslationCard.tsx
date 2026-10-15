@@ -15,11 +15,14 @@ export const TranslationCard: React.FC<TranslationCardProps> = ({
   onCopy
 }) => {
   const [copied, setCopied] = useState(false);
+  const [showNotes, setShowNotes] = useState(data.density === 'expanded');
+
+  const hasExtraNotes = Boolean(data.grammarNote || (data.vocabulary && data.vocabulary.length > 0));
 
   const handleCopy = () => {
     if (onCopy) {
       onCopy(data.translatedText);
-    } else if (navigator.clipboard) {
+    } else if (typeof navigator !== 'undefined' && navigator.clipboard) {
       navigator.clipboard.writeText(data.translatedText);
     }
     setCopied(true);
@@ -40,6 +43,7 @@ export const TranslationCard: React.FC<TranslationCardProps> = ({
           cursor: 'pointer'
         }}
         aria-label="Listen to translation pronunciation"
+        data-testid="btn-listen-translation"
       >
         🔊 Listen
       </button>
@@ -55,6 +59,7 @@ export const TranslationCard: React.FC<TranslationCardProps> = ({
           cursor: 'pointer'
         }}
         aria-label="Copy translated text"
+        data-testid="btn-copy-translation"
       >
         {copied ? '✓ Copied' : '📋 Copy'}
       </button>
@@ -68,17 +73,35 @@ export const TranslationCard: React.FC<TranslationCardProps> = ({
       badgeColor="var(--mave-v2-accent-listening)"
       timestamp={data.timestamp}
       actions={actionButtons}
+      intent={data.intent || 'elevated'}
+      density={data.density || 'standard'}
       highlighted
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
         {/* Original Text */}
-        <div style={{ color: 'var(--mave-v2-text-muted)', fontSize: '12px' }}>
+        <div
+          style={{ color: 'var(--mave-v2-text-muted)', fontSize: '12px' }}
+          data-testid="translation-original-text"
+        >
           "{data.originalText}"
         </div>
 
         {/* Translation Output */}
-        <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--mave-v2-text-primary)' }}>
-          {data.translatedText}
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', flexWrap: 'wrap' }}>
+          <span
+            style={{ fontSize: '15px', fontWeight: 600, color: 'var(--mave-v2-text-primary)' }}
+            data-testid="translation-translated-text"
+          >
+            {data.translatedText}
+          </span>
+          {data.pronunciation && (
+            <span
+              style={{ fontSize: '12px', color: 'var(--mave-v2-text-dim)', fontStyle: 'italic' }}
+              data-testid="translation-pronunciation"
+            >
+              /{data.pronunciation}/
+            </span>
+          )}
         </div>
 
         {/* Natural Alternative */}
@@ -91,6 +114,7 @@ export const TranslationCard: React.FC<TranslationCardProps> = ({
               borderRadius: '0 6px 6px 0',
               fontSize: '12px'
             }}
+            data-testid="translation-natural-alternative"
           >
             <span style={{ color: 'var(--mave-v2-accent-listening)', fontWeight: 600 }}>
               Natural Alternative:{' '}
@@ -101,34 +125,66 @@ export const TranslationCard: React.FC<TranslationCardProps> = ({
           </div>
         )}
 
-        {/* Grammar Note */}
-        {data.grammarNote && (
-          <div style={{ fontSize: '11px', color: 'var(--mave-v2-text-secondary)' }}>
-            💡 <span style={{ fontStyle: 'italic' }}>{data.grammarNote}</span>
-          </div>
+        {/* Progressive Disclosure Toggle for Educational Notes */}
+        {hasExtraNotes && data.density === 'compact' && (
+          <button
+            onClick={() => setShowNotes(!showNotes)}
+            aria-label={showNotes ? 'Hide grammar and vocabulary notes' : 'Show grammar and vocabulary notes'}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: 'var(--mave-v2-text-dim)',
+              fontSize: '11px',
+              cursor: 'pointer',
+              textAlign: 'left',
+              padding: 0
+            }}
+            data-testid="btn-toggle-translation-notes"
+          >
+            {showNotes ? '▲ Hide grammar & notes' : '▼ Show grammar & vocabulary'}
+          </button>
         )}
 
-        {/* Vocabulary Pills */}
-        {data.vocabulary && data.vocabulary.length > 0 && (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '4px' }}>
-            {data.vocabulary.map((v, i) => (
-              <span
-                key={i}
-                style={{
-                  background: 'rgba(255, 255, 255, 0.06)',
-                  borderRadius: '12px',
-                  padding: '2px 8px',
-                  fontSize: '11px',
-                  color: 'var(--mave-v2-text-secondary)'
-                }}
+        {/* Grammar Note & Vocabulary (Rendered if expanded or standard density) */}
+        {(showNotes || data.density !== 'compact') && (
+          <div
+            style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '2px' }}
+            data-testid="translation-expanded-notes"
+          >
+            {data.grammarNote && (
+              <div
+                style={{ fontSize: '11px', color: 'var(--mave-v2-text-secondary)' }}
+                data-testid="translation-grammar-note"
               >
-                <strong style={{ color: 'var(--mave-v2-text-primary)' }}>{v.term}</strong> = {v.meaning}
-              </span>
-            ))}
+                💡 <span style={{ fontStyle: 'italic' }}>{data.grammarNote}</span>
+              </div>
+            )}
+
+            {data.vocabulary && data.vocabulary.length > 0 && (
+              <div
+                style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '2px' }}
+                data-testid="translation-vocabulary-list"
+              >
+                {data.vocabulary.map((v, i) => (
+                  <span
+                    key={i}
+                    style={{
+                      background: 'rgba(255, 255, 255, 0.06)',
+                      borderRadius: '12px',
+                      padding: '2px 8px',
+                      fontSize: '10px',
+                      color: 'var(--mave-v2-text-secondary)',
+                      border: '1px solid var(--mave-v2-border-subtle)'
+                    }}
+                  >
+                    <strong style={{ color: 'var(--mave-v2-text-primary)' }}>{v.term}</strong> = {v.meaning}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>
     </CardShell>
   );
 };
-
