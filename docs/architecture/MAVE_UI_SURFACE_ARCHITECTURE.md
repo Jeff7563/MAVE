@@ -1282,4 +1282,104 @@ The Workspace Shell implements a composable 3-region layout:
 - Review buttons (`Approve Diff`, `Request Revision`), approval actions (`Allow Action`, `Deny`), retry, and export triggers emit UI event callbacks only.
 - In UI V2 prototype mode, zero native filesystem mutations, shell commands, or live external API calls are executed.
 
+---
+
+# 31. Language Experience Interaction Contract (UI V2 U6)
+
+The **Language Experience** in MAVE provides contextual conversational learning, natural speech coaching, pronunciation guidance, and vocabulary retention across Presence, Conversation/Sidecar, and Workspace surfaces without turning MAVE into a dedicated single-purpose "language app".
+
+```text
+Presence Level       → Ambient vocabulary meaning, quick translation pill, low-distraction phrasing
+Conversation Level   → Inline sentence corrections, brief grammar explanations, contextual dialogue turns
+Workspace Level      → Sustained roleplays, speaking practice sessions, pronunciation guides, session recaps
+```
+
+---
+
+### U5 Preflight Hardening
+
+Prior to locking the U6 language contract, two structural preflight hardenings were established:
+
+1. **Observable Execution Events Invariant in Agent Workspace:**
+   - Synthetic Agent Workspace terminal and activity logs (`data-testid="agent-execution-logs"`) represent strictly **observable execution events**, tool commands, tool stdout/stderr, and task status.
+   - They **NEVER** expose or fabricate hidden model reasoning, private chain-of-thought, internal scratchpads, or pseudo-cognitive traces.
+2. **Canonical Contract Clarification:**
+   - The U5 language workspace was an initial structural placeholder; U6 establishes the canonical, durable semantic and visual contract for MAVE language learning.
+
+---
+
+### Core Architectural Invariants
+
+```text
+1. Language Is An Experience Context, NOT MAVE's Global Identity
+2. Language Task != Language Workspace Automatically
+3. Language Session State != Global Conversation State
+4. Non-Punitive, Supportive Correction Tone
+5. Pronunciation Truthfulness Guarantee (No Fake Scores)
+6. Learning Progress Truthfulness (No Fake Levels or Mastery)
+7. Non-Modal, Escapable Roleplay
+8. Mock Action Intents (Safety Gate)
+```
+
+#### 1. Language Is An Experience Context, NOT MAVE's Global Identity
+- MAVE remains an intelligent, general-purpose desktop companion across all modalities (engineering, writing, search, automation, learning).
+- Header surfaces display `MAVE / Language Practice`, `Speaking Practice`, or `Language Coach`.
+- The system is **never** globally rebranded as "Your AI Language Assistant" or styled with juvenile gamification tropes.
+
+#### 2. Language Task != Language Workspace Automatically
+- Quick queries (e.g. *"actually แปลว่าอะไร"*, *"How do I say this in French?"*) remain in **Presence** or **Conversation**.
+- Single sentence corrections render inline as compact cards within the ongoing chat timeline.
+- **Workspace Surface (Level 3)** is reserved strictly for sustained, multi-turn practice sessions, in-depth roleplay scenarios, pronunciation drill canvases, and comprehensive session reviews.
+
+#### 3. Language Session State != Global Conversation State
+- Language practice maintains dedicated session state (`LanguageSessionState`) containing topic, intensity, roleplay scenario, corrections, and vocabulary.
+- Pausing, minimizing, or completing a language session **does not purge or corrupt** general conversation history in Region A.
+- Users can switch between practicing a language and asking general desktop tasks (e.g., *"พักการเรียนแป๊บหนึ่ง เปิดโปรเจกต์ MAVE ให้หน่อย"*) seamlessly without state destruction.
+
+#### 4. Non-Punitive, Supportive Correction Tone
+- Corrections in `InlineCorrectionCard` prioritize psychological safety and conversational flow over pedantic error highlighting.
+- Strict visual hierarchy:
+  1. **You said:** calm contrast with subtle strikethrough, avoiding harsh red error styling.
+  2. **More natural:** clear cyan accent highlighting natural phrasing.
+  3. **Why:** gentle linguistic rationale explaining the structural difference.
+  4. **Alternatives:** contextual alternatives suited for casual, business, or formal registers.
+- Intensity configuration:
+  - `light`: corrects only meaning-breaking errors; ignores subtle nuance.
+  - `balanced`: offers natural native phrasings and standard grammar tips.
+  - `detailed`: provides structural explanations, phonetic hints, and alternative registers.
+- Progressive disclosure: multiple corrections are grouped cleanly (`Corrections · N`) to avoid timeline visual clutter.
+
+#### 5. Pronunciation Truthfulness Guarantee (No Fake Scores)
+- **Zero real audio analysis = ZERO pronunciation score.**
+- Without hardware-calibrated phoneme evaluation models, MAVE strictly forbids displaying fabricated numbers (e.g., *"92% Match"*, *"8.5/10 Native Sound"*).
+- Pronunciation guidance is truthful and educational:
+  - International Phonetic Alphabet (IPA) transcription
+  - Accessible phonetic respelling (e.g. `par-TIK-yuh-ler-lee`)
+  - Explicit syllable stress markers
+  - Mouth shape, tongue placement, and articulation guidance
+- Audio buttons (`Listen (Mock)`, `Practice Speaking (Mock)`) are labeled as mock intents; in Office Mode, audio actions are safely suppressed in favor of visual structure.
+
+#### 6. Learning Progress Truthfulness (No Fake Levels or Mastery)
+- Progress metrics reflect observed facts from the active session only:
+  - Topics practiced
+  - Number of phrases spoken
+  - Number of corrections reviewed
+  - New vocabulary items encountered
+  - Suggested next practice actions
+- Strictly **NO** gamified XP, streak pressure, or unverified claims (e.g., *"English improved by 14%"*, *"CEFR Level B2 upgraded"*).
+- Vocabulary items adhere to strict factual status progression: `seen` → `practiced` → `reviewed`. Items are **never** labeled `mastered` without validated, persistent longitudinal memory.
+
+#### 7. Non-Modal, Escapable Roleplay
+- In-scenario roleplays display a persistent `RoleplayBanner` detailing the scenario, setting, assistant persona, and user persona.
+- Roleplays are **non-modal and non-blocking**:
+  - Users can break out at any point to ask questions in their native language (e.g., *"อธิบายประโยคนี้หน่อย"*).
+  - Clicking `Step out of role` transitions the banner to `Roleplay Paused (MAVE Direct)`, allowing MAVE to explain nuances as a coach before clicking `Resume Roleplay`.
+
+#### 8. Mock Action Intents (Safety Gate)
+- In UI V2 prototype mode:
+  - Microphone and speech actions emit mock event callbacks only.
+  - Vocabulary save actions update local mock state without native database writes.
+  - Zero real TTS audio, STT engines, or external language model APIs are invoked.
+
+
 

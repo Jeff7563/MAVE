@@ -1046,6 +1046,89 @@ export const MaveUiLab: React.FC = () => {
                     }
                   }));
                 }}
+                onListenExample={(item) => {
+                  console.log('[MAVE UI Lab] Listen example:', item);
+                }}
+                onStartSpeakingPractice={(item) => {
+                  console.log('[MAVE UI Lab] Start speaking practice:', item);
+                }}
+                onStopSpeakingPractice={() => {
+                  console.log('[MAVE UI Lab] Stop speaking practice');
+                }}
+                onSaveVocabularyMock={(item) => {
+                  setSnapshot((prev) => {
+                    const session = prev.workspace.languageSession;
+                    if (!session) return prev;
+                    const itemId = (item as any)?.id ?? item;
+                    return {
+                      ...prev,
+                      workspace: {
+                        ...prev.workspace,
+                        languageSession: {
+                          ...session,
+                          vocabulary: session.vocabulary?.map((v) =>
+                            v.id === itemId ? { ...v, status: 'practiced' as const } : v
+                          )
+                        }
+                      }
+                    };
+                  });
+                }}
+                onChangeCorrectionIntensity={(intensity) => {
+                  setSnapshot((prev) => {
+                    const session = prev.workspace.languageSession;
+                    if (!session) return prev;
+                    return {
+                      ...prev,
+                      workspace: {
+                        ...prev.workspace,
+                        languageSession: {
+                          ...session,
+                          correctionIntensity: intensity
+                        }
+                      }
+                    };
+                  });
+                }}
+                onToggleShowTranslation={() => {
+                  setSnapshot((prev) => {
+                    const session = prev.workspace.languageSession;
+                    if (!session) return prev;
+                    return {
+                      ...prev,
+                      workspace: {
+                        ...prev.workspace,
+                        languageSession: {
+                          ...session,
+                          showTranslation: !session.showTranslation
+                        }
+                      }
+                    };
+                  });
+                }}
+                onStepOutOfRole={() => {
+                  setSnapshot((prev) => {
+                    const session = prev.workspace.languageSession;
+                    const roleplay = session?.roleplayScenario || session?.roleplay;
+                    if (!session || !roleplay) return prev;
+                    return {
+                      ...prev,
+                      workspace: {
+                        ...prev.workspace,
+                        languageSession: {
+                          ...session,
+                          roleplayScenario: {
+                            ...roleplay,
+                            isOutOfRole: true
+                          }
+                        }
+                      }
+                    };
+                  });
+                }}
+                onPracticeAgain={() => {
+                  console.log('[MAVE UI Lab] Practice again');
+                }}
               />
             )}
           </div>

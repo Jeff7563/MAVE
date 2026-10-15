@@ -3431,12 +3431,745 @@ export const U5_WORKSPACE_SCENARIOS: MockScenario[] = [
   }
 ];
 
-// Combined full scenarios array (Baseline U0 preserved first, followed by U2, then U3, then U4, then U5)
+// =============================================================================
+// MAVE UI V2 — U6: LANGUAGE EXPERIENCE SCENARIOS (U6-01 through U6-18)
+// Canonical Language Experience across Presence, Conversation/Sidecar, and Workspace.
+// =============================================================================
+export const U6_LANGUAGE_SCENARIOS: MockScenario[] = [
+  // U6-01 Quick Translation Presence
+  {
+    id: 'u6_01_quick_translation_presence',
+    name: 'U6-01 Quick Translation Presence',
+    description: 'Presence surface handling quick language query without expanding into Workspace. Simple, ambient, instantaneous.',
+    category: 'presence',
+    snapshot: {
+      level: 'presence',
+      presence: {
+        state: 'idle',
+        audioLevel: 0,
+        quickResponse: {
+          text: 'actually = จริง ๆ / ที่จริงแล้ว (ใช้เน้นข้อเท็จจริงหรือแก้ความเข้าใจผิด)',
+          sourceLabel: 'Language Reference • Quick Look'
+        }
+      },
+      conversation: { status: 'idle', messages: [], cards: [] },
+      workspace: { type: 'language', status: 'idle', steps: [] }
+    }
+  },
+
+  // U6-02 Short Correction Conversation
+  {
+    id: 'u6_02_short_correction_conversation',
+    name: 'U6-02 Short Correction Conversation',
+    description: 'Conversation surface showing gentle, non-punitive sentence correction alongside natural empathetic dialogue.',
+    category: 'conversation',
+    snapshot: {
+      level: 'conversation',
+      presence: { state: 'idle', audioLevel: 0 },
+      conversation: {
+        status: 'result',
+        messages: [
+          {
+            id: 'u6-m1',
+            type: 'message',
+            role: 'user',
+            content: 'I go to work yesterday and very tired.'
+          },
+          {
+            id: 'u6-m2',
+            type: 'message',
+            role: 'assistant',
+            content: 'I hear you! It sounds like you had a long day. Get some rest tonight.'
+          }
+        ],
+        cards: [
+          {
+            id: 'u6-card-corr-1',
+            type: 'correction',
+            originalText: 'I go to work yesterday and very tired.',
+            correctedText: 'I went to work yesterday and was very tired.',
+            naturalAlternative: 'Work was really exhausting yesterday.',
+            explanation: 'Use past tense ("went", "was") for completed events in the past.',
+            category: 'grammar',
+            intensity: 'balanced',
+            targetLanguage: 'English'
+          }
+        ],
+        followUpSuggestions: ['Why "was very tired"?', 'More natural ways to say tired', 'Practice past tense']
+      },
+      workspace: { type: 'language', status: 'idle', steps: [] }
+    }
+  },
+
+  // U6-03 Sidecar Writing Help
+  {
+    id: 'u6_03_sidecar_writing_help',
+    name: 'U6-03 Sidecar Writing Help',
+    description: 'Chat-only sidecar companion offering polite phrasing assistance next to user document or email editor.',
+    category: 'conversation',
+    snapshot: {
+      level: 'conversation',
+      presentationMode: 'sidecar',
+      sidecarPlacement: 'right',
+      presence: { state: 'idle', audioLevel: 0 },
+      conversation: {
+        status: 'result',
+        presentationMode: 'sidecar',
+        sidecarPlacement: 'right',
+        messages: [
+          {
+            id: 'u6-m3',
+            type: 'message',
+            role: 'user',
+            content: 'How to make this email sound more polite? "Send me the report now."'
+          },
+          {
+            id: 'u6-m4',
+            role: 'assistant',
+            type: 'message',
+            content: 'Here are three natural, professional alternatives depending on urgency:'
+          }
+        ],
+        cards: [
+          {
+            id: 'u6-card-corr-email',
+            type: 'correction',
+            originalText: 'Send me the report now.',
+            correctedText: 'Could you please send over the report when you have a moment?',
+            naturalAlternative: 'Whenever you get a chance, could you share the latest report?',
+            explanation: '"Send me now" sounds demanding in professional English. Soften with "Could you please" or "when you have a moment".',
+            category: 'naturalness',
+            intensity: 'balanced',
+            targetLanguage: 'Business English'
+          }
+        ],
+        followUpSuggestions: ['Urgent version', 'Formal version', 'Friendly peer version']
+      },
+      workspace: { type: 'language', status: 'idle', steps: [] }
+    }
+  },
+
+  // U6-04 Free Conversation Workspace
+  {
+    id: 'u6_04_free_conversation_workspace',
+    name: 'U6-04 Free Conversation Workspace',
+    description: 'Level 3 Language Workspace hosting open English conversation with supportive in-flow correction and context vocabulary.',
+    category: 'workspace',
+    snapshot: {
+      level: 'workspace',
+      presence: { state: 'listening', audioLevel: 0.35 },
+      conversation: {
+        status: 'result',
+        messages: [
+          { id: 'm-conv-1', type: 'message', role: 'assistant', content: 'What are you working on this afternoon?' },
+          { id: 'm-conv-2', type: 'message', role: 'user', content: 'I am building a new interface for my application.' }
+        ],
+        cards: []
+      },
+      workspace: {
+        id: 'ws-u6-04',
+        type: 'language',
+        title: 'Free Conversation',
+        status: 'running',
+        userFacingState: 'Conversing in English',
+        languageSession: {
+          sessionId: 'sess-04',
+          targetLanguage: 'English',
+          practiceType: 'free_conversation',
+          topic: 'Daily Work & Engineering',
+          sessionGoal: 'Speak comfortably about your current development tasks',
+          currentPrompt: 'That sounds exciting! What part of the interface are you most focused on right now?',
+          correctionIntensity: 'balanced',
+          showTranslation: true,
+          status: 'practicing',
+          observableStateText: 'Ready for your reply…',
+          corrections: [
+            {
+              id: 'corr-04',
+              originalText: 'I am building a new interface for my application.',
+              correctedText: 'I’m building a new UI for my app.',
+              naturalAlternative: 'I’m working on a brand-new user interface today.',
+              explanation: 'Your sentence was 100% grammatically correct! Using contractions ("I’m") makes everyday conversation sound more native.',
+              category: 'naturalness',
+              intensity: 'balanced'
+            }
+          ],
+          vocabulary: [
+            { id: 'v1', term: 'Interface', meaning: 'Point of interaction between user and system', partOfSpeech: 'noun', status: 'practiced', isSavedMock: false },
+            { id: 'v2', term: 'Contraction', meaning: 'Shortened word form like "I’m" or "don’t"', partOfSpeech: 'noun', status: 'seen', isSavedMock: true }
+          ]
+        },
+        steps: [
+          { id: 'st1', label: 'Work topic introduction', status: 'completed' },
+          { id: 'st2', label: 'Discuss architecture details', status: 'active' },
+          { id: 'st3', label: 'Session vocabulary recap', status: 'pending' }
+        ]
+      }
+    }
+  },
+
+  // U6-05 Roleplay Coffee Shop
+  {
+    id: 'u6_05_roleplay_coffee_shop',
+    name: 'U6-05 Roleplay Coffee Shop',
+    description: 'Immersive roleplay scenario where MAVE speaks as Barista while remaining MAVE, with clear escape affordance.',
+    category: 'workspace',
+    snapshot: {
+      level: 'workspace',
+      presence: { state: 'idle', audioLevel: 0 },
+      conversation: { status: 'idle', messages: [], cards: [] },
+      workspace: {
+        id: 'ws-u6-05',
+        type: 'language',
+        title: 'Roleplay Practice',
+        status: 'running',
+        userFacingState: 'Roleplay: Coffee Shop',
+        languageSession: {
+          sessionId: 'sess-05',
+          targetLanguage: 'English',
+          practiceType: 'roleplay',
+          topic: 'Ordering at a Specialty Cafe',
+          sessionGoal: 'Order customized coffee with alternative milk and syrup adjustment',
+          roleplayScenario: {
+            role: 'Barista',
+            userRole: 'Customer',
+            situation: 'You just walked into a busy Tokyo specialty cafe. Order an iced oat milk latte with less sweetness.',
+            location: 'Shibuya Coffee Roasters'
+          },
+          currentPrompt: 'Hi there! Welcome to Shibuya Roasters. What can I get started for you today?',
+          correctionIntensity: 'balanced',
+          showTranslation: true,
+          status: 'waiting_user',
+          observableStateText: 'Waiting for your answer…',
+          vocabulary: [
+            { id: 'v-rp1', term: 'Oat milk', meaning: 'Plant-based milk made from oats', partOfSpeech: 'noun', status: 'seen' },
+            { id: 'v-rp2', term: 'Half-sweet', meaning: 'Prepared with half the standard amount of syrup/sugar', partOfSpeech: 'adj', status: 'seen' }
+          ]
+        },
+        steps: [
+          { id: 's1', label: 'Greeting & main beverage order', status: 'active' },
+          { id: 's2', label: 'Milk choice & sweetness customization', status: 'pending' },
+          { id: 's3', label: 'Payment & takeaway confirmation', status: 'pending' }
+        ]
+      }
+    }
+  },
+
+  // U6-06 Roleplay With Explanation Break
+  {
+    id: 'u6_06_roleplay_explanation_break',
+    name: 'U6-06 Roleplay With Explanation Break',
+    description: 'User breaks out of roleplay to ask "อธิบายคำนี้หน่อย". MAVE steps out of role cleanly, explains, and prepares to resume.',
+    category: 'workspace',
+    snapshot: {
+      level: 'workspace',
+      presence: { state: 'speaking', audioLevel: 0.2 },
+      conversation: {
+        status: 'result',
+        messages: [
+          { id: 'm-rp-1', type: 'message', role: 'assistant', content: '[Barista]: Do you want standard whole milk or an oat milk substitution?' },
+          { id: 'm-rp-2', type: 'message', role: 'user', content: 'อธิบายคำว่า substitution หน่อย ใช้ในบริบทอื่นได้ไหม' },
+          { id: 'm-rp-3', type: 'message', role: 'assistant', content: 'ได้เลยครับ! (Stepping out of role)\n\n"Substitution" มาจากคำกริยา "substitute" แปลว่า "การแทนที่ / ของทดแทน"\n• ในร้านกาแฟ: oat milk substitution = เปลี่ยนเป็นนมโอ๊ตแทน\n• ในกีฬา: player substitution = การเปลี่ยนตัวผู้เล่น\n• ในสูตรอาหาร: honey substitution = ใช้น้ำผึ้งแทนน้ำตาล\n\nพร้อมกลับเข้าบทบาทไหมครับ?' }
+        ],
+        cards: []
+      },
+      workspace: {
+        id: 'ws-u6-06',
+        type: 'language',
+        title: 'Roleplay Practice',
+        status: 'running',
+        userFacingState: 'Roleplay Paused • Explanation',
+        languageSession: {
+          sessionId: 'sess-06',
+          targetLanguage: 'English',
+          nativeLanguage: 'Thai',
+          practiceType: 'roleplay',
+          topic: 'Ordering at a Specialty Cafe',
+          sessionGoal: 'Understand vocabulary and resume coffee shop roleplay',
+          roleplayScenario: {
+            role: 'Barista',
+            userRole: 'Customer',
+            situation: 'Paused for vocabulary explanation: "substitution".',
+            location: 'Shibuya Coffee Roasters'
+          },
+          currentPrompt: 'Ready to continue ordering? Try saying: "I’d like oat milk instead, please."',
+          correctionIntensity: 'detailed',
+          showTranslation: true,
+          status: 'practicing',
+          observableStateText: 'Explanation provided • Ready to resume',
+          vocabulary: [
+            { id: 'v-sub', term: 'Substitution', meaning: 'The action of replacing someone or something with another', partOfSpeech: 'noun', exampleSentence: 'Is there an extra charge for oat milk substitution?', exampleTranslation: 'มีค่าบริการเพิ่มเติมสำหรับการเปลี่ยนเป็นนมโอ๊ตไหมครับ', status: 'reviewed', isSavedMock: true }
+          ]
+        }
+      }
+    }
+  },
+
+  // U6-07 Translation Deep Dive
+  {
+    id: 'u6_07_translation_deep_dive',
+    name: 'U6-07 Translation Deep Dive',
+    description: 'Expanded translation card demonstrating phonetic spelling, grammar notes, contextual nuance, and related vocabulary.',
+    category: 'conversation',
+    snapshot: {
+      level: 'conversation',
+      presence: { state: 'idle', audioLevel: 0 },
+      conversation: {
+        status: 'result',
+        messages: [
+          { id: 'm-tr-1', type: 'message', role: 'user', content: 'Translate and explain: "Serendipity"' }
+        ],
+        cards: [
+          {
+            id: 'card-tr-deep',
+            type: 'translation',
+            originalText: 'Serendipity',
+            translatedText: 'การพบเจอสิ่งดี ๆ โดยบังเอิญ',
+            targetLanguage: 'Thai',
+            pronunciation: '/ˌser.ənˈdɪp.ə.ti/',
+            naturalAlternative: 'A pleasant surprise or fortunate accident',
+            grammarNote: 'Noun (uncountable). Often describes discovering valuable or agreeable things not sought for.',
+            vocabulary: [
+              { term: 'Fortunate', meaning: 'โชคดี / เป็นมงคล' },
+              { term: 'Coincidence', meaning: 'ความบังเอิญที่เกิดขึ้นพร้อมกัน' }
+            ]
+          }
+        ],
+        followUpSuggestions: ['Example sentences with serendipity', 'Similar words', 'Opposite concept']
+      },
+      workspace: { type: 'language', status: 'idle', steps: [] }
+    }
+  },
+
+  // U6-08 Grammar Correction Group
+  {
+    id: 'u6_08_grammar_correction_group',
+    name: 'U6-08 Grammar Correction Group',
+    description: 'Grouped corrections ("Corrections · 3") with progressive disclosure, keeping multiple improvements clean and supportive.',
+    category: 'workspace',
+    snapshot: {
+      level: 'workspace',
+      presence: { state: 'idle', audioLevel: 0 },
+      conversation: { status: 'idle', messages: [], cards: [] },
+      workspace: {
+        id: 'ws-u6-08',
+        type: 'language',
+        title: 'Writing Feedback',
+        status: 'idle',
+        userFacingState: 'Reviewing 3 Corrections',
+        languageSession: {
+          sessionId: 'sess-08',
+          targetLanguage: 'English',
+          practiceType: 'sentence_correction',
+          topic: 'Project Status Update Review',
+          sessionGoal: 'Review 3 grammar and natural phrasing refinements on drafted report',
+          correctionIntensity: 'detailed',
+          status: 'reviewing',
+          corrections: [
+            {
+              id: 'corr-g1',
+              originalText: 'We discuss about the roadmap.',
+              correctedText: 'We discussed the roadmap.',
+              explanation: '"Discuss" takes a direct object without the preposition "about".',
+              category: 'grammar',
+              intensity: 'detailed'
+            },
+            {
+              id: 'corr-g2',
+              originalText: 'All team member agree.',
+              correctedText: 'All team members agreed.',
+              explanation: '"All" requires the plural noun "members", and past context requires "agreed".',
+              category: 'grammar',
+              intensity: 'detailed'
+            },
+            {
+              id: 'corr-g3',
+              originalText: 'The project will be more fast.',
+              correctedText: 'The project will be faster.',
+              naturalAlternative: 'The project will speed up significantly.',
+              explanation: 'One-syllable adjectives form comparatives with -er ("faster"), not "more fast".',
+              category: 'naturalness',
+              intensity: 'detailed'
+            }
+          ]
+        }
+      }
+    }
+  },
+
+  // U6-09 Vocabulary Review
+  {
+    id: 'u6_09_vocabulary_review',
+    name: 'U6-09 Vocabulary Review',
+    description: 'Dedicated vocabulary inspection canvas displaying items, definitions, pronunciation hints, and mock save buttons.',
+    category: 'workspace',
+    snapshot: {
+      level: 'workspace',
+      presence: { state: 'idle', audioLevel: 0 },
+      conversation: { status: 'idle', messages: [], cards: [] },
+      workspace: {
+        id: 'ws-u6-09',
+        type: 'language',
+        title: 'Vocabulary Bank',
+        status: 'idle',
+        userFacingState: '5 Words Encountered',
+        languageSession: {
+          sessionId: 'sess-09',
+          targetLanguage: 'English',
+          practiceType: 'vocabulary',
+          topic: 'Software Architecture Terms',
+          sessionGoal: 'Review and bookmark key vocabulary encountered during technical discussion',
+          correctionIntensity: 'balanced',
+          status: 'reviewing',
+          vocabulary: [
+            { id: 'v-b1', term: 'Idempotent', meaning: 'Denoting an operation that can be applied multiple times without changing the result', partOfSpeech: 'adj', pronunciationHint: '/aɪˈdɛm.pə.tənt/', status: 'practiced', isSavedMock: true },
+            { id: 'v-b2', term: 'Throughput', meaning: 'The amount of data moved successfully from one place to another in a given time', partOfSpeech: 'noun', status: 'seen', isSavedMock: false },
+            { id: 'v-b3', term: 'Backpressure', meaning: 'Resistance or opposition to the desired flow of data in software pipelines', partOfSpeech: 'noun', status: 'seen', isSavedMock: true },
+            { id: 'v-b4', term: 'Deterministic', meaning: 'Always producing the same output given the same input', partOfSpeech: 'adj', status: 'reviewed', isSavedMock: false },
+            { id: 'v-b5', term: 'Latency', meaning: 'The delay before a transfer of data begins following an instruction', partOfSpeech: 'noun', status: 'practiced', isSavedMock: false }
+          ]
+        }
+      }
+    }
+  },
+
+  // U6-10 Pronunciation Guidance No Score
+  {
+    id: 'u6_10_pronunciation_guidance_no_score',
+    name: 'U6-10 Pronunciation Guidance (No Fake Score)',
+    description: 'Pronunciation guidance enforcing the Truthfulness Invariant: IPA, phonetic guide, and mouth shape shown with ZERO fake scores.',
+    category: 'workspace',
+    snapshot: {
+      level: 'workspace',
+      presence: { state: 'idle', audioLevel: 0 },
+      conversation: { status: 'idle', messages: [], cards: [] },
+      workspace: {
+        id: 'ws-u6-10',
+        type: 'language',
+        title: 'Pronunciation Guide',
+        status: 'idle',
+        userFacingState: 'Truthful Pronunciation Reference',
+        languageSession: {
+          sessionId: 'sess-10',
+          targetLanguage: 'English',
+          practiceType: 'speaking',
+          topic: 'Challenging English Consonants',
+          sessionGoal: 'Learn syllable stress and phonetic placement without fabricated scores',
+          correctionIntensity: 'balanced',
+          status: 'practicing',
+          pronunciationGuide: {
+            phrase: 'Particularly challenging',
+            ipa: 'pərˈtɪk.jə.lər.li ˈtʃæl.ɪn.dʒɪŋ',
+            phoneticSpelling: 'per-TIK-yuh-ler-lee CHAL-in-jing',
+            stressHint: 'Primary stress falls on the second syllable of "particularly" (TIK) and first of "challenging" (CHAL).',
+            mouthGuide: 'Keep your tongue tip slightly behind upper teeth for the /t/ sound, then transition softly to the /j/ glide.'
+          }
+        }
+      }
+    }
+  },
+
+  // U6-11 Mock Speaking Practice
+  {
+    id: 'u6_11_mock_speaking_practice',
+    name: 'U6-11 Mock Speaking Practice',
+    description: 'Interactive speaking practice simulation showing mock listen and speak triggers clearly tagged with (Mock).',
+    category: 'workspace',
+    snapshot: {
+      level: 'workspace',
+      presence: { state: 'listening', audioLevel: 0.65 },
+      conversation: { status: 'idle', messages: [], cards: [] },
+      workspace: {
+        id: 'ws-u6-11',
+        type: 'language',
+        title: 'Speaking Practice',
+        status: 'running',
+        userFacingState: 'Listening… (Mock Audio Input)',
+        languageSession: {
+          sessionId: 'sess-11',
+          targetLanguage: 'English',
+          practiceType: 'speaking',
+          topic: 'Self Introduction & Work Background',
+          sessionGoal: 'Practice answering common introduction questions verbally',
+          currentPrompt: 'Could you tell me a little bit about what you do in your day-to-day job?',
+          correctionIntensity: 'balanced',
+          showTranslation: true,
+          status: 'practicing',
+          observableStateText: 'Listening… (Mock Voice Recording)',
+          vocabulary: [
+            { id: 'v-spk1', term: 'Day-to-day', meaning: 'Happening every day as part of a regular routine', partOfSpeech: 'adj', status: 'seen' }
+          ]
+        }
+      }
+    }
+  },
+
+  // U6-12 Session Waiting for User
+  {
+    id: 'u6_12_session_waiting_for_user',
+    name: 'U6-12 Session Waiting for User',
+    description: 'Calm observable waiting state: "Waiting for your answer…", allowing user time to reflect without timer pressure.',
+    category: 'workspace',
+    snapshot: {
+      level: 'workspace',
+      presence: { state: 'idle', audioLevel: 0 },
+      conversation: { status: 'idle', messages: [], cards: [] },
+      workspace: {
+        id: 'ws-u6-12',
+        type: 'language',
+        title: 'Dialogue Practice',
+        status: 'idle',
+        userFacingState: 'Waiting for your answer…',
+        languageSession: {
+          sessionId: 'sess-12',
+          targetLanguage: 'English',
+          practiceType: 'free_conversation',
+          topic: 'Weekend Travel Plans',
+          sessionGoal: 'Describe a place you would like to visit this year',
+          currentPrompt: 'If you could travel anywhere next month, where would you choose and why?',
+          correctionIntensity: 'light',
+          status: 'waiting_user',
+          observableStateText: 'Waiting for your answer…'
+        }
+      }
+    }
+  },
+
+  // U6-13 Session Summary
+  {
+    id: 'u6_13_session_summary',
+    name: 'U6-13 Session Summary',
+    description: 'Completed practice session summary presenting observed facts: phrases practiced, corrections reviewed, and next steps.',
+    category: 'workspace',
+    snapshot: {
+      level: 'workspace',
+      presence: { state: 'idle', audioLevel: 0 },
+      conversation: { status: 'idle', messages: [], cards: [] },
+      workspace: {
+        id: 'ws-u6-13',
+        type: 'language',
+        title: 'Session Complete',
+        status: 'completed',
+        userFacingState: 'Practice Completed',
+        languageSession: {
+          sessionId: 'sess-13',
+          targetLanguage: 'English',
+          practiceType: 'roleplay',
+          topic: 'Ordering Food in English',
+          sessionGoal: 'Completed ordering food at a restaurant',
+          status: 'completed',
+          sessionSummary: {
+            topicsPracticed: ['Ordering at restaurant', 'Asking for bill', 'Special requests'],
+            phrasesPracticedCount: 6,
+            correctionsCount: 2,
+            vocabularyCount: 5,
+            suggestedNextSteps: [
+              'Practice dietary restriction phrases ("gluten-free", "nut allergy")',
+              'Try the Coffee Shop roleplay scenario next'
+            ]
+          }
+        }
+      }
+    }
+  },
+
+  // U6-14 Office Mode Language Practice
+  {
+    id: 'u6_14_office_mode_language_practice',
+    name: 'U6-14 Office Mode Language Practice',
+    description: 'Language practice adapted for silent office environments: audio buttons disabled, text input focused, zero audio leaks.',
+    category: 'workspace',
+    snapshot: {
+      level: 'workspace',
+      presence: { state: 'idle', audioLevel: 0 },
+      conversation: { status: 'idle', messages: [], cards: [] },
+      workspace: {
+        id: 'ws-u6-14',
+        type: 'language',
+        title: 'Silent Practice • Office Mode',
+        status: 'idle',
+        userFacingState: 'Office Mode (Silent)',
+        languageSession: {
+          sessionId: 'sess-14',
+          targetLanguage: 'English',
+          practiceType: 'sentence_correction',
+          topic: 'Email Proofreading',
+          sessionGoal: 'Practice silent writing corrections without audio interruption',
+          currentPrompt: 'Paste your draft sentence and MAVE will provide discreet natural improvements.',
+          correctionIntensity: 'balanced',
+          status: 'practicing',
+          observableStateText: 'Silent text mode active'
+        }
+      }
+    }
+  },
+
+  // U6-15 Mixed Thai-English Practice
+  {
+    id: 'u6_15_mixed_thai_english_practice',
+    name: 'U6-15 Mixed Thai-English Practice',
+    description: 'Natural bilingual interaction: English practice with Thai contextual explanations, testing mixed-script layout robustness.',
+    category: 'workspace',
+    snapshot: {
+      level: 'workspace',
+      presence: { state: 'idle', audioLevel: 0 },
+      conversation: {
+        status: 'result',
+        messages: [
+          { id: 'm-th-1', type: 'message', role: 'user', content: 'คำว่า "Bite the bullet" แปลว่าอะไร ใช้ยังไง' },
+          { id: 'm-th-2', type: 'message', role: 'assistant', content: '"Bite the bullet" แปลว่า "กัดฟันทำ" หรือยอมทนเผชิญกับสถานการณ์ที่ยากลำบากหรือเจ็บปวดอย่างกล้าหาญครับ' }
+        ],
+        cards: []
+      },
+      workspace: {
+        id: 'ws-u6-15',
+        type: 'language',
+        title: 'Idiom Study • Thai/English',
+        status: 'running',
+        userFacingState: 'Idiom Breakdown',
+        languageSession: {
+          sessionId: 'sess-15',
+          targetLanguage: 'English',
+          nativeLanguage: 'Thai',
+          practiceType: 'vocabulary',
+          topic: 'English Idioms in Daily Conversation',
+          sessionGoal: 'Understand common idiomatic expressions and practice them naturally',
+          currentPrompt: 'Try using "bite the bullet" in a sentence about a difficult task at work.',
+          correctionIntensity: 'detailed',
+          status: 'practicing',
+          vocabulary: [
+            { id: 'v-idiom', term: 'Bite the bullet', meaning: 'กัดฟันทำ / ยอมทนทำสิ่งที่จำเป็นแม้จะไม่ชอบ', partOfSpeech: 'idiom', exampleSentence: 'I had to bite the bullet and pay for the costly repair.', exampleTranslation: 'ฉันต้องกัดฟันจ่ายค่าซ่อมที่แสนแพง', status: 'reviewed', isSavedMock: true }
+          ]
+        }
+      }
+    }
+  },
+
+  // U6-16 Japanese Script Layout
+  {
+    id: 'u6_16_japanese_script_layout',
+    name: 'U6-16 Japanese Script Layout',
+    description: 'Japanese language session demonstrating robust rendering of Kanji, Hiragana, Katakana, and Romaji phonetic hints.',
+    category: 'workspace',
+    snapshot: {
+      level: 'workspace',
+      presence: { state: 'idle', audioLevel: 0 },
+      conversation: { status: 'idle', messages: [], cards: [] },
+      workspace: {
+        id: 'ws-u6-16',
+        type: 'language',
+        title: 'Japanese Practice',
+        status: 'running',
+        userFacingState: 'Speaking Session • Japanese',
+        languageSession: {
+          sessionId: 'sess-16',
+          targetLanguage: 'Japanese',
+          practiceType: 'speaking',
+          topic: 'Daily Greetings & Polite Expressions',
+          sessionGoal: 'Practice common workplace phrases in Japanese',
+          currentPrompt: '週末はどうでしたか？ (How was your weekend?) Try responding using natural Japanese phrasing.',
+          correctionIntensity: 'balanced',
+          status: 'practicing',
+          observableStateText: 'Waiting for your answer…',
+          corrections: [
+            {
+              id: 'corr-jp',
+              originalText: '週末は楽しかったでした。',
+              correctedText: '週末は楽しかったです。',
+              explanation: 'Past tense of i-adjective 楽しい is 楽しかった. Do not attach でした to past adjectives in polite form.',
+              category: 'grammar',
+              intensity: 'balanced'
+            }
+          ],
+          vocabulary: [
+            { id: 'v-jp1', term: 'お疲れ様でした', meaning: 'Thank you for your hard work (standard workplace greeting)', partOfSpeech: 'phrase', pronunciationHint: 'Otsukaresama deshita', status: 'practiced', isSavedMock: true },
+            { id: 'v-jp2', term: '週末', meaning: 'Weekend (Saturday and Sunday)', partOfSpeech: 'noun', pronunciationHint: 'Shūmatsu', status: 'seen' }
+          ]
+        }
+      }
+    }
+  },
+
+  // U6-17 Language → General MAVE Transition
+  {
+    id: 'u6_17_general_mave_transition',
+    name: 'U6-17 Language → General MAVE Transition',
+    description: 'User asks general task ("เปิดโปรเจกต์ MAVE ให้หน่อย") mid-session. MAVE responds without getting trapped in modal language mode.',
+    category: 'workspace',
+    snapshot: {
+      level: 'workspace',
+      presence: { state: 'idle', audioLevel: 0 },
+      conversation: {
+        status: 'result',
+        messages: [
+          { id: 'm-esc-1', type: 'message', role: 'assistant', content: 'What would you like to say next in our conversation practice?' },
+          { id: 'm-esc-2', type: 'message', role: 'user', content: 'พักการเรียนแป๊บหนึ่ง เปิดโปรเจกต์ MAVE ให้หน่อย' },
+          { id: 'm-esc-3', type: 'message', role: 'assistant', content: 'รับทราบครับ! พักเซสชันการเรียนไว้ก่อน\n\nพร้อมเปิดโปรเจกต์ MAVE ที่ไดเรกทอรี D:\\project\\MAVE ให้เรียบร้อยครับ สามารถกลับมาฝึกภาษาต่อได้ทุกเมื่อเมื่อพร้อมครับ' }
+        ],
+        cards: []
+      },
+      workspace: {
+        id: 'ws-u6-17',
+        type: 'language',
+        title: 'Language Session (Paused)',
+        status: 'paused',
+        userFacingState: 'Session Paused • General Task Active',
+        languageSession: {
+          sessionId: 'sess-17',
+          targetLanguage: 'English',
+          practiceType: 'free_conversation',
+          topic: 'Daily Conversation',
+          sessionGoal: 'Conversation paused while handling general user request',
+          status: 'idle',
+          observableStateText: 'Paused • General MAVE active'
+        }
+      }
+    }
+  },
+
+  // U6-18 Narrow Workspace Adaptation
+  {
+    id: 'u6_18_narrow_workspace_adaptation',
+    name: 'U6-18 Narrow Workspace Adaptation',
+    description: 'Language workspace adapted for narrow desktop dimension (720px): practice area retains dominance, context wraps cleanly.',
+    category: 'workspace',
+    snapshot: {
+      level: 'workspace',
+      presentationMode: 'floating',
+      presence: { state: 'idle', audioLevel: 0 },
+      conversation: { status: 'idle', messages: [], cards: [] },
+      workspace: {
+        id: 'ws-u6-18',
+        type: 'language',
+        title: 'Adaptive Language Workspace',
+        status: 'running',
+        userFacingState: 'Narrow Viewport Adaptation',
+        languageSession: {
+          sessionId: 'sess-18',
+          targetLanguage: 'English',
+          practiceType: 'free_conversation',
+          topic: 'Compact Layout Demonstration',
+          sessionGoal: 'Verify responsive layout without text clipping or button overflow',
+          currentPrompt: 'Can you describe your favorite hobby in 2 sentences?',
+          correctionIntensity: 'light',
+          status: 'practicing',
+          vocabulary: [
+            { id: 'v-nw1', term: 'Compact', meaning: 'Closely and neatly packed together', partOfSpeech: 'adj', status: 'seen' }
+          ]
+        }
+      }
+    }
+  }
+];
+
+// Combined full scenarios array (Baseline U0 preserved first, followed by U2, then U3, then U4, then U5, then U6)
 export const MOCK_SCENARIOS: MockScenario[] = [
   ...BASELINE_SCENARIOS,
   ...U2_CONVERSATION_SCENARIOS,
   ...U3_RICH_CARD_SCENARIOS,
   ...U4_CHAT_ONLY_SCENARIOS,
-  ...U5_WORKSPACE_SCENARIOS
+  ...U5_WORKSPACE_SCENARIOS,
+  ...U6_LANGUAGE_SCENARIOS
 ];
+
 

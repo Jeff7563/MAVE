@@ -114,25 +114,46 @@ export const AgentWorkspaceView: React.FC<AgentWorkspaceViewProps> = ({
         </div>
       )}
 
-      {/* Live Output Summary / Logs */}
-        {state.outputSummary && (
-          <div
-            style={{
-              background: 'rgba(0, 0, 0, 0.4)',
-              border: '1px solid var(--mave-v2-border-subtle)',
-              borderRadius: 'var(--mave-v2-radius-card)',
-              padding: '12px 14px',
-              fontFamily: 'Consolas, monospace',
-              fontSize: '11px',
-              color: '#38bdf8',
-              lineHeight: 1.5,
-              whiteSpace: 'pre-wrap'
-            }}
-          >
-            {state.outputSummary}
-          </div>
-        )}
-      </div>
+      {/* 
+        INVARIANT (U5/U6 Preflight Hardening):
+        Synthetic Agent Workspace terminal/activity logs must represent ONLY:
+        - observable execution events
+        - tool output
+        - command output
+        - task status
+        They must NEVER expose:
+        - hidden model reasoning
+        - private chain-of-thought
+        - internal scratchpad
+        - fabricated reasoning traces
+      */}
+      {(state.outputSummary || state.steps?.some(s => s.command || s.outputSummary)) && (
+        <div
+          style={{
+            background: 'rgba(0, 0, 0, 0.4)',
+            border: '1px solid var(--mave-v2-border-subtle)',
+            borderRadius: 'var(--mave-v2-radius-card)',
+            padding: '12px 14px',
+            fontFamily: 'Consolas, monospace',
+            fontSize: '11px',
+            color: '#38bdf8',
+            lineHeight: 1.5,
+            whiteSpace: 'pre-wrap'
+          }}
+          data-testid="agent-execution-logs"
+        >
+          {state.outputSummary && <div>{state.outputSummary}</div>}
+          {state.steps?.map((s) => (
+            (s.command || s.outputSummary) ? (
+              <div key={s.id} style={{ marginTop: '4px' }}>
+                {s.command && <div style={{ color: '#94a3b8' }}>$ {s.command}</div>}
+                {s.outputSummary && <div style={{ color: '#38bdf8' }}>{s.outputSummary}</div>}
+              </div>
+            ) : null
+          ))}
+        </div>
+      )}
+    </div>
 
       {/* Side Column: Context Files & Approvals */}
       <div

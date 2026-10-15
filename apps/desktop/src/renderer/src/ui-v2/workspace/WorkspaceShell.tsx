@@ -30,6 +30,14 @@ export interface WorkspaceShellProps {
   onRequestRevision?: () => void;
   onRetry?: () => void;
   onCancelTask?: () => void;
+  onListenExample?: (phrase: string) => void;
+  onStartSpeakingPractice?: (phrase: string) => void;
+  onStopSpeakingPractice?: () => void;
+  onSaveVocabularyMock?: (id: string) => void;
+  onChangeCorrectionIntensity?: (intensity: any) => void;
+  onToggleShowTranslation?: () => void;
+  onStepOutOfRole?: () => void;
+  onPracticeAgain?: () => void;
   className?: string;
   officeMode?: boolean;
   width?: string | number;
@@ -63,6 +71,14 @@ export const WorkspaceShell: React.FC<WorkspaceShellProps> = ({
   onRequestRevision,
   onRetry,
   onCancelTask,
+  onListenExample,
+  onStartSpeakingPractice,
+  onStopSpeakingPractice,
+  onSaveVocabularyMock,
+  onChangeCorrectionIntensity,
+  onToggleShowTranslation,
+  onStepOutOfRole,
+  onPracticeAgain,
   className = '',
   officeMode = false,
   width = '100%',
@@ -522,9 +538,22 @@ export const WorkspaceShell: React.FC<WorkspaceShellProps> = ({
               );
             }
 
-            // 3. Language Practice Workspace (Context demonstration)
-            if (state.type === 'language') {
-              return <LanguageWorkspaceView state={state} />;
+            // 3. Language Practice Workspace (Canonical U6 Experience)
+            if (state.type === 'language' || state.languageSession) {
+              return (
+                <LanguageWorkspaceView
+                  state={state}
+                  officeMode={officeMode}
+                  onListenExample={onListenExample}
+                  onStartSpeakingPractice={onStartSpeakingPractice}
+                  onStopSpeakingPractice={onStopSpeakingPractice}
+                  onSaveVocabularyMock={onSaveVocabularyMock}
+                  onChangeCorrectionIntensity={onChangeCorrectionIntensity}
+                  onToggleShowTranslation={onToggleShowTranslation}
+                  onStepOutOfRole={onStepOutOfRole}
+                  onPracticeAgain={onPracticeAgain}
+                />
+              );
             }
 
             // 4. Agent Workspace (Specific synthetic mock context)

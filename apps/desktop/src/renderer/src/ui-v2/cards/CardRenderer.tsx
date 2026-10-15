@@ -2,6 +2,7 @@ import React from 'react';
 import type { UiV2Card } from '../types';
 import { MessageCard } from './MessageCard';
 import { TranslationCard } from './TranslationCard';
+import { InlineCorrectionCard } from '../language/InlineCorrectionCard';
 import { SourceCard, SourceGroupCard, VideoCard, ImageCard } from './MediaCards';
 import { FileCard, CodeCard, DiffCard } from './CodeAndFileCards';
 import { StructuredComparisonCard } from './StructuredComparisonCard';
@@ -24,21 +25,22 @@ export interface CardRendererProps {
  * CardRenderer
  *
  * Dispatches to the appropriate card renderer component based on card.type.
- * Supports all 14 canonical card types in the MAVE UI V2 Taxonomy:
+ * Supports all canonical card types in the MAVE UI V2 Taxonomy:
  * 1. message
  * 2. translation
- * 3. source
- * 4. source_group
- * 5. video
- * 6. image
- * 7. file
- * 8. code
- * 9. diff
- * 10. comparison
- * 11. task
- * 12. progress
- * 13. approval
- * 14. error
+ * 3. correction
+ * 4. source
+ * 5. source_group
+ * 6. video
+ * 7. image
+ * 8. file
+ * 9. code
+ * 10. diff
+ * 11. comparison
+ * 12. task
+ * 13. progress
+ * 14. approval
+ * 15. error
  */
 export const CardRenderer: React.FC<CardRendererProps> = ({
   card,
@@ -58,6 +60,27 @@ export const CardRenderer: React.FC<CardRendererProps> = ({
 
     case 'translation':
       return <TranslationCard data={card} onListen={onListen} onCopy={onCopyCode} />;
+
+    case 'correction': {
+      const c = card.correction;
+      return (
+        <InlineCorrectionCard
+          correction={c ? c : {
+            id: card.id,
+            originalText: card.originalText || '',
+            correctedText: card.correctedText || '',
+            naturalAlternative: card.naturalAlternative,
+            alternativePhrasings: card.alternativePhrasings,
+            explanation: card.explanation,
+            category: card.category,
+            intensity: card.intensity
+          }}
+          corrections={card.corrections || card.correctionsList}
+          intensity={card.intensity || c?.intensity}
+          targetLanguage={card.targetLanguage}
+        />
+      );
+    }
 
     case 'source':
       return <SourceCard data={card} onOpenSource={onOpenSource} />;

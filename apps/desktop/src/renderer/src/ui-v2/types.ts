@@ -116,6 +116,7 @@ export type CardDensity = 'compact' | 'standard' | 'expanded';
 export type CardType =
   | 'message'
   | 'translation'
+  | 'correction'
   | 'source'
   | 'source_group'
   | 'video'
@@ -297,9 +298,25 @@ export interface ErrorCardData extends BaseCardData {
   technicalDetails?: string;
 }
 
+export interface CorrectionCardData extends BaseCardData {
+  type: 'correction';
+  correction?: LanguageCorrection;
+  corrections?: LanguageCorrection[];
+  originalText?: string;
+  correctedText?: string;
+  naturalAlternative?: string;
+  alternativePhrasings?: string[];
+  explanation?: string;
+  category?: 'grammar' | 'naturalness' | 'vocabulary' | 'spelling';
+  intensity?: 'light' | 'balanced' | 'detailed';
+  targetLanguage?: string;
+  correctionsList?: LanguageCorrection[];
+}
+
 export type UiV2Card =
   | MessageCardData
   | TranslationCardData
+  | CorrectionCardData
   | SourceCardData
   | SourceGroupCardData
   | VideoCardData
@@ -419,13 +436,112 @@ export interface WorkspaceArtifact {
 export interface WorkspaceStep {
   id: string;
   label: string;
-  status: 'pending' | 'active' | 'completed' | 'failed';
+  status: 'pending' | 'active' | 'completed' | 'failed' | 'running';
+  command?: string;
+  outputSummary?: string;
   timestamp?: string;
 }
 
 export interface WorkspaceFile {
   path: string;
   status: 'analyzed' | 'modified' | 'created';
+}
+
+export type LanguagePracticeType =
+  | 'free_conversation'
+  | 'roleplay'
+  | 'speaking'
+  | 'sentence_correction'
+  | 'translation'
+  | 'vocabulary'
+  | 'grammar';
+
+export type CorrectionIntensity = 'light' | 'balanced' | 'detailed';
+
+export type VocabularyStatus = 'seen' | 'practiced' | 'reviewed';
+
+export interface LanguageCorrection {
+  id?: string;
+  originalText: string;
+  correctedText: string;
+  naturalAlternative?: string;
+  alternativePhrasings?: string[];
+  explanation?: string;
+  category?: 'grammar' | 'naturalness' | 'vocabulary' | 'spelling';
+  intensity?: CorrectionIntensity;
+}
+
+export interface LanguageVocabularyItem {
+  id: string;
+  term: string;
+  meaning: string;
+  partOfSpeech?: string;
+  exampleSentence?: string;
+  exampleTranslation?: string;
+  pronunciationHint?: string;
+  status?: VocabularyStatus;
+  isSavedMock?: boolean;
+}
+
+export interface RoleplayScenario {
+  id?: string;
+  title?: string;
+  role?: string;
+  userRole: string;
+  assistantRole?: string;
+  situation?: string;
+  setting?: string;
+  goal?: string;
+  location?: string;
+  isOutOfRole?: boolean;
+}
+
+export interface PronunciationGuideItem {
+  id?: string;
+  phrase?: string;
+  wordOrPhrase?: string;
+  ipa?: string;
+  phoneticSpelling?: string;
+  stressHint?: string;
+  mouthGuide?: string;
+  practiceCount?: number;
+  audioMockAvailable?: boolean;
+}
+
+export interface LanguageSessionSummary {
+  sessionId?: string;
+  targetLanguage?: string;
+  topicsPracticed: string[];
+  phrasesPracticedCount?: number;
+  phrasesSpokenCount?: number;
+  correctionsCount?: number;
+  correctionsReviewedCount?: number;
+  vocabularyCount?: number;
+  vocabularyEncounteredCount?: number;
+  durationMinutes?: number;
+  vocabularyItems?: LanguageVocabularyItem[];
+  suggestedNextSteps?: string[];
+  nextPracticeSuggestion?: string;
+}
+
+export interface LanguageSessionState {
+  sessionId?: string;
+  targetLanguage: string;
+  nativeLanguage?: string;
+  practiceType: LanguagePracticeType;
+  topic?: string;
+  sessionGoal?: string;
+  currentPrompt?: string;
+  roleplayScenario?: RoleplayScenario;
+  roleplay?: RoleplayScenario;
+  correctionIntensity?: CorrectionIntensity;
+  showTranslation?: boolean;
+  corrections?: LanguageCorrection[];
+  vocabulary?: LanguageVocabularyItem[];
+  sessionSummary?: LanguageSessionSummary;
+  pronunciationGuide?: PronunciationGuideItem;
+  status: 'idle' | 'practicing' | 'waiting_user' | 'reviewing' | 'completed' | 'paused';
+  observableStateText?: string;
 }
 
 export interface WorkspaceState {
@@ -435,6 +551,7 @@ export interface WorkspaceState {
   title?: string;
   status: 'idle' | 'running' | 'waiting_approval' | 'waiting_for_approval' | 'completed' | 'error' | 'paused' | 'failed';
   userFacingState?: string;
+  observableProgressText?: string;
   currentObjective?: string;
   objective?: string;
   steps?: WorkspaceStep[];
@@ -452,6 +569,7 @@ export interface WorkspaceState {
     vocabulary: { term: string; meaning: string }[];
     naturalPhrasing?: string;
   };
+  languageSession?: LanguageSessionState;
   sources?: SourceCardData[];
   outputSummary?: string;
   artifacts?: WorkspaceArtifact[];
