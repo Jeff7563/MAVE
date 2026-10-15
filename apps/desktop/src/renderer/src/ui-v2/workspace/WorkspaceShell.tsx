@@ -12,6 +12,7 @@ import {
   MinimizeIcon,
   CloseIcon,
   ChevronLeftIcon,
+  ChevronRightIcon,
   AlertIcon,
   HandIcon,
   RetryIcon
@@ -54,6 +55,9 @@ export interface WorkspaceShellProps {
   officeMode?: boolean;
   width?: string | number;
   height?: string | number;
+  initialFocusMode?: boolean;
+  initialShowConversation?: boolean;
+  initialShowContext?: boolean;
 }
 
 /**
@@ -94,7 +98,10 @@ export const WorkspaceShell: React.FC<WorkspaceShellProps> = ({
   className = '',
   officeMode = false,
   width = '100%',
-  height = '100%'
+  height = '100%',
+  initialFocusMode,
+  initialShowConversation,
+  initialShowContext
 }) => {
   const activeConversation: ConversationState =
     conversationState ||
@@ -106,19 +113,45 @@ export const WorkspaceShell: React.FC<WorkspaceShellProps> = ({
 
   const hasConvMessages = Boolean(activeConversation.messages && activeConversation.messages.length > 0);
   const isLanguageMode = state.type === 'language';
+  const hasMultipleArtifacts = Boolean(state.artifacts && state.artifacts.length > 1);
   const contextFiles = state.files || state.targetFiles;
   const hasContextContent = state.type !== 'language' && Boolean(
     state.activeApproval ||
-    (state.artifacts && state.artifacts.length > 0) ||
+    hasMultipleArtifacts ||
     (contextFiles && contextFiles.length > 0) ||
-    (state.sources && state.sources.length > 0)
+    (state.sources && state.sources.length > 0 && state.type !== 'research')
   );
 
-  const [isFocusMode, setIsFocusMode] = useState<boolean>(false);
-  const [showConversation, setShowConversation] = useState<boolean>(
-    isLanguageMode ? false : (hasConvMessages || state.type === 'project' || state.type === 'agent')
-  );
-  const [showContext, setShowContext] = useState<boolean>(hasContextContent);
+  const isFocusRequested =
+    initialFocusMode ??
+    state.isFocusMode ??
+    (state.userFacingState === 'Focus Review' || (state.type === 'diff_review' && state.title?.toLowerCase().includes('deep diff'))) ??
+    false;
+
+  const [isFocusMode, setIsFocusMode] = useState<boolean>(isFocusRequested);
+
+  const defaultShowConversation = (): boolean => {
+    if (initialShowConversation !== undefined) return initialShowConversation;
+    if (state.initialShowConversation !== undefined) return state.initialShowConversation;
+    if (isLanguageMode) return false;
+    if (activeConversation.status === 'streaming') return true;
+    // In technical diff review and research, artifact dominates full width by default
+    if (state.type === 'diff_review' || state.type === 'research') return false;
+    return hasConvMessages || state.type === 'project' || state.type === 'agent';
+  };
+
+  const defaultShowContext = (): boolean => {
+    if (initialShowContext !== undefined) return initialShowContext;
+    if (state.initialShowContext !== undefined) return state.initialShowContext;
+    if (!hasContextContent) return false;
+    if (state.activeApproval) return true;
+    // In diff review and research, supporting elements are embedded in the main canvas
+    if (state.type === 'diff_review' || state.type === 'research') return false;
+    return hasContextContent;
+  };
+
+  const [showConversation, setShowConversation] = useState<boolean>(defaultShowConversation);
+  const [showContext, setShowContext] = useState<boolean>(defaultShowContext);
   const [activeArtifactId, setActiveArtifactId] = useState<string | undefined>(
     state.activeArtifactId || state.artifacts?.[0]?.id
   );
@@ -224,80 +257,55 @@ export const WorkspaceShell: React.FC<WorkspaceShellProps> = ({
           userSelect: 'none'
         }}
       >
-        {/* Left: Identity, Title, Semantic Status */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        {/* Left: Identity, Title, Semantic Status (Clean, zero debug noise) */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
           <AdaptivePresenceMark
             size="status"
             state={isRunning ? 'thinking' : isWaitingApproval ? 'idle' : 'idle'}
           />
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontWeight: 600, fontSize: '13px', letterSpacing: '0.14em', color: '#f8fafc' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, overflow: 'hidden' }}>
+            <span style={{ fontWeight: 600, fontSize: '13px', letterSpacing: '0.14em', color: '#f8fafc', flexShrink: 0 }}>
               MAVE
             </span>
+            <span style={{ color: 'rgba(255, 255, 255, 0.25)', fontSize: '12px', flexShrink: 0 }}>/</span>
             <span
               style={{
-                fontSize: '11px',
                 fontWeight: 600,
-                letterSpacing: '0.1em',
-                color: 'rgba(148, 163, 184, 0.85)',
-                textTransform: 'uppercase',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '5px'
+                fontSize: '13px',
+                color: '#f8fafc',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap'
               }}
+              data-testid="workspace-title"
+              title={state.title}
             >
-              <span
-                style={{
-                  width: '4px',
-                  height: '4px',
-                  borderRadius: '50%',
-                  background:
-                    state.type === 'diff_review'
-                      ? '#38bdf8'
-                      : state.type === 'agent' || state.type === 'agent_work'
-                      ? '#a855f7'
-                      : state.type === 'language'
-                      ? '#34d399'
-                      : state.type === 'research'
-                      ? '#60a5fa'
-                      : '#818cf8'
-                }}
-              />
-              {state.type === 'diff_review'
-                ? 'CODE'
-                : state.type === 'agent' || state.type === 'agent_work'
-                ? 'AGENT'
-                : state.type === 'language'
-                ? 'LANGUAGE'
-                : state.type === 'research'
-                ? 'RESEARCH'
-                : 'WORKSPACE'}
-            </span>
-            <span style={{ color: 'rgba(255, 255, 255, 0.2)', fontSize: '12px' }}>/</span>
-            <span style={{ fontWeight: 600, fontSize: '13px', color: '#f8fafc' }} data-testid="workspace-title">
               {state.title}
             </span>
-            <span
-              style={{
-                fontSize: '10px',
-                fontWeight: 600,
-                color: statusColor,
-                background: 'rgba(255, 255, 255, 0.05)',
-                padding: '2px 8px',
-                borderRadius: '4px',
-                textTransform: 'uppercase',
-                letterSpacing: '0.4px',
-                border: isWaitingApproval ? '1px solid rgba(245, 158, 11, 0.4)' : 'none'
-              }}
-              data-testid="workspace-status-badge"
-            >
-              {semanticStatusText}
-            </span>
+            {semanticStatusText && (
+              <span
+                style={{
+                  fontSize: '10px',
+                  fontWeight: 600,
+                  color: statusColor,
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  padding: '2px 8px',
+                  borderRadius: '4px',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.4px',
+                  border: isWaitingApproval ? '1px solid rgba(245, 158, 11, 0.4)' : 'none',
+                  flexShrink: 0
+                }}
+                data-testid="workspace-status-badge"
+              >
+                {semanticStatusText}
+              </span>
+            )}
           </div>
         </div>
 
         {/* Right: Region Toggles & Navigation Controls */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
           {/* Focus Mode Toggle */}
           <button
             onClick={() => setIsFocusMode(!isFocusMode)}
@@ -305,7 +313,7 @@ export const WorkspaceShell: React.FC<WorkspaceShellProps> = ({
             aria-label={isFocusMode ? 'Exit Focus Mode' : 'Focus Primary Artifact'}
             style={{
               background: isFocusMode ? 'rgba(56, 189, 248, 0.15)' : 'transparent',
-              border: '1px solid var(--mave-v2-border-subtle)',
+              border: isFocusMode ? '1px solid rgba(56, 189, 248, 0.4)' : '1px solid var(--mave-v2-border-subtle)',
               borderRadius: '6px',
               color: isFocusMode ? 'var(--mave-v2-accent-listening)' : 'var(--mave-v2-text-secondary)',
               padding: '4px 8px',
@@ -326,7 +334,7 @@ export const WorkspaceShell: React.FC<WorkspaceShellProps> = ({
           {!isFocusMode && (
             <button
               onClick={() => setShowConversation(!showConversation)}
-              title="Toggle Conversation Rail (Alt+C)"
+              title={showConversation ? 'Hide Conversation Rail (Alt+C)' : 'Show Conversation Rail (Alt+C)'}
               aria-label="Toggle Conversation Rail"
               style={{
                 background: showConversation ? 'rgba(255, 255, 255, 0.08)' : 'transparent',
@@ -351,25 +359,29 @@ export const WorkspaceShell: React.FC<WorkspaceShellProps> = ({
           {/* Supporting Context Toggle */}
           {!isFocusMode && (
             <button
-              onClick={() => setShowContext(!showContext)}
-              title="Toggle Context Panel"
+              onClick={() => hasContextContent && setShowContext(!showContext)}
+              disabled={!hasContextContent}
+              title={!hasContextContent ? 'No supporting context available' : showContext ? 'Collapse Context Panel' : 'Expand Context Panel'}
               aria-label="Toggle Context Panel"
               style={{
-                background: showContext ? 'rgba(255, 255, 255, 0.08)' : 'transparent',
+                background: showContext && hasContextContent ? 'rgba(255, 255, 255, 0.08)' : 'transparent',
                 border: '1px solid var(--mave-v2-border-subtle)',
                 borderRadius: '6px',
-                color: showContext ? 'var(--mave-v2-text-primary)' : 'var(--mave-v2-text-muted)',
+                color: hasContextContent
+                  ? (showContext ? 'var(--mave-v2-text-primary)' : 'var(--mave-v2-text-muted)')
+                  : 'rgba(255, 255, 255, 0.25)',
                 padding: '4px 8px',
                 fontSize: '11px',
-                cursor: 'pointer',
+                cursor: hasContextContent ? 'pointer' : 'default',
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: '5px'
+                gap: '5px',
+                opacity: hasContextContent ? 1 : 0.4
               }}
               data-testid="btn-workspace-toggle-context"
-              aria-pressed={showContext}
+              aria-pressed={showContext && hasContextContent}
             >
-              <FolderIcon size={12} color={showContext ? 'var(--mave-v2-text-primary)' : 'var(--mave-v2-text-muted)'} />
+              <FolderIcon size={12} color={hasContextContent ? (showContext ? 'var(--mave-v2-text-primary)' : 'var(--mave-v2-text-muted)') : 'rgba(255, 255, 255, 0.25)'} />
               <span>Context</span>
             </button>
           )}
@@ -459,6 +471,7 @@ export const WorkspaceShell: React.FC<WorkspaceShellProps> = ({
         {/* REGION A: Conversation Rail (Left, Collapsible) */}
         {!isFocusMode && showConversation && (
           <aside
+            className="mave-v2-workspace-conv-rail"
             style={{
               width: '260px',
               minWidth: '220px',
@@ -469,7 +482,8 @@ export const WorkspaceShell: React.FC<WorkspaceShellProps> = ({
               display: 'flex',
               flexDirection: 'column',
               overflow: 'hidden',
-              minHeight: 0
+              minHeight: 0,
+              flexShrink: 0
             }}
             data-testid="workspace-conversation-region"
           >
@@ -491,6 +505,7 @@ export const WorkspaceShell: React.FC<WorkspaceShellProps> = ({
                 onClick={() => setShowConversation(false)}
                 style={{ background: 'transparent', border: 'none', color: 'var(--mave-v2-text-dim)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
                 title="Collapse Conversation Rail"
+                data-testid="btn-collapse-conv-rail"
               >
                 <ChevronLeftIcon size={12} color="var(--mave-v2-text-dim)" />
               </button>
@@ -636,7 +651,7 @@ export const WorkspaceShell: React.FC<WorkspaceShellProps> = ({
               const findingsObj = Array.isArray(state.researchFindings) ? state.researchFindings[0] : state.researchFindings;
               return (
                 <WorkspaceResearchView
-                  question={currentArtifact?.researchFindings?.question || state.currentObjective || state.objective}
+                  question={currentArtifact?.researchFindings?.question || findingsObj?.question || state.currentObjective || state.objective}
                   summary={currentArtifact?.researchFindings?.summary || findingsObj?.summary || state.outputSummary}
                   takeaways={currentArtifact?.researchFindings?.takeaways || findingsObj?.takeaways}
                   sources={currentArtifact?.sources || state.sources}
@@ -670,6 +685,7 @@ export const WorkspaceShell: React.FC<WorkspaceShellProps> = ({
                   state={state}
                   onAllowApproval={onAllowApproval}
                   onDenyApproval={onDenyApproval}
+                  hasExternalContextPanel={showContext && hasContextContent}
                 />
               );
             }
@@ -716,6 +732,7 @@ export const WorkspaceShell: React.FC<WorkspaceShellProps> = ({
         {/* REGION C: Supporting Context & Activity Panel (Right, Collapsible — Collapses when empty) */}
         {!isFocusMode && showContext && hasContextContent && (
           <aside
+            className="mave-custom-scrollbar mave-v2-workspace-context-rail"
             style={{
               width: '240px',
               minWidth: '200px',
@@ -729,7 +746,8 @@ export const WorkspaceShell: React.FC<WorkspaceShellProps> = ({
               overflowX: 'hidden',
               minHeight: 0,
               padding: '14px',
-              gap: '14px'
+              gap: '14px',
+              flexShrink: 0
             }}
             data-testid="workspace-context-region"
           >
@@ -748,10 +766,11 @@ export const WorkspaceShell: React.FC<WorkspaceShellProps> = ({
               <span>Supporting Context</span>
               <button
                 onClick={() => setShowContext(false)}
-                style={{ background: 'transparent', border: 'none', color: 'var(--mave-v2-text-dim)', cursor: 'pointer', fontSize: '11px' }}
+                style={{ background: 'transparent', border: 'none', color: 'var(--mave-v2-text-dim)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
                 title="Collapse Context Panel"
+                data-testid="btn-collapse-context-rail"
               >
-                ▶
+                <ChevronRightIcon size={12} color="var(--mave-v2-text-dim)" />
               </button>
             </div>
 

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import type { DiffCardData, WorkspaceFile } from '../types';
+import { CheckIcon, CloseIcon } from '../primitives/Icons';
 import '../tokens.css';
 
 export interface WorkspaceDiffViewProps {
@@ -177,7 +178,7 @@ export const WorkspaceDiffView: React.FC<WorkspaceDiffViewProps> = ({
             }}
             data-testid="diff-tests-passing"
           >
-            <span>✓</span> 12 / 12 passed
+            <CheckIcon size={11} color="#38bdf8" strokeWidth={2.5} /> 12 / 12 passed
           </span>
         </div>
 
@@ -208,11 +209,15 @@ export const WorkspaceDiffView: React.FC<WorkspaceDiffViewProps> = ({
               fontSize: '11px',
               fontWeight: 600,
               color: '#4ade80',
-              cursor: 'pointer'
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '5px'
             }}
             data-testid="btn-approve-diff"
           >
-            ✓ Approve Diff
+            <CheckIcon size={12} color="#4ade80" strokeWidth={2.5} />
+            <span>Approve Diff</span>
           </button>
         </div>
       </div>
@@ -236,7 +241,7 @@ export const WorkspaceDiffView: React.FC<WorkspaceDiffViewProps> = ({
         data-testid="workspace-code-diagnostic"
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: '1 1 auto' }}>
-          <span style={{ color: '#ef4444', fontWeight: 700, flexShrink: 0 }}>✕</span>
+          <CloseIcon size={12} color="#ef4444" strokeWidth={2.5} style={{ flexShrink: 0 }} />
           <span style={{ fontFamily: 'monospace', fontWeight: 600, flexShrink: 0 }}>TS2322:</span>
           <span style={{ minWidth: 0, overflowWrap: 'anywhere' }}>Type &apos;string&apos; is not assignable to type &apos;number&apos;.</span>
         </div>

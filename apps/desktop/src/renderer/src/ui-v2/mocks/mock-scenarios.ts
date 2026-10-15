@@ -3399,6 +3399,10 @@ export const U5_WORKSPACE_SCENARIOS: MockScenario[] = [
       presence: {
         state: 'idle',
         audioLevel: 0,
+        backgroundTask: {
+          taskName: 'Background Build Task',
+          statusText: 'Running'
+        },
         quickResponse: {
           text: 'Workspace running in background. Click to reopen.',
           sourceLabel: 'MAVE Workspace'

@@ -62,20 +62,30 @@ export const WorkspaceProjectView: React.FC<WorkspaceProjectViewProps> = ({
 
   return (
     <div
-      className={`mave-v2-workspace-project-view ${className}`.trim()}
+      className={`mave-v2-workspace-project-view mave-custom-scrollbar ${className}`.trim()}
       style={{
         display: 'flex',
         flexDirection: 'column',
         height: '100%',
         minWidth: 0,
         minHeight: 0,
-        gap: '14px',
         overflowY: 'auto',
         overflowX: 'hidden',
         color: 'var(--mave-v2-text-primary)'
       }}
       data-testid="workspace-project-view"
     >
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '16px',
+          maxWidth: '1040px',
+          width: '100%',
+          margin: '0 auto',
+          minWidth: 0
+        }}
+      >
       {/* 1. Project Objective Banner */}
       {objective && (
         <div
@@ -310,6 +320,7 @@ export const WorkspaceProjectView: React.FC<WorkspaceProjectViewProps> = ({
           {outputSummary}
         </div>
       )}
+      </div>
     </div>
   );
 };

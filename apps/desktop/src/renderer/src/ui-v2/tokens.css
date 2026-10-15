@@ -434,3 +434,71 @@
   }
 }
 
+/* ==========================================================================
+   MAVE VSM4 — Adaptive Workspace Layout & Responsive Drawer Behavior
+   ========================================================================== */
+
+.mave-v2-workspace-shell {
+  container-type: inline-size;
+  transition: border-radius var(--mave-dur-glide, 320ms) ease,
+              box-shadow var(--mave-dur-glide, 320ms) ease;
+}
+
+.mave-v2-workspace-conv-rail,
+.mave-v2-workspace-context-rail {
+  transition: width var(--mave-dur-glide, 320ms) ease,
+              opacity var(--mave-dur-quick, 200ms) ease;
+}
+
+/* Focus Presentation Mode: Secondary UI collapses completely */
+.mave-v2-workspace-focus .mave-v2-workspace-conv-rail,
+.mave-v2-workspace-focus .mave-v2-workspace-context-rail {
+  display: none !important;
+}
+
+/* Narrow Workspace Responsive Adaptation (<= 860px) via media & container queries */
+@container (max-width: 860px) {
+  .mave-v2-workspace-conv-rail {
+    position: absolute;
+    left: 0;
+    top: 49px;
+    bottom: 0;
+    z-index: 20;
+    box-shadow: 12px 0 32px rgba(0, 0, 0, 0.65);
+    background: rgba(10, 14, 26, 0.94) !important;
+  }
+
+  .mave-v2-workspace-context-rail {
+    position: absolute;
+    right: 0;
+    top: 49px;
+    bottom: 0;
+    z-index: 20;
+    box-shadow: -12px 0 32px rgba(0, 0, 0, 0.65);
+    background: rgba(10, 14, 26, 0.94) !important;
+  }
+}
+
+@media (max-width: 860px) {
+  .mave-v2-workspace-shell .mave-v2-workspace-conv-rail {
+    position: absolute;
+    left: 0;
+    top: 49px;
+    bottom: 0;
+    z-index: 20;
+    box-shadow: 12px 0 32px rgba(0, 0, 0, 0.65);
+    background: rgba(10, 14, 26, 0.94) !important;
+  }
+
+  .mave-v2-workspace-shell .mave-v2-workspace-context-rail {
+    position: absolute;
+    right: 0;
+    top: 49px;
+    bottom: 0;
+    z-index: 20;
+    box-shadow: -12px 0 32px rgba(0, 0, 0, 0.65);
+    background: rgba(10, 14, 26, 0.94) !important;
+  }
+}
+
+

@@ -35,20 +35,30 @@ export const WorkspaceResearchView: React.FC<WorkspaceResearchViewProps> = ({
 }) => {
   return (
     <div
-      className={`mave-v2-workspace-research-view ${className}`.trim()}
+      className={`mave-v2-workspace-research-view mave-custom-scrollbar ${className}`.trim()}
       style={{
         display: 'flex',
         flexDirection: 'column',
         height: '100%',
         minWidth: 0,
         minHeight: 0,
-        gap: '14px',
         overflowY: 'auto',
         overflowX: 'hidden',
         color: 'var(--mave-v2-text-primary)'
       }}
       data-testid="workspace-research-view"
     >
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '16px',
+          maxWidth: '1040px',
+          width: '100%',
+          margin: '0 auto',
+          minWidth: 0
+        }}
+      >
       {/* 1. Research Question Card */}
       {question && (
         <div
@@ -124,7 +134,7 @@ export const WorkspaceResearchView: React.FC<WorkspaceResearchViewProps> = ({
                     color: 'var(--mave-v2-text-secondary)'
                   }}
                 >
-                  <span style={{ color: 'var(--mave-v2-accent-listening)' }}>✦</span>
+                  <span style={{ color: 'var(--mave-v2-accent-listening)', width: '6px', height: '6px', borderRadius: '50%', background: 'currentColor', display: 'inline-block', marginTop: '6px', flexShrink: 0 }} />
                   <span>{point}</span>
                 </div>
               ))}
@@ -164,6 +174,7 @@ export const WorkspaceResearchView: React.FC<WorkspaceResearchViewProps> = ({
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 };

@@ -158,11 +158,22 @@ export const MaveUiLab: React.FC = () => {
 
   // Switch Surface Level manually
   const handleSetLevel = (level: SurfaceLevel) => {
-    setSnapshot((prev) => ({
-      ...prev,
-      level,
-      presentationMode: level === 'conversation' ? (prev.presentationMode === 'floating' ? 'floating' : 'sidecar') : prev.presentationMode
-    }));
+    setSnapshot((prev) => {
+      const isTaskRunning = prev.workspace?.status === 'running';
+      return {
+        ...prev,
+        level,
+        presentationMode: level === 'conversation' ? (prev.presentationMode === 'floating' ? 'floating' : 'sidecar') : prev.presentationMode,
+        presence: {
+          ...prev.presence,
+          backgroundTask: (level === 'presence' && isTaskRunning) ? {
+            taskName: prev.workspace.title || 'Workspace Task',
+            statusText: prev.workspace.userFacingState || 'Working…',
+            onActivate: () => handleSetLevel('workspace')
+          } : (level === 'workspace' ? undefined : prev.presence.backgroundTask)
+        }
+      };
+    });
     if (level === 'presence') setViewportPreset('compact');
     if (level === 'conversation') setViewportPreset('sidecar');
     if (level === 'workspace') setViewportPreset('workspace');
@@ -1534,6 +1545,7 @@ export const MaveUiLab: React.FC = () => {
                 state={snapshot.presence.state}
                 audioLevel={snapshot.presence.audioLevel}
                 quickResponse={snapshot.presence.quickResponse}
+                backgroundTask={snapshot.presence.backgroundTask}
                 officeMode={officeMode}
                 onExpand={() => {
                   const handoff = handoffPresenceToConversation({

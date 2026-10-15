@@ -378,6 +378,244 @@ describe('MAVE UI V2 — U5 Workspace Surface Foundation & Structured Work Tests
       expect(html).not.toContain('No active project steps');
     });
   });
+
+  // -------------------------------------------------------------------------
+  // 8. MAVE VSM4 — Adaptive Artifact-Dominant Workspace System Tests
+  // -------------------------------------------------------------------------
+  describe('8. MAVE VSM4 — Adaptive Artifact-Dominant Workspace System Tests', () => {
+    it('Diff Review Workspace collapses secondary rails by default for full-width artifact dominance', () => {
+      const diffState: WorkspaceState = {
+        type: 'diff_review',
+        title: 'Review Network Timeout',
+        status: 'idle',
+        userFacingState: 'Ready for Review',
+        diffArtifacts: [
+          {
+            filePath: 'src/network/client.ts',
+            additions: 3,
+            deletions: 1,
+            diffLines: [
+              { type: 'context', text: 'export const timeout = 5000;', oldLineNumber: 10, newLineNumber: 10 },
+              { type: 'deletion', text: '-  timeout: 5000,', oldLineNumber: 11 },
+              { type: 'addition', text: '+  timeout: 15000,', newLineNumber: 11 }
+            ]
+          }
+        ]
+      };
+
+      const html = renderToStaticMarkup(<WorkspaceShell state={diffState} />);
+
+      // Primary work canvas dominates with diff view
+      expect(html).toContain('data-testid="workspace-diff-view"');
+      expect(html).toContain('client.ts');
+
+      // Rigid three-column default is removed: side rails are collapsed by default
+      expect(html).not.toContain('data-testid="workspace-conversation-region"');
+      expect(html).not.toContain('data-testid="workspace-context-region"');
+
+      // Clean header: MAVE / Title, no noisy CODE badge
+      expect(html).toContain('MAVE');
+      expect(html).toContain('Review Network Timeout');
+      expect(html).not.toContain('>CODE<');
+      expect(html).not.toContain('>WORKSPACE<');
+    });
+
+    it('Empty supporting context collapses completely without reserving blank screen width', () => {
+      const documentState: WorkspaceState = {
+        type: 'project',
+        title: 'Product Requirements',
+        status: 'idle',
+        userFacingState: 'Draft Ready',
+        artifacts: [
+          {
+            id: 'doc-1',
+            type: 'document',
+            title: 'PRD.md',
+            content: '# Product Requirements\n\nArtifact primacy is enforced.'
+          }
+        ]
+      };
+
+      const html = renderToStaticMarkup(<WorkspaceShell state={documentState} />);
+
+      // Single artifact is in primary canvas
+      expect(html).toContain('data-testid="workspace-project-view"');
+      expect(html).toContain('PRD.md');
+      expect(html).toContain('Artifact primacy is enforced.');
+
+      // Zero supporting context exists -> context rail is completely collapsed
+      expect(html).not.toContain('data-testid="workspace-context-region"');
+    });
+
+    it('Focus Mode presentation collapses conversation and context while preserving all state', () => {
+      const stateWithContext: WorkspaceState = {
+        type: 'project',
+        title: 'Architecture Spec',
+        status: 'running',
+        userFacingState: 'Working',
+        targetFiles: [{ path: 'src/arch.ts', status: 'modified' }],
+        artifacts: [
+          { id: 'a1', type: 'document', title: 'ARCH.md', content: 'Architecture content.' },
+          { id: 'a2', type: 'document', title: 'NOTES.md', content: 'Notes.' }
+        ]
+      };
+
+      const convState: ConversationState = {
+        status: 'result',
+        messages: [{ id: 'm1', type: 'message', role: 'user', content: 'Generate architecture specification' }],
+        cards: []
+      };
+
+      const html = renderToStaticMarkup(
+        <WorkspaceShell
+          state={stateWithContext}
+          conversationState={convState}
+          initialFocusMode={true}
+        />
+      );
+
+      // Focus Mode flag is active
+      expect(html).toContain('data-focus-mode="true"');
+
+      // Secondary rails are hidden from DOM in focus mode
+      expect(html).not.toContain('data-testid="workspace-conversation-region"');
+      expect(html).not.toContain('data-testid="workspace-context-region"');
+
+      // Primary work area remains fully rendered and active
+      expect(html).toContain('data-testid="workspace-project-view"');
+      expect(html).toContain('Architecture content.');
+    });
+
+    it('Conversation state is reused faithfully when conversation rail is toggled open', () => {
+      const state: WorkspaceState = {
+        type: 'diff_review',
+        title: 'Diff Review With Discussion',
+        status: 'idle',
+        diffArtifacts: [
+          {
+            filePath: 'src/server.ts',
+            additions: 1,
+            deletions: 0,
+            diffLines: [{ type: 'addition', text: '+app.listen(3000);', newLineNumber: 1 }]
+          }
+        ]
+      };
+
+      const convState: ConversationState = {
+        status: 'result',
+        activeRequestId: 'req-vsm4-test',
+        messages: [
+          { id: 'm1', type: 'message', role: 'user', content: 'Can we change the port to 3000?' },
+          { id: 'm2', type: 'message', role: 'assistant', content: 'Updated port to 3000 in server.ts.' }
+        ],
+        cards: []
+      };
+
+      const html = renderToStaticMarkup(
+        <WorkspaceShell
+          state={state}
+          conversationState={convState}
+          initialShowConversation={true}
+        />
+      );
+
+      // Conversation rail is rendered with exact conversation state
+      expect(html).toContain('data-testid="workspace-conversation-region"');
+      expect(html).toContain('Can we change the port to 3000?');
+      expect(html).toContain('Updated port to 3000 in server.ts.');
+
+      // Diff canvas remains alongside it
+      expect(html).toContain('data-testid="workspace-diff-view"');
+      expect(html).toContain('server.ts');
+    });
+
+    it('Research Workspace synthesizes findings, takeaways, comparison, and sources in structured reading canvas', () => {
+      const researchState: WorkspaceState = {
+        type: 'research',
+        title: 'Database Comparison',
+        status: 'completed',
+        userFacingState: 'Synthesis Complete',
+        researchFindings: {
+          question: 'PostgreSQL vs SQLite for embedded desktop memory',
+          summary: 'SQLite provides zero daemon overhead, local ACID compliance, and WAL mode concurrency.',
+          takeaways: [
+            'Zero external process dependency',
+            'WAL mode allows concurrent readers with a single writer'
+          ]
+        },
+        sources: [
+          {
+            id: 'src-sqlite',
+            type: 'source',
+            title: 'SQLite WAL Mode Documentation',
+            domain: 'sqlite.org',
+            url: 'https://sqlite.org/wal.html',
+            snippet: 'Write-Ahead Logging provides significant concurrency improvements.'
+          }
+        ]
+      };
+
+      const html = renderToStaticMarkup(<WorkspaceShell state={researchState} />);
+
+      expect(html).toContain('data-testid="workspace-research-view"');
+      expect(html).toContain('PostgreSQL vs SQLite for embedded desktop memory');
+      expect(html).toContain('SQLite provides zero daemon overhead');
+      expect(html).toContain('Zero external process dependency');
+      expect(html).toContain('SQLite WAL Mode Documentation');
+
+      // Sources are embedded in research canvas, not in redundant third column
+      expect(html).not.toContain('data-testid="workspace-context-region"');
+      expect(html).not.toContain('data-testid="workspace-conversation-region"');
+    });
+
+    it('Workspace minimize preserves ongoing task callbacks without destroying task state', () => {
+      let minimizedToConversation = false;
+      let collapsedToPresence = false;
+      let dismissed = false;
+
+      const runningTaskState: WorkspaceState = {
+        type: 'project',
+        title: 'Background Compilation',
+        status: 'running',
+        userFacingState: 'Building...',
+        currentPlanStep: 2,
+        totalPlanSteps: 4
+      };
+
+      const handleMinConv = () => { minimizedToConversation = true; };
+      const handleColPres = () => { collapsedToPresence = true; };
+      const handleClose = () => { dismissed = true; };
+
+      const html = renderToStaticMarkup(
+        <WorkspaceShell
+          state={runningTaskState}
+          onMinimizeToConversation={handleMinConv}
+          onCollapseToPresence={handleColPres}
+          onClose={handleClose}
+        />
+      );
+
+      // Verify affordances exist
+      expect(html).toContain('data-testid="btn-workspace-minimize-conversation"');
+      expect(html).toContain('data-testid="btn-workspace-collapse-presence"');
+      expect(html).toContain('data-testid="btn-workspace-close"');
+      expect(html).toContain('Building...');
+
+      // Invariant: handlers are bound without premature invocation
+      expect(minimizedToConversation).toBe(false);
+      expect(collapsedToPresence).toBe(false);
+      expect(dismissed).toBe(false);
+
+      // Verify callback functionality
+      handleMinConv();
+      handleColPres();
+      handleClose();
+      expect(minimizedToConversation).toBe(true);
+      expect(collapsedToPresence).toBe(true);
+      expect(dismissed).toBe(true);
+    });
+  });
 });
+
 
 

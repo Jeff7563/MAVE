@@ -576,6 +576,9 @@ export interface WorkspaceState {
   activeArtifactId?: string;
   conversation?: ConversationState;
   diagnostics?: ExecutionDiagnostics;
+  isFocusMode?: boolean;
+  initialShowConversation?: boolean;
+  initialShowContext?: boolean;
 }
 
 export interface UiV2Snapshot {
@@ -587,6 +590,11 @@ export interface UiV2Snapshot {
     state: PresenceState;
     audioLevel: number;
     quickResponse?: QuickResponseData;
+    backgroundTask?: {
+      taskName: string;
+      statusText: string;
+      onActivate?: () => void;
+    };
   };
   conversation: ConversationState;
   workspace: WorkspaceState;

@@ -7,14 +7,16 @@ export interface AgentWorkspaceViewProps {
   state: WorkspaceState;
   onAllowApproval?: (id: string) => void;
   onDenyApproval?: (id: string) => void;
+  hasExternalContextPanel?: boolean;
 }
 
 export const AgentWorkspaceView: React.FC<AgentWorkspaceViewProps> = ({
   state,
   onAllowApproval,
-  onDenyApproval
+  onDenyApproval,
+  hasExternalContextPanel = false
 }) => {
-  const hasSidePanel = Boolean(state.activeApproval || (state.files && state.files.length > 0));
+  const hasSidePanel = !hasExternalContextPanel && Boolean(state.activeApproval || (state.files && state.files.length > 0));
 
   return (
     <div
