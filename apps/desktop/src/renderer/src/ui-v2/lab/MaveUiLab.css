@@ -127,3 +127,10 @@
   transition-duration: 0.01ms !important;
 }
 
+.mave-v2-reduced-motion-preview .mave-v2-waveform-bar,
+.mave-v2-reduced-motion-preview .mave-v2-thinking-wave,
+.mave-v2-reduced-motion-preview .mave-orb-canvas {
+  animation: none !important;
+  transform: none !important;
+}
+

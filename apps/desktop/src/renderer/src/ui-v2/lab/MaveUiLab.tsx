@@ -23,7 +23,7 @@ type ViewportPreset = 'compact' | 'chat' | 'sidecar' | 'workspace' | 'narrow' | 
 
 const VIEWPORT_DIMENSIONS: Record<ViewportPreset, { width: string; height: string }> = {
   compact: { width: '840px', height: '280px' },
-  chat: { width: '440px', height: '680px' },
+  chat: { width: '640px', height: '740px' },
   sidecar: { width: '380px', height: '100%' },
   workspace: { width: '1380px', height: '800px' },
   narrow: { width: '740px', height: '800px' },
