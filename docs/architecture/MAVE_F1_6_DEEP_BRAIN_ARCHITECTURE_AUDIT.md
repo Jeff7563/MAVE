@@ -20,11 +20,11 @@ flowchart TD
     UserQuery["User Request"] --> Router["BrainRouter / TaskPolicy"]
     
     subgraph Pillar1["Pillar 1: Local Fast Brain (C3/C4 Baseline)"]
-        FastModel["qwen2.5:1.5b (Ollama)<br/>Kind: model_provider<br/>Latency: ~96ms warm TTFT | ~200 tok/s<br/>VRAM: ~1.1GB (Co-exists with CUDA STT)"]
+        FastModel["qwen2.5:1.5b (Ollama)<br/>Kind: model_provider<br/>Historical Obs: ~96ms warm TTFT | ~202 tok/s<br/>Observed Headroom: ~3,478 MiB (combined desktop + CUDA STT)<br/>Status: Code-promoted, awaiting Home-PC live certification"]
     end
 
     subgraph Pillar2["Pillar 2: Subscription Agent Runtimes (F1.5-S)"]
-        AgentRuntimes["Claude Code / Codex / Antigravity<br/>Kind: agent_runtime_provider<br/>Role: CODING / AGENT<br/>Authority: Workspace / Repo / Multi-Step Execution"]
+        AgentRuntimes["Claude Code / Codex / Antigravity<br/>Kind: agent_runtime_provider<br/>Role: CODING / AGENT<br/>Authority: Workspace / Repo / Multi-Step Execution (Tools blocked Pre-M5)"]
     end
 
     subgraph Pillar3["Pillar 3: Deep Conversational Brain (F1.6 Gap)"]
@@ -38,7 +38,7 @@ flowchart TD
 
 ### The Current Real Gap
 MAVE currently has:
-1. **Local Fast Brain (`qwen2.5:1.5b`)**: Production-promoted `model_provider` delivering ultra-low-latency conversational response (~96ms warm TTFT) and safe VRAM co-residency with CUDA STT. However, with only 1.5B parameters, it lacks the cognitive depth required for complex architectural analysis, nuanced logic puzzles, multi-constraint planning, or difficult code explanation.
+1. **Local Fast Brain (`qwen2.5:1.5b`)**: Code-promoted `model_provider` awaiting Home-PC live certification. In historical C2 evaluation on Home PC hardware, it demonstrated ~96ms warm TTFT and ~202 tok/s server evaluation throughput with approximately 3,478 MiB of observed headroom under a combined desktop + CUDA STT + 1.5B load. However, with only 1.5B parameters, it lacks the cognitive depth required for complex architectural analysis, nuanced logic puzzles, multi-constraint planning, or difficult code explanation.
 2. **Subscription Agent Runtimes (`ClaudeCode`, `Codex`, `Antigravity`)**: Powerful multi-model runtimes normalized under F1.5-S. However, their official interfaces and execution sandboxes are structured as **`agent_runtime_provider`** designed for sustained terminal execution, file inspection, and workspace mutation.
 
 **What MAVE lacks is a proven, conversational `model_provider` for `deep_reasoning`:**
@@ -85,23 +85,25 @@ The following decision matrix governs request classification across all intellig
 | Dimension | Fast Conversation (`fast_conversation`) | Deep Reasoning (`deep_reasoning`) | Agent Work (`agent_work`) |
 |---|---|---|---|
 | **Target Provider Kind** | `model_provider` | `model_provider` | `agent_runtime_provider` |
-| **Typical Latency Class** | `interactive` (<1.5s TTFT) | `normal` (2.0s–5.0s TTFT) | `long_running` (multi-turn / batch) |
+| **Latency Guidance** | Canonical target: ~1–3s Brain TTFT where hardware allows *(Historical observation: ~96ms warm TTFT)* | **NO CANONICAL TTFT SLO YET** (Measured in F1.6-B) | Longer-running / task-oriented runtime (No conversational TTFT contract) |
 | **Requires Sustained Execution?** | NO | NO | YES |
 | **Requires Filesystem / Workspace Access?** | NO | NO | YES |
 | **Requires Terminal / Shell Execution?** | NO | NO | YES |
 | **Requires Repository Mutation?** | NO | NO | YES |
 | **Requires Deep Deductive Reasoning?** | Minimal (Heuristic / Short) | YES (Multi-step, structural) | YES (Goal-directed planning) |
-| **Tool Execution Authority (M5)** | ZERO | ZERO | Controlled by Permission Router |
-| **Voice / Speech Suitable?** | Primary Voice Target | Spoken summary + UI Panel | Text / Workspace only |
+| **Tool Authority (CURRENT Pre-M5)** | **ZERO** | **ZERO** | **ZERO** (Tools blocked by current runtime policy) |
+| **Tool Authority (FUTURE M5)** | **ZERO** | **ZERO** | Governed by: Tool Request $\to$ Permission (ALLOW / ASK / DENY) $\to$ Executor $\to$ Audit |
+| **Primary Modality Focus** | Conversational Voice & Text | In-depth Conversational & Analytical Reasoning | Multi-step Workspace Task Execution |
 | **Example Prompts** | "สวัสดีครับ วันนี้มีอะไรแนะนำบ้าง", "What does flatMap do?", "Fix this typo" | "Why can this multi-threaded queue deadlock?", "Compare Postgres vs ScyllaDB for telemetry", "วิเคราะห์ trade-off ของ clean architecture" | "Inspect this repo and run vitest", "Refactor the authentication middleware to use JWT", "Create a new React component" |
 
 > [!NOTE]
 > - Current web truth and real-time retrieval belong to **F1.8 (Research / Truth Routing)**, not F1.6.
-> - Tool and MCP execution belong to **Milestone 5 (Tools & Permissions)**, not F1.6.
+> - Tool and MCP execution belong to **Milestone 5 (Tools & Permissions)**, not F1.6. Intelligence escalation does not equal tool permission.
+> - UI Surface presentation is decoupled from brain profile routing (see Section 8).
 
 ---
 
-## 4. Access Strategy Options for Deep Brain
+## 4. Access Strategy Audit for Deep Brain
 
 Four potential access strategies exist for fulfilling the Deep Brain `model_provider` requirement:
 
@@ -109,26 +111,33 @@ Four potential access strategies exist for fulfilling the Deep Brain `model_prov
 flowchart TD
     DeepReq["Deep Reasoning Request<br/>(profileId: deep_reasoning)"] --> StrategyCheck{"Access Strategy Evaluation"}
     
-    StrategyCheck -->|Option A: Local Model| LocalDeep["Local Larger Model (Ollama)<br/>• qwen2.5:7b / 14b<br/>• Zero cloud cost, 100% private<br/>• Bottleneck: VRAM saturation on 8GB GPU"]
+    StrategyCheck -->|Option A: Local Model| LocalDeep["Local Larger Model (Ollama)<br/>• qwen2.5:7b or other candidates<br/>• Zero cloud cost, 100% private<br/>• Challenge: Near VRAM saturation on 8GB GPU"]
     
-    StrategyCheck -->|Option B: Official Subscription API| SubDirect["Official Subscription Conversational Endpoint<br/>• Consumer ChatGPT/Claude/Gemini direct API<br/>• Status: NON-EXISTENT in official consumer tiers<br/>(Only CLI/Web available)"]
+    StrategyCheck -->|Option B: Official Subscription API| SubDirect["Official Subscription Conversational Endpoint<br/>• Direct headless model_provider interface<br/>• Status: Validated integrations are agent/task runtimes (dated audit)"]
     
     StrategyCheck -->|Option C: Paid Cloud Model API| PaidAPI["Official Paid Model API<br/>• OpenAI Responses API / Anthropic Messages API<br/>• Status: Default BLOCKED (allowPaidApis=false)<br/>• Credential presence != billing permission"]
     
     StrategyCheck -->|Option D: Future Integration| FutureAdapter["Future Official Provider Integration<br/>• Native developer seat APIs or local hardware upgrades<br/>• Implementation deferred"]
 ```
 
-### Option A: Local Larger Model (e.g., Ollama `qwen2.5:7b` or `14b`)
+### Option A: Local Larger Model (e.g., Ollama `qwen2.5:7b` or Other Candidates)
 - **Pros**: 100% private, zero token billing, fully compliant with `localOnly = true`, operates within existing `OllamaBrainProvider`.
-- **Cons**: High VRAM consumption. On the target 8GB RTX 3060 Ti, hosting both CUDA STT and a 7B model pushes VRAM usage to the hardware ceiling (~8.16 GB), risking CUDA Out-of-Memory (OOM) or system lockups.
+- **Hardware Challenge**: On the target 8GB RTX 3060 Ti, historical observation under combined desktop + CUDA STT + `qwen2.5:7b` showed ~8,130 MiB total allocation (~99.2% of 8,192 MiB), representing **near VRAM saturation / unsafe operational headroom** for concurrent execution.
 
-### Option B: Official Subscription Conversational API
-- **Pros**: Leverages existing consumer/pro subscriptions without additional metered cost.
-- **Cons**: **No official direct LLM API exists for consumer subscriptions**. Consumer tiers (ChatGPT Plus, Claude Pro, Google One AI Premium) provide web interfaces or agent CLI tools (Claude Code, Codex CLI, Antigravity CLI). They do NOT offer an official headless token-streaming REST API for direct third-party model consumption.
-- **Strict Negative Boundary**: MAVE will NEVER reverse-engineer private web endpoints, steal browser session cookies, replay undocumented GraphQL mutations, or scrape web chat UIs.
+### Option B: Official Subscription Conversational Runtime (Dated Capability Audit)
+> [!NOTE]
+> **Dated Capability Audit (2026-10-16)**:
+> As of the F1.6 architecture audit date (2026-10-16), the official subscription-backed integrations currently validated by MAVE are agent/task runtimes rather than a direct conversational `model_provider` interface suitable for `deep_reasoning`:
+> - **Anthropic Claude**: Subscription (Claude Pro/Team) backed by official CLI task runtime (`claude`) $\to$ Normalized in MAVE as `ClaudeCodeBrainProvider` (`agent_runtime_provider`). The official direct REST API (`api.anthropic.com`) is a metered paid API (blocked by default).
+> - **OpenAI Codex**: Subscription (ChatGPT Plus/Pro/Team) backed by official CLI task runtime (`codex exec`) $\to$ Normalized in MAVE as `CodexBrainProvider` (`agent_runtime_provider`). The official direct REST API (`api.openai.com`) is a metered paid API (blocked by default).
+> - **Google Antigravity**: Subscription (Google One AI Premium / Workspace) backed by official CLI subagent runtime (`agy`) $\to$ Normalized in MAVE as `AntigravityBrainProvider` (`agent_runtime_provider`).
+>
+> A fresh check of official vendor capabilities must be conducted during F1.6-B prior to implementation. Future availability must not be assumed without evidence.
+
+- **Strict Negative Boundary**: MAVE will NEVER reverse-engineer private web endpoints, steal browser session cookies, replay undocumented internal GraphQL mutations, or scrape logged-in web chat UIs.
 
 ### Option C: Official Paid Model API (`OpenAIBrainProvider`, etc.)
-- **Pros**: Direct, high-quality, pure `model_provider` interface with sub-second TTFT, multi-model catalog, and zero local VRAM overhead.
+- **Pros**: Direct, high-quality, pure `model_provider` interface with multi-model catalog and zero local VRAM overhead.
 - **Cons**: Metered per-token cost.
 - **Strict Policy Constraint**: Paid APIs remain **BLOCKED BY DEFAULT** (`allowPaidApis: false`). An API key in the environment NEVER grants permission to charge the user. Must be explicitly enabled by user configuration.
 
@@ -139,41 +148,39 @@ flowchart TD
 
 ## 5. Local Hardware Feasibility Assessment (RTX 3060 Ti 8GB)
 
-Empirical data gathered during Milestone Pre-M5 F1.5-C2 benchmarking on the Home PC hardware baseline provides the following resource map:
+Empirical data gathered during Milestone Pre-M5 F1.5-C2 benchmarking on the Home PC hardware baseline provides the following measured resource observations:
 
-### Empirical Baseline Metrics
-| Candidate | Parameter Size | Quantization | Resident VRAM | Peak GPU VRAM | Warm TTFT | Eval Throughput | Co-existence with CUDA STT |
-|---|---|---|---|---|---|---|---|
-| **`qwen2.5:1.5b`** (Fast Brain) | 1.54B | Q4_K_M | **1,112 MiB** (~1.1 GB) | 3,284 MiB (~3.2 GB) | **96 ms** | **202.6 tok/s** | **SAFE (4.9 GB headroom)** |
-| **`qwen2.5:7b`** (Candidate) | 7.61B | Q4_K_M | **4,528 MiB** (~4.5 GB) | 6,664 MiB (~6.6 GB) | **393 ms** | **16.7 tok/s** | **UNSAFE / CRITICAL** |
-| **`deepseek-r1:7b`** (Reasoning) | 7.61B | Q4_K_M | 4,920 MiB (~4.9 GB) | 7,120 MiB (~7.1 GB) | 1,420 ms | 14.2 tok/s | **IMPOSSIBLE (Instant OOM)** |
-| **`faster-whisper`** (CUDA STT) | Small/Base | float16 | **1,500–2,000 MiB** | 2,200 MiB | N/A | N/A | Dedicated audio buffer |
-
-### Hardware Co-Residency Analysis
-- **Physical Dedicated VRAM**: 8,192 MiB (8.0 GB).
-- **Windows OS / DWM Overhead**: ~800–1,200 MiB.
-- **Available Usable VRAM**: ~7,000–7,400 MiB.
-- **Concurrent Load (`qwen2.5:7b` + CUDA STT)**:
-  $$\text{VRAM}_{\text{total}} = 4,528\text{ MiB (7B)} + 1,800\text{ MiB (STT)} + 1,000\text{ MiB (OS)} = 7,328\text{ MiB}$$
-  Peak generation spikes reach **8,464 MiB**, exceeding physical capacity and triggering CUDA OOM or fallback to shared system RAM, causing throughput to collapse from ~17 tok/s to <2 tok/s.
-
-### Architectural Possibilities (Design Evaluation Only)
-To make local Deep Brain viable without hardware upgrades, four architectural options are identified:
-
-1. **Text-Only Deep Mode (STT Unloaded)**:
-   - When a deep query is executed from the Surface Expanded Panel or text input, the voice runtime is dormant. CUDA STT is completely unloaded from VRAM.
-   - 7B model operates with ~6.0 GB headroom, remaining completely stable.
-2. **Mutually Exclusive Residency (Time-Sliced Hot Swapping)**:
-   - Voice turn ends $\to$ STT unloads $\to$ Deep Brain loads $\to$ generates response $\to$ Deep Brain unloads $\to$ STT reloads.
-   - *Verdict*: Rejected for interactive voice. Cold model reload takes 4.5–6.0 seconds per turn, violating conversational responsiveness.
-3. **CPU/RAM Offloading (Partial GPU Layers)**:
-   - Configure Ollama to offload 20 layers to GPU and 8 layers to 16GB system RAM.
-   - *Verdict*: Prevents OOM, but drops generation throughput to ~6 tok/s.
-4. **Hardware Profile Escalation**:
-   - Qualify local 7B/14B deep models only on machines with $\ge 12\text{GB}$ VRAM (e.g., RTX 3060 12GB, RTX 4070, RTX 4080, Apple Silicon $\ge 36\text{GB}$).
+### Historical Empirical Observations (Home PC: RTX 3060 Ti 8GB)
+- **`qwen2.5:1.5b` (Code-Promoted Fast Brain, awaiting Home-PC live certification)**:
+  - Model resident: approximately 1,112 MiB
+  - Model benchmark peak: approximately 3,284 MiB
+  - Model-only measured headroom: approximately 4,908 MiB
+  - **Combined desktop + CUDA STT + 1.5B observed headroom**: **approximately 3,478 MiB** (Safe operational margin for concurrent voice conversation).
+- **`qwen2.5:7b` (Historical Evaluation Candidate)**:
+  - Model resident: approximately 4,528 MiB
+  - Model benchmark peak: approximately 6,664 MiB
+  - **Combined desktop + CUDA STT + 7B observed total**: **approximately 8,130 MiB** (~99.2% of 8,192 MiB dedicated VRAM).
+  - Canonical assessment: **NEAR VRAM SATURATION / UNSAFE OPERATIONAL HEADROOM**.
 
 > [!CAUTION]
-> `qwen2.5:7b` is an **architectural candidate only**. It is NOT approved for production co-residency on 8GB hardware.
+> Do NOT derive concurrent VRAM usage by simply summing independent peak values measured at different times.
+> Do NOT claim "guaranteed instant CUDA OOM" or ">8GB concurrent peak" unless proven by a single live concurrent measurement.
+> C3.1 / C4-B Home PC live certification remains the next authoritative source of current empirical hardware truth.
+
+### Architectural Options for Evaluation in F1.6-B (Unverified Hypotheses)
+The following architectural options remain available for evaluation, but must not be frozen with unverified numeric gates or performance thresholds:
+
+1. **Mutually Exclusive STT / Deep Brain Residency**:
+   - Time-sliced residency where CUDA STT unloads prior to loading the Deep Brain, and reloads upon return to voice listening.
+   - *Consideration*: Must measure turn-transition latency in F1.6-B; if model load times introduce multi-second pauses, it may be restricted to text-first interactions.
+2. **CPU / System RAM Offload**:
+   - Utilize partial GGUF layer offloading between GPU VRAM and 16GB system RAM via Ollama.
+   - *Status*: **UNVERIFIED HYPOTHESIS**. Specific layer split and throughput must be empirically benchmarked in F1.6-B rather than assumed.
+3. **Text-Only Deep Mode**:
+   - When a deep query is executed from text interaction surfaces, the voice audio capture runtime is dormant and CUDA STT remains unloaded, providing maximum VRAM headroom for the deep model.
+4. **Hardware-Specific Profiles & Larger VRAM Hardware**:
+   - Differentiate capabilities based on detected physical VRAM (e.g., systems with larger VRAM pools can run larger models concurrently without mutual exclusion).
+   - *Status*: Hardware gates must be established from benchmark evidence, not arbitrary thresholds.
 
 ---
 
@@ -188,10 +195,10 @@ A request is classified into `deep_reasoning` based on deterministic evidence ca
    - `taskContext.planningType === 'conversational'` $\to$ `deep_reasoning`
    - `taskIntent === 'deep_reasoning'`
 3. **Complexity Boundary**:
-   - Logic puzzles, formal reasoning, architectural evaluation.
+   - Logic puzzles, formal reasoning, structural architectural evaluation without execution authority.
 
 ### Negative Invariants
-- **No Self-Confidence Gating**: The Local Fast Brain must NOT act as its own routing judge by running a speculative pre-pass. Speculative self-assessment wastes 500ms–1000ms of latency and is prone to overconfidence.
+- **No Self-Confidence Gating**: The Local Fast Brain must NOT act as its own routing judge by running a speculative pre-pass. Speculative self-assessment wastes latency and introduces confidence bias.
 - **No Arbitrary Heuristics**: No random or weighted coin-toss routing. All routing decisions are 100% deterministic and reproducible.
 
 ---
@@ -233,17 +240,46 @@ Auditing `packages/contracts/src/brain.ts` and `packages/core/src/brain/router.t
 
 ---
 
-## 8. User Experience & Ambient Surface Presentation
+## 8. Decoupling Brain Profile from Presentation Surface
 
-1. **Unified MAVE Persona**: The user speaks or types to MAVE. They do not manage provider names, model tags, or routing rules during ordinary usage.
-2. **Multimodal Split for Deep Reasoning**:
-   - In Voice Mode: While Fast Brain responses stream audio immediately, Deep Brain responses may take 3–5 seconds to formulate. MAVE's voice runtime should emit an auditory acknowledgment ("กำลังวิเคราะห์เชิงลึกให้ครับ...") while transitioning the PresenceMark to `thinking`.
-   - In Surface Mode: Deep reasoning responses stream Markdown into the **Surface Expanded Panel** (`rich_context`), enabling formatted code blocks, comparative tables, and diagrams.
-3. **Advanced Controls**:
-   - Power users can configure routing policy in Developer Diagnostics:
-     - `AUTO`: Dynamic routing based on TaskPolicy.
-     - `PREFERRED`: Bias toward a specific candidate if available.
-     - `LOCKED`: Hard lock to a specific provider/model (fails closed if unavailable).
+MAVE strictly separates **Intelligence Routing** from **Presentation Policy**:
+
+```text
+┌─────────────────────────────────────────────────────────────┐
+│                      MAVE CORE ENGINE                       │
+└──────────────┬──────────────────────────────┬───────────────┘
+               │                              │
+     [INTELLIGENCE LANE]             [PRESENTATION LANE]
+               ▼                              ▼
+┌──────────────────────────────┐┌──────────────────────────────┐
+│         BrainRouter          ││     Presentation Policy      │
+│ Decides INTELLIGENCE PATH:   ││ Decides SURFACE PRESENTATION:│
+│ • fast_conversation          ││ • Presence                   │
+│ • deep_reasoning             ││ • Companion                  │
+│ • agent_work                 ││ • Conversation               │
+│ • research                   ││ • Workspace                  │
+│ • local_offline              ││                              │
+└──────────────────────────────┘└──────────────────────────────┘
+```
+
+1. **Intelligence Path != UI Surface**:
+   - `BrainRouter` decides **which brain provider and model** process the prompt.
+   - Presentation Policy decides **which surface** presents the result based on:
+     - Answer shape and length (concise vs long-form)
+     - Interaction duration
+     - Presence of rich or contextual content (code blocks, tables, diagrams)
+     - Sustained task activity
+     - User interaction mode and manual surface expansion
+     - Current environmental focus
+2. **Canonical Surface Examples**:
+   - A `deep_reasoning` response that is concise may be spoken over voice or presented cleanly in normal **Conversation**.
+   - A `fast_conversation` response requiring structured data or code snippets may expand to a richer contextual view.
+   - `agent_work` may promote to **Workspace** when multi-file artifacts, terminal output, or sustained task diffs require canvas space—not simply because of provider kind.
+3. **Accepted MAVE Surface Terminology**:
+   - **Presence**: Ambient status ring / orb visualizer.
+   - **Companion**: Lightweight floating quick-access capsule.
+   - **Conversation**: Conversational thread and chat surface.
+   - **Workspace**: Full interactive canvas for documents, file inspection, and project artifacts.
 
 ---
 
@@ -258,20 +294,24 @@ Auditing `packages/contracts/src/brain.ts` and `packages/core/src/brain/router.t
 3. **Streaming & Non-Retry Invariant (F1.4)**:
    - Pre-execution fallback across healthy providers is permitted before generation.
    - **Once `provider.chat()` emits its first streaming delta, same-request cross-provider retry is forbidden.** Midstream failure aborts the turn with `request_failed`. No secret second brain is ever spawned.
+4. **Fast $\to$ Deep Escalation Boundary**:
+   - Escalation decisions must occur **before committed generation** begins. A Fast Brain must not emit 20 tokens, decide the problem is too difficult, and silently restart on Deep Brain.
 
 ---
 
 ## 10. Subscription Runtime Audit: Why Agent Runtimes Cannot Fill the Gap
 
-A rigorous inspection of MAVE's three subscription runtime adapters proves why they cannot satisfy the `deep_reasoning` `model_provider` role:
+A rigorous inspection of MAVE's three subscription runtime adapters proves why they remain `agent_runtime_provider`:
 
-| Runtime Adapter | Underlying Engine | Official Transport | Enforced Sandbox & Constraints | Why It Cannot Fill `model_provider` Gap |
+| Runtime Adapter | Underlying Engine | Official Transport | Enforced Sandbox & Constraints | Why It Remains `agent_runtime_provider` |
 |---|---|---|---|---|
-| **`ClaudeCodeBrainProvider`** | Claude 3.7 Sonnet | `claude` CLI headless process | Enforces `--tools ""` and `--safe-mode`. Strips billing env vars. Spawns child process with working directory inspection. | Structured as a terminal coding agent. Process spawn overhead (~1.5s–2.5s) adds severe latency. Tool disabling is an external CLI flag, not an architectural guarantee of pure inference. |
-| **`CodexBrainProvider`** | OpenAI Codex / o3 | `codex exec` CLI process | Enforces `--sandbox read-only` and `--skip-git-repo-check`. Prompts piped strictly through stdin. Process killed if tool execution attempted. | Tailored for repository exploration and code transformations. CLI execution overhead is excessive for conversational dialog. |
-| **`AntigravityBrainProvider`** | Gemini 2.5 Pro / Flash | `agy` CLI subagent process | Uses subagent conversation ID and protocol parsing. Structured for multi-turn task execution. | Operates as an autonomous subagent runner with full agent lifecycle, not a stateless LLM endpoint. |
+| **`ClaudeCodeBrainProvider`** | Claude 3.7 Sonnet | `claude` CLI headless process | Enforces `--tools ""` and `--safe-mode`. Strips billing env vars. Spawns child process with working directory inspection. | Structured around terminal execution, file inspection, and workspace hooks. Tool disabling is an external CLI flag, not an architectural guarantee of pure model inference. |
+| **`CodexBrainProvider`** | OpenAI Codex / o3 | `codex exec` CLI process | Enforces `--sandbox read-only` and `--skip-git-repo-check`. Prompts piped strictly through stdin. Process killed if tool execution attempted. | Tailored for repository exploration and code transformations. CLI execution wrapper is built for code workspace semantics. |
+| **`AntigravityBrainProvider`** | Gemini 2.5 Pro / Flash | `agy` CLI subagent process | Uses subagent conversation ID and protocol parsing. Structured for multi-turn task execution. | Operates as an autonomous subagent runner with full agent lifecycle, not a direct model inference endpoint. |
 
-**Conclusion**: Agent runtimes are built to execute work in a workspace. Coercing them into conversational model providers violates least-privilege principles and introduces process startup latency that degrades conversational quality.
+> [!NOTE]
+> The primary reason these runtimes remain `agent_runtime_provider` is their **official runtime semantics, CLI execution wrapper architecture, and MAVE provider contract**—not an assumed startup latency number.
+> Any process startup timings observed during testing are labeled: `HISTORICAL OBSERVATION — NOT CONTRACT`.
 
 ---
 
@@ -288,40 +328,40 @@ A rigorous inspection of MAVE's three subscription runtime adapters proves why t
   - `F1.5-S4` & `S4.1`: Quota-aware fallback & recovery.
   - `F1.5-S5`: Final closeout audit documented in `MAVE_SUBSCRIPTION_INTELLIGENCE_ARCHITECTURE.md`.
 
-### Resolution & Recommendation
-**F1.7 is effectively completed and superseded by F1.5-S.**
-- Keeping F1.7 as an open future phase creates confusion regarding whether agent runtime normalization is finished.
-- **Recommendation**: Update `MAVE_ROADMAP.md` to reflect that F1.7 was fulfilled by F1.5-S, preserving historical traceability without leaving duplicate backlog items.
+### Resolution
+**F1.7 was fulfilled by F1.5-S.**
+[`docs/architecture/MAVE_ROADMAP.md`](file:///d:/project/MAVE-pre-m5/docs/architecture/MAVE_ROADMAP.md) has been updated to reflect that F1.7 was fulfilled by the completed F1.5-S track, preventing duplicate backlog tracking.
 
 ---
 
 ## 12. Proposed Implementation Stages for F1.6
 
-When authorized to implement F1.6 in a future phase, work should proceed in five distinct stages:
+When authorized to implement F1.6 in a future phase, work should proceed in the following semantic sequence:
 
 ```mermaid
 flowchart LR
-    S_A["F1.6-A<br/>Contract & Policy<br/>Hardening"] --> S_B["F1.6-B<br/>Candidate<br/>Evaluation"]
-    S_B --> S_C["F1.6-C<br/>Residency & VRAM<br/>Governance"]
-    S_C --> S_D["F1.6-D<br/>Router & Fallback<br/>Calibration"]
-    S_D --> S_E["F1.6-E<br/>Live Hardware<br/>Certification"]
+    S_A["F1.6-A<br/>Deep Capability &<br/>Policy Contract"] --> S_B["F1.6-B<br/>Candidate Discovery &<br/>Benchmark Plan"]
+    S_B --> S_C["F1.6-C<br/>Qualification & Residency<br/>Strategy (Measured)"]
+    S_C --> S_D["F1.6-D<br/>Router, Availability &<br/>Fallback Integration"]
+    S_D --> S_E["F1.6-E<br/>Home-PC Live<br/>Certification"]
 ```
 
-1. **F1.6-A: Contract & Policy Hardening**:
+1. **F1.6-A: Deep Capability & Policy Contract**:
    - Formalize `deep_reasoning` request options and TaskPolicy trigger rules.
    - Standardize `profile_unavailable` user-facing messaging across Surface and Voice.
-2. **F1.6-B: Candidate Evaluation & Benchmarking**:
-   - Benchmark candidate deep models (`qwen2.5:7b`, quantized 14B, or official model provider adapters).
-   - Evaluate reasoning quality, Thai bilingual syntax, and TTFT.
-3. **F1.6-C: Residency & VRAM Governance**:
-   - Implement text-only VRAM gating (STT unload trigger when deep mode engaged).
-   - Add VRAM threshold guards to `OllamaResidencyManager` to prevent concurrent 7B + STT allocations.
-4. **F1.6-D: BrainRouter & Fallback Calibration**:
-   - Wire `deep_reasoning` profile routing to prioritize local deep candidate when healthy.
+2. **F1.6-B: Candidate Discovery, Official-Access Re-Audit & Benchmark Plan**:
+   - Conduct fresh audit of official vendor offerings for direct conversational model access.
+   - Discover local candidate models (e.g. `qwen2.5:7b` or other candidates).
+   - Design empirical benchmark plan for reasoning quality, Thai bilingual syntax, and TTFT.
+3. **F1.6-C: Candidate Qualification & Residency Strategy Based on Measured Evidence**:
+   - Empirically measure VRAM and throughput across candidates on Home PC.
+   - Determine residency strategy (e.g., text-only mode vs mutual exclusion vs CPU offload) strictly from measured data.
+4. **F1.6-D: Router, Availability & Fallback Integration**:
+   - Wire `deep_reasoning` profile routing to prioritize qualified deep candidate when healthy.
    - Enforce fail-closed privacy (`localOnly`) and paid API default-deny.
-5. **F1.6-E: Live Hardware Certification**:
+5. **F1.6-E: Home-PC Live Certification**:
    - Perform live Home-PC testing with `nvidia-smi` sampling.
-   - Validate zero OOM crashes and zero stream corruption.
+   - Validate zero OOM crashes, zero stream corruption, and exact telemetry.
 
 ---
 
@@ -345,17 +385,17 @@ Prior to closing F1.6 in the future, the following deterministic tests must pass
 7. **Preferred & Locked Selection Modes**:
    - Verify `AUTO`, `PREFERRED`, and `LOCKED` behave deterministically under `deep_reasoning`.
 8. **VRAM Safety Guard**:
-   - Unit tests verifying that `OllamaResidencyManager` blocks concurrent 7B lease when CUDA STT lease is active.
+   - Unit tests verifying that `OllamaResidencyManager` blocks unsafe concurrent model leases.
 
 ---
 
 ## 14. Strategic Recommendations
 
 1. **Do Not Rush Local 7B Promotion on 8GB Hardware**:
-   - Keep `qwen2.5:1.5b` as the sole production-promoted local model for conversational voice.
-   - Treat local 7B reasoning as an optional, text-only profile where CUDA STT is explicitly inactive.
+   - Keep `qwen2.5:1.5b` as the sole code-promoted local model awaiting C3.1/C4-B live certification.
+   - Treat local 7B reasoning as an unapproved candidate requiring empirical verification in F1.6-B/C.
 2. **Preserve Subscription-First Philosophy**:
-   - Continue monitoring official vendor developments for official consumer subscription API access.
+   - Continuously monitor official vendor capabilities for official direct conversational model access.
    - Under no circumstance resort to unofficial web scraping or private token reverse-engineering.
-3. **Update Roadmap to Reconcile F1.7**:
-   - Mark F1.7 as completed under F1.5-S to eliminate redundant backlog items.
+3. **Maintain Strict Separation of Concerns**:
+   - Brain routing resolves intelligence; presentation policy resolves surface; tool authority is strictly governed by Milestone 5.
