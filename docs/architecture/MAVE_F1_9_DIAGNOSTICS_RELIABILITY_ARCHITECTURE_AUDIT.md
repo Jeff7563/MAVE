@@ -330,18 +330,71 @@ stateDiagram-v2
 
 A core architectural contribution of F1.9 is the rigorous separation of operational, entitlement, and permission semantics. These concepts are frequently conflated into a single `health` status, creating opaque routing bugs.
 
-### Existing Contract Compatibility
+### Existing Contract Compatibility & Source Truth
 > [!IMPORTANT]
 > **EXISTING PROVIDER HEALTH CONTRACTS REMAIN AUTHORITATIVE**
 > - The existing canonical `ProviderHealth` contract in `packages/contracts/src/brain.ts` (`CANONICAL_PROVIDER_HEALTH_STATUSES`: `healthy`, `degraded`, `unhealthy`, `unconfigured`, `quota_limited`, `rate_limited`, `auth_error`, `unavailable`) remains authoritative.
 > - The multi-dimensional model below represents **SEMANTIC NORMALIZATION / FUTURE CONTRACT HARDENING** recommended for future phases.
 > - F1.9 does **NOT** silently replace or mutate existing `ProviderHealth` enums in this audit. Full backward compatibility is strictly maintained.
 
+#### Authoritative Source Contract (`packages/contracts/src/brain.ts`)
+```ts
+export const CANONICAL_PROVIDER_HEALTH_STATUSES = [
+  'healthy',
+  'degraded',
+  'unhealthy',
+  'unconfigured',
+  'quota_limited',
+  'rate_limited',
+  'auth_error',
+  'unavailable'
+] as const;
+
+export const CanonicalProviderHealthStatusSchema = z.enum(CANONICAL_PROVIDER_HEALTH_STATUSES);
+export type CanonicalProviderHealthStatus = z.infer<typeof CanonicalProviderHealthStatusSchema>;
+
+export const LEGACY_PROVIDER_HEALTH_STATUS_ALIASES = {
+  ready: 'healthy',
+  error: 'unhealthy'
+} as const;
+
+export function normalizeProviderHealthStatus(status: string): CanonicalProviderHealthStatus {
+  if (status in LEGACY_PROVIDER_HEALTH_STATUS_ALIASES) {
+    return LEGACY_PROVIDER_HEALTH_STATUS_ALIASES[status as keyof typeof LEGACY_PROVIDER_HEALTH_STATUS_ALIASES];
+  }
+  return CanonicalProviderHealthStatusSchema.parse(status);
+}
+
+export const ProviderHealthStatusSchema = z.preprocess(
+  (val) => (typeof val === 'string' && val in LEGACY_PROVIDER_HEALTH_STATUS_ALIASES
+    ? LEGACY_PROVIDER_HEALTH_STATUS_ALIASES[val as keyof typeof LEGACY_PROVIDER_HEALTH_STATUS_ALIASES]
+    : val),
+  CanonicalProviderHealthStatusSchema
+);
+export type ProviderHealthStatus = CanonicalProviderHealthStatus;
+
+export const ProviderHealthSchema = z.object({
+  status: ProviderHealthStatusSchema,
+  message: z.string().optional(),
+  latencyMs: z.number().nonnegative().optional(),
+  checkedAt: z.number().nonnegative().default(() => Date.now())
+});
+export type ProviderHealth = z.infer<typeof ProviderHealthSchema>;
+```
+
 ```mermaid
 flowchart TD
-    subgraph OperationalHealth["1. Operational Health (Authoritative: ProviderHealth)"]
+    subgraph CurrentContract["Authoritative Contract: ProviderHealth (All 8 Statuses)"]
+        C1["CANONICAL_PROVIDER_HEALTH_STATUSES:<br/>healthy | degraded | unhealthy | unconfigured | quota_limited | rate_limited | auth_error | unavailable"]
+    end
+
+    CurrentContract -.->|Proposed Semantic Decomposition| OperationalHealth
+    CurrentContract -.->|Proposed Semantic Decomposition| AuthConfig
+    CurrentContract -.->|Proposed Semantic Decomposition| QuotaRateLimit
+
+    subgraph OperationalHealth["1. Operational Reachability (Proposed Decomposition)"]
         H1["Can the runtime process execute and respond?"]
-        H2["Canonical: healthy | degraded | unhealthy | unavailable"]
+        H2["Statuses: healthy | degraded | unhealthy | unavailable"]
     end
 
     subgraph ModelAvailability["2. Model Availability (Authoritative: ModelAvailabilityStatus)"]
@@ -429,7 +482,8 @@ export interface ProviderDiagnosticSnapshot {
   readonly providerKind: 'model_provider' | 'agent_runtime_provider' | 'knowledge_provider';
   readonly accessPath: 'official_api' | 'official_cli' | 'local_runtime';
   readonly accessClass: 'subscription' | 'local' | 'paid_api';
-  readonly operationalHealth: 'healthy' | 'degraded' | 'unhealthy' | 'unavailable';
+  readonly canonicalHealth: CanonicalProviderHealthStatus; // Authoritative 8-status contract from packages/contracts/src/brain.ts
+  readonly operationalHealth?: 'healthy' | 'degraded' | 'unhealthy' | 'unavailable'; // Proposed companion reachability
   readonly authStatus: 'configured' | 'unconfigured' | 'auth_error' | 'not_required';
   readonly billingPermission: 'disabled' | 'enabled';
   readonly runtimeVersion?: string;
@@ -1181,7 +1235,7 @@ flowchart LR
 - Wire Pino log output with structured trace metadata and redaction.
 
 #### F1.9-C: Provider, Health, Quota & Residency Diagnostics
-- Refactor provider health probes to separate operational health from model availability.
+- Expose companion diagnostic observations for operational reachability, quota, and auth without mutating or breaking the authoritative 8-status `ProviderHealth` contract.
 - Expose `RuntimeQuotaStore` observations via typed diagnostic channels.
 - Instrument `OllamaResidencyManager` with lease lifecycle events.
 - Audit subscription CLI error classifications (Claude, Codex, Antigravity).
