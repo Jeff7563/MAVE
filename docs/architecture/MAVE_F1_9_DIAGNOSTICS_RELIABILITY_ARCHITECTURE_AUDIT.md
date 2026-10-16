@@ -159,25 +159,24 @@ export const RouteTelemetrySchema = z.object({
 ### Telemetry Boundary Enforcements
 To preserve contract compatibility and prevent architectural bloat:
 1. **DO NOT ADD** latency (`routingTimeMs`, `ttftMs`), quota flags, error objects, health status, research fields, audio metrics, or diagnostic trace IDs to `RouteTelemetry`.
-2. **Research Telemetry Remains Independent**: Grounded research attributes (`queryCount`, `sourceCount`, `retrievalLatencyMs`) belong strictly to `ResearchTelemetry` under F1.8.
-3. **Diagnostic Telemetry Remains Independent**: End-to-end trace correlation, stage timings, component error forensics, and quota observations belong to F1.9 `DiagnosticTelemetry`.
+2. **Research Telemetry Ownership**: Grounded research attributes belong strictly to `ResearchTelemetry` under F1.8. F1.9 does NOT define, extend, or freeze its field set here.
+3. **Diagnostic Telemetry Remains Independent**: End-to-end turn correlation, stage timings, component error forensics, and quota observations belong to F1.9 `DiagnosticTelemetry`.
 
 ```text
 ┌────────────────────────────────────────────────────────────────────────┐
 │                        TELEMETRY DOMAIN BOUNDARIES                     │
 ├──────────────────────┬──────────────────────┬──────────────────────────┤
 │ RouteTelemetry       │ ResearchTelemetry    │ DiagnosticTelemetry      │
-│ (Pre-M5 Frozen)      │ (Future F1.8-A)      │ (Future F1.9-A)          │
+│ (Pre-M5 Frozen)      │ (F1.8 Owned - Future)│ (F1.9 Proposed - Future) │
 ├──────────────────────┼──────────────────────┼──────────────────────────┤
-│ selectedProviderId   │ requestId            │ traceId                  │
-│ selectedModelId      │ researchTriggered    │ requestId                │
-│ profileId            │ triggerReason        │ sessionId / turnId       │
-│ routeReason          │ freshnessClass       │ component / phase        │
-│ fallbackUsed         │ sourceQuality        │ latencyBreakdown         │
-│ attemptedProviderIds │ queryCount           │ canonicalErrorCode       │
-│ attemptedModelIds    │ sourceCount          │ diagnosticReason         │
-│ routeAttempts        │ retrievalLatencyMs   │ sanitizedRawCause        │
-│                      │ paidApiIncurred      │ providerQuotaState       │
+│ selectedProviderId   │ Owned by F1.8;       │ traceId / requestId      │
+│ selectedModelId      │ F1.9 does NOT define │ correlation details      │
+│ profileId            │ or freeze research   │ latencyBreakdown         │
+│ routeReason          │ schema fields here.  │ canonicalErrorCode       │
+│ fallbackUsed         │ Correlated via ID    │ diagnosticReason         │
+│ attemptedProviderIds │ once F1.8-A types    │ sanitizedRawCause        │
+│ attemptedModelIds    │ are finalized.       │ providerQuotaState       │
+│ routeAttempts        │                      │                          │
 └──────────────────────┴──────────────────────┴──────────────────────────┘
 ```
 
@@ -188,18 +187,18 @@ To preserve contract compatibility and prevent architectural bloat:
 MAVE requires a lightweight, unified correlation model to track a user turn from initial microphone activation through presentation, without inventing redundant identifiers.
 
 ### Identifier Audit & Mapping
-The repository currently maintains three primary identifiers:
+The repository currently maintains three stable primary identifiers:
 - `sessionId`: The persistent conversation session ID (`packages/contracts/src/session.ts`) or voice session ID (`packages/contracts/src/voice.ts`).
 - `turnId`: The persistent conversation turn ID (user or assistant) in `ConversationStore`.
 - `requestId`: The execution turn ID generated per brain, STT, or TTS invocation.
 
-### Minimum Correlation Model
-To trace a turn without duplicating IDs:
-1. **`traceId` (Root Correlation Token)**: Generated at turn activation (wake detection or text message submit). Replaces disparate ad-hoc UUIDs.
-2. **Relationship**:
-   - For a text turn: `traceId === requestId`.
-   - For a voice turn: `traceId` is passed into `VoiceSessionCoordinator`, becoming the parent token for `sttRequestId`, `brainRequestId`, and `ttsRequestId`.
-3. **`spanId` (Component Execution Phase)**: Identifies the active component boundary (`wake`, `capture`, `stt`, `routing`, `inference`, `tts`, `playback`, `surface`).
+### Minimum Correlation Model & Status
+- **Core Architectural Requirement**: **One user turn must be end-to-end correlatable** across all subsystem boundaries:
+  $$\text{activation} \longrightarrow \text{audio capture} \longrightarrow \text{STT} \longrightarrow \text{ConversationRuntime} \longrightarrow \text{BrainRouter} \longrightarrow \text{provider} \longrightarrow \text{stream} \longrightarrow \text{TTS} \longrightarrow \text{presentation}$$
+- **Status of `traceId`**: **PROPOSED IF EXISTING IDENTIFIERS ARE INSUFFICIENT**.
+  - Milestone F1.9-A must determine whether `requestId` alone can serve as the canonical root correlation ID across the entire turn lifecycle, or if a dedicated `traceId` is strictly necessary to bridge voice fan-out (where a single voice session fans out into child operations: `sttRequestId`, `brainRequestId`, `ttsRequestId`).
+  - Do **NOT** create duplicate identifiers without architectural necessity.
+- **Span Decomposition (`spanId`)**: Identifies the active component boundary (`wake`, `capture`, `stt`, `routing`, `inference`, `tts`, `playback`, `surface`).
 
 ```mermaid
 sequenceDiagram
@@ -215,7 +214,7 @@ sequenceDiagram
     participant Output as AudioOutput
     participant Surface as SurfaceController
 
-    Note over User,Surface: Root Trace: traceId = "trc-8f92a1..."
+    Note over User,Surface: Root Correlation Token: traceId / requestId = "trc-8f92a1..."
     User->>Wake: "Hey MAVE" (wake detected)
     Wake->>Coord: startSession(traceId)
     Coord->>Surface: showIntent('voice_activity', traceId)
@@ -331,31 +330,38 @@ stateDiagram-v2
 
 A core architectural contribution of F1.9 is the rigorous separation of operational, entitlement, and permission semantics. These concepts are frequently conflated into a single `health` status, creating opaque routing bugs.
 
+### Existing Contract Compatibility
+> [!IMPORTANT]
+> **EXISTING PROVIDER HEALTH CONTRACTS REMAIN AUTHORITATIVE**
+> - The existing canonical `ProviderHealth` contract in `packages/contracts/src/brain.ts` (`CANONICAL_PROVIDER_HEALTH_STATUSES`: `healthy`, `degraded`, `unhealthy`, `unconfigured`, `quota_limited`, `rate_limited`, `auth_error`, `unavailable`) remains authoritative.
+> - The multi-dimensional model below represents **SEMANTIC NORMALIZATION / FUTURE CONTRACT HARDENING** recommended for future phases.
+> - F1.9 does **NOT** silently replace or mutate existing `ProviderHealth` enums in this audit. Full backward compatibility is strictly maintained.
+
 ```mermaid
 flowchart TD
-    subgraph OperationalHealth["1. Operational Health"]
+    subgraph OperationalHealth["1. Operational Health (Authoritative: ProviderHealth)"]
         H1["Can the runtime process execute and respond?"]
-        H2["Statuses: healthy | degraded | unhealthy | unavailable"]
+        H2["Canonical: healthy | degraded | unhealthy | unavailable"]
     end
 
-    subgraph ModelAvailability["2. Model Availability"]
-        M1["Is the specific model tag/descriptor present and pullable?"]
-        M2["Statuses: available | missing | digest_mismatch | deprecated"]
+    subgraph ModelAvailability["2. Model Availability (Authoritative: ModelAvailabilityStatus)"]
+        M1["Is the specific model descriptor present and pullable?"]
+        M2["Canonical: available | quota_limited | rate_limited | deprecated | unavailable<br/>Proposed Diagnostic Reasons: model_tag_missing | digest_mismatch | runtime_not_installed"]
     end
 
-    subgraph QuotaRateLimit["3. Quota & Rate Limit"]
+    subgraph QuotaRateLimit["3. Quota & Rate Limit (Authoritative: RuntimeQuotaStore)"]
         Q1["Is the account/token window open or exhausted?"]
-        Q2["Statuses: available | quota_limited | rate_limited | unknown"]
+        Q2["Canonical: available | quota_limited | rate_limited | unknown"]
     end
 
     subgraph AuthConfig["4. Auth & Configuration"]
         A1["Are credentials and executable paths valid?"]
-        A2["Statuses: configured | unconfigured | auth_error"]
+        A2["Canonical: configured | unconfigured | auth_error"]
     end
 
     subgraph BillingPermission["5. Billing Permission"]
         B1["Is MAVE permitted to incur monetary API costs?"]
-        B2["Statuses: disabled_by_policy | enabled_by_opt_in"]
+        B2["Canonical: disabled_by_policy | enabled_by_opt_in"]
     end
 
     OperationalHealth -.->|Distinct Semantic| ModelAvailability
@@ -372,8 +378,14 @@ flowchart TD
    - *Example*: Ollama daemon running on `127.0.0.1:11434` is **`healthy`**.
 2. **Model Availability**:
    - Reflects whether a concrete model is installed, loaded, or discoverable.
-   - Dispatched via catalog queries (e.g. `GET /api/tags`).
-   - *Example*: Ollama daemon is `healthy`, but `qwen2.5:1.5b` is not installed $\to$ Model is **`missing`** while Provider is **`healthy`**.
+   - Authoritative contract: `ModelAvailabilityStatusSchema` in `packages/contracts/src/brain.ts` (`available`, `quota_limited`, `rate_limited`, `deprecated`, `unavailable`).
+   - **Do NOT introduce new canonical ModelAvailability values merely for diagnostics.**
+   - Concepts such as `model_tag_missing`, `digest_mismatch`, and `runtime_not_installed` are **diagnostic failure reasons** attached to `unavailable`, NOT replacement availability enums.
+   - *Example Conceptually*:
+     $$\text{modelAvailability} = \text{'unavailable'}, \quad \text{diagnosticReason} = \text{'model_tag_missing'}$$
+     $$\text{modelAvailability} = \text{'unavailable'}, \quad \text{diagnosticReason} = \text{'digest_mismatch'}$$
+   - Exact diagnostic reason identifiers remain proposed until F1.9-A contract work.
+   - **Clear Boundary**: CANONICAL CONTRACT STATE (`unavailable`) vs. PROPOSED DIAGNOSTIC DETAIL (`model_tag_missing`).
 3. **Quota & Rate Limit**:
    - Reflects account entitlement windows and concurrency limits.
    - Provider-specific; tracked in `RuntimeQuotaStore` with scope (`runtime` vs. `model` vs. `unknown`).
@@ -433,7 +445,8 @@ export interface ProviderDiagnosticSnapshot {
   };
   readonly activeModel?: {
     readonly modelId: string;
-    readonly availability: 'available' | 'missing' | 'digest_mismatch' | 'unavailable';
+    readonly availability: 'available' | 'quota_limited' | 'rate_limited' | 'deprecated' | 'unavailable';
+    readonly diagnosticReason?: string; // Proposed: e.g. 'model_tag_missing', 'digest_mismatch'
     readonly isResident?: boolean;
   };
 }
@@ -474,9 +487,11 @@ flowchart TD
      $$\text{EvalTokensPerSec} = \frac{\text{eval\_count}}{\text{eval\_duration} / 10^9}$$
    - Preserves both raw nanoseconds and normalized floating-point seconds.
 5. **Empirical Truth vs. SLO Distinction**:
-   - Live certification (C3.1 / C4-B) on Home PC hardware is the **empirical source of truth**.
-   - Historical observations (~96ms warm TTFT, ~202 tok/s, ~3,478 MiB headroom) are **benchmark baselines, NOT hard architectural SLOs**.
-   - Diagnostics records actual performance without failing solely because hardware variance shifts latency.
+   - Live certification (C3.1 / C4-B) on Home PC hardware is the **sole empirical source of truth**.
+   - Historical observations (~96ms warm TTFT, ~202 tok/s, ~3,478 MiB headroom) must remain strictly classified as:
+     $$\text{HISTORICAL OBSERVATION} \quad \neq \quad \text{LIVE CERTIFICATION} \quad \neq \quad \text{SLO}$$
+   - Current authoritative hardware truth remains pending C3.1/C4-B Home PC live verification.
+   - Diagnostics records actual live performance as-is, without imposing synthetic thresholds or treating historical benchmarks as failure limits.
 
 ---
 
@@ -580,15 +595,24 @@ Diagnostics preserves MAVE's normalized, lower-snake-case canonical error archit
 ```text
 ┌────────────────────────────────────────────────────────────────────────┐
 │ 1. Canonical Error Code (Public Contract)                              │
-│    e.g. 'provider_unavailable'                                         │
+│    e.g. 'local_provider_unavailable'                                   │
 ├────────────────────────────────────────────────────────────────────────┤
-│ 2. Diagnostic Failure Reason (Granular Subsystem Cause)                │
-│    e.g. 'ollama_daemon_unreachable'                                    │
+│ 2. Diagnostic Failure Reason (Granular Subsystem Cause - Proposed)     │
+│    e.g. 'fast_brain_unavailable'                                       │
 ├────────────────────────────────────────────────────────────────────────┤
 │ 3. Sanitized Internal Cause (Redacted OS / Network Diagnostic)         │
 │    e.g. 'connect ECONNREFUSED 127.0.0.1:11434'                         │
 └────────────────────────────────────────────────────────────────────────┘
 ```
+
+### Canonical BrainError Architecture Rules
+1. **Canonical Error Authority**: Only values actually present in `CANONICAL_BRAIN_ERROR_CODES` (`packages/contracts/src/brain.ts`) may be designated as canonical BrainError codes.
+2. **Three-Tier Architecture**:
+   $$\text{Canonical BrainError} \quad + \quad \text{DiagnosticFailureReason} \quad + \quad \text{Sanitized Raw Cause}$$
+   - *Canonical Contract Code*: `local_provider_unavailable`
+   - *Proposed Diagnostic Reason*: `fast_brain_unavailable`
+   - *Sanitized Internal Cause*: `connection refused 127.0.0.1:11434`
+3. **Proposed Status**: Exact diagnostic reason identifiers (e.g. `fast_brain_unavailable`, `ollama_daemon_unreachable`, `model_tag_missing`) remain **PROPOSED** until F1.9-A contract finalization.
 
 ### Canonical Error Taxonomy Mapping
 
@@ -617,12 +641,12 @@ export const CANONICAL_BRAIN_ERROR_CODES = [
 | Canonical Error Code | Example Diagnostic Reasons (Non-Canonical Proposals) | Sanitized Example Cause |
 | :--- | :--- | :--- |
 | `provider_unavailable` | `ollama_daemon_unreachable`, `connection_refused` | `fetch failed: connect ECONNREFUSED 127.0.0.1:11434` |
+| `local_provider_unavailable`| `fast_brain_unavailable`, `residency_load_failed` | `Failed to allocate 1.5B weights in VRAM: CUDA OOM` |
 | `provider_timeout` | `ttft_timeout_exceeded`, `stream_stall` | `Request exceeded timeout of 30000ms` |
 | `provider_auth` | `oauth_token_expired`, `invalid_api_key` | `Claude Code OAuth session expired; re-auth required` |
 | `quota_limited` | `subscription_tier_limit`, `daily_cap_reached` | `Rate limit exceeded: 5-hour rolling limit reached` |
-| `fast_brain_unavailable`| `residency_load_failed`, `cuda_out_of_memory` | `Failed to allocate 1.5B weights in VRAM: CUDA OOM` |
 | `model_unavailable` | `model_tag_missing`, `digest_mismatch` | `Model 'qwen2.5:1.5b' not found in local Ollama catalog` |
-| `local_provider_unavailable`| `loopback_violation`, `offline_policy_block` | `Endpoint 'https://remote-ollama.net' rejected by local-only policy` |
+| `routing_timeout` | `candidate_probe_timeout` | `Probing candidate 'ollama' timed out after 3000ms` |
 | `cancelled` | `user_barge_in`, `ipc_cancel_command` | `User interrupted voice turn during speech synthesis` |
 
 ---
@@ -689,25 +713,40 @@ export const DEFAULT_DIAGNOSTIC_REDACTION_PATHS = [
 
 ## 16. Retention & Bounded Diagnostic Storage
 
-To prevent unbounded local storage growth and disk exhaustion, diagnostics enforces three bounded storage categories:
+To prevent unbounded local storage growth and desktop disk exhaustion, diagnostics enforces three bounded storage categories:
 
 ```mermaid
 flowchart TD
     subgraph MemTier["Tier 1: SESSION (In-Memory Ring Buffer)"]
-        T1["Capacity: Last 1,000 diagnostic events<br/>Lifetime: Volatile (cleared on app exit)<br/>Purpose: Real-time UI hydration & live inspector"]
+        T1["Illustrative Candidate: Last ~1,000 events<br/>Lifetime: Volatile (cleared on app exit)<br/>Purpose: Real-time UI hydration & live inspector"]
     end
 
     subgraph FileTier["Tier 2: SHORT_TERM (Rolling Diagnostic Logs)"]
-        T2["Capacity: Max 5 MB per file, max 3 rotated files (15 MB total)<br/>Lifetime: Bounded retention (e.g. 7 days)<br/>Policy: Size-based log rotation with FIFO deletion"]
+        T2["Illustrative Candidate: ~5 MB/file, ~3 rotated files (~15 MB total)<br/>Lifetime: Bounded retention (e.g. 7 days)<br/>Policy: Size-based log rotation with FIFO deletion"]
     end
 
     subgraph CrashTier["Tier 3: PERSISTENT_ERROR_SUMMARY (SQLite Store)"]
-        T3["Capacity: Max 200 persistent failure records<br/>Lifetime: Retained across application restarts<br/>Purpose: Post-mortem crash and degradation analysis"]
+        T3["Illustrative Candidate: Last ~200 failure records<br/>Lifetime: Retained across application restarts<br/>Purpose: Post-mortem crash and degradation analysis"]
     end
 
     MemTier -->|On Error / Severity >= WARN| CrashTier
     MemTier -->|Flush Async| FileTier
 ```
+
+> [!IMPORTANT]
+> **RETENTION VALUES ARE NOT ARCHITECTURAL CONSTANTS**
+> Specific numerical thresholds (e.g., 1,000 events, 5 MB file limit, 3 rolling files, 15 MB total disk budget, 200 crash records) are **ILLUSTRATIVE CANDIDATE DEFAULTS — NOT CANONICAL — TO BE VALIDATED DURING F1.9 IMPLEMENTATION**.
+>
+> The non-negotiable architectural invariant is:
+> $$\text{Diagnostic Storage MUST Be Strictly Bounded}$$
+>
+> Live production parameters will be tuned during implementation based on:
+> - Average serialized event size and burst volume
+> - Event write frequency during active voice turns
+> - Desktop disk footprint and flash endurance impact
+> - SQLite database compaction and vacuum strategy
+> - User support diagnostics requirements
+> - User privacy policy and local retention preferences
 
 ---
 
@@ -742,7 +781,7 @@ flowchart TD
     Check -->|Mic / STT Down| Degrade1["Degraded Voice Mode:<br/>Voice input disabled; Text chat remains fully operational"]
     Check -->|TTS Down| Degrade2["Degraded Audio Mode:<br/>Voice synthesis skipped; Text output rendered on surface"]
     Check -->|Local Fast Brain Down| Degrade3["Degraded Brain Mode:<br/>Route to eligible non-paid fallback IF policy permits;<br/>NEVER silently route to paid cloud API"]
-    Check -->|Research Engine Down| Degrade4["Degraded Truth Mode:<br/>Grounded search omitted; Respond using timeless model knowledge"]
+    Check -->|Research Engine Down| Degrade4["Degraded Truth Mode:<br/>Current claims unverified / caveat clearly;<br/>Separable timeless knowledge preserved;<br/>NO fake current answers"]
     Check -->|Agent Runtime Down| Degrade5["Degraded Task Mode:<br/>Multi-step coding blocked; Conversational answers preserved"]
 ```
 
@@ -750,6 +789,15 @@ flowchart TD
 1. **Never Silently Cross Privacy Boundaries**: If local Fast Brain fails while `localOnly: true`, MAVE **MUST NOT** route to a cloud provider. It must fail closed and report `local_provider_unavailable`.
 2. **Never Silently Cross Billing Boundaries**: If local Fast Brain or subscription agent runtimes are unavailable, MAVE **MUST NOT** silently fall back to metered paid APIs (e.g. OpenAI API) unless the user explicitly authorized `allowPaidApis: true`.
 3. **Preserve User Interaction**: If voice hardware fails, the surface must immediately offer text input rather than closing the window.
+4. **Canonical F1.8 Degraded Truth Invariant**: If research is **REQUIRED** for a `CURRENT` or `BREAKING` claim and external retrieval is unavailable:
+   - MAVE **MUST NOT** present model memory as verified current truth.
+   - Required system behavior:
+     $$\text{research-required claim} + \text{research unavailable} \implies \text{verification unavailable} \implies \text{fail honestly / caveat clearly} \implies \text{NO fake current answer}$$
+   - If a request contains separable timeless content, MAVE may still answer the timeless portion while explicitly disclaiming the unverified current fact.
+   - *Example*: For *"Explain what P/E means and tell me Apple's current P/E"*:
+     - Conceptual definition of P/E $\to$ answered accurately from model memory.
+     - Apple's current P/E $\to$ explicitly stated as unverified because live retrieval is unavailable.
+   - MAVE must **NEVER** silently downgrade current factual queries into ungrounded model-memory approximations.
 
 ---
 
@@ -870,13 +918,24 @@ Subscription runtimes (Claude Code, ChatGPT Codex, Google Antigravity) employ di
 MAVE maintains a strict policy regarding paid, metered APIs:
 **Paid APIs remain default OFF (`allowPaidApis: false`).**
 
-### Billing Observability Invariants
-1. **Access Class Tracking**: Every provider is tagged with an immutable `accessClass`:
-   - `subscription`: Covered by flat-rate subscription (Claude Code, Codex, Antigravity).
-   - `local`: 100% on-device, zero marginal cost (Ollama, Faster-Whisper).
-   - `paid_api`: Pay-per-token metered billing (OpenAI API, Anthropic API direct).
-2. **Billing Permission != Credential Presence**: Having an `OPENAI_API_KEY` in environment variables does **NOT** grant billing permission. Routing to a paid API requires explicit `allowPaidApis: true`.
-3. **No False Monetary Claims**: Diagnostics must never claim a financial charge occurred unless the provider returned verified usage tokens and rate data. Merely invoking an endpoint does not imply billing confirmation.
+### Four-Tier Billing Separation Principle
+To prevent false monetary claims or unauthorized spending, diagnostics enforces a strict 4-tier separation:
+
+$$\text{Paid Access Class} \quad \neq \quad \text{Billing Permission} \quad \neq \quad \text{Provider Invocation} \quad \neq \quad \text{Confirmed Billing Evidence}$$
+
+1. **Paid Access Class**: Architectural category of the provider:
+   - `subscription`: Flat-rate subscription runtimes (Claude Code, ChatGPT Codex, Google Antigravity).
+   - `local`: 100% on-device inference, zero marginal cost (Ollama, Faster-Whisper).
+   - `paid_api`: Pay-per-token metered billing endpoints (e.g. OpenAI API, Anthropic API direct).
+2. **Billing Permission**: User opt-in policy flag (`allowPaidApis: true`):
+   - Credential presence (such as an `OPENAI_API_KEY` in environment variables) does **NOT** grant billing permission.
+   - Routing to a paid API requires explicit, intentional user opt-in.
+3. **Provider Invocation**: Dispatch of a network or process turn to an external endpoint:
+   - **Invocation is strictly NOT proof of monetary cost or billing event.**
+   - An endpoint might return 401, fail before token generation, or return cached/free-tier responses.
+4. **Confirmed Billing Evidence**: Concrete, verified usage tokens returned by the upstream provider:
+   - Diagnostics must never claim a financial charge occurred unless verified usage tokens and rate metadata are returned.
+   - The indicator `paidApiIncurred` is an operational signal, **NOT proof of financial billing or finalized charge**.
 
 ---
 
@@ -912,15 +971,17 @@ Agent runtimes (`ClaudeCodeBrainProvider`, `CodexBrainProvider`, `AntigravityBra
 
 ## 25. Research Telemetry Compatibility (F1.8 Alignment)
 
-Phase F1.8 established the architecture for grounded research and web truth. F1.9 maintains strict compatibility with F1.8 without duplicating its telemetry:
+Phase F1.8 established the architecture for grounded research and web truth. F1.9 maintains strict compatibility with F1.8 without duplicating or modifying its telemetry:
 
-### Boundary Separation
-- **F1.8 Owns `ResearchTelemetry`**:
-  - `requestId`, `researchTriggered`, `triggerReason`, `freshnessClass`, `sourceQuality`, `queryCount`, `sourceCount`, `retrievalLatencyMs`, `paidApiIncurred`.
+### Boundary Separation & Invariants
+- **F1.8 Owns `ResearchTelemetry` Exclusively**:
+  - Authoritative fields: `requestId`, `researchTriggered`, `triggerReason`, `freshnessClass`, `sourceQuality`, `queryCount`, `sourceCount`, `retrievalLatencyMs`, `paidApiIncurred`.
+  - **F1.9 DOES NOT ADD FIELDS TO `ResearchTelemetry`**: Diagnostics must not inject trace IDs, hardware stats, or routing metadata into F1.8 structures.
+  - **Do NOT Freeze `paidApiIncurred` as Billing Proof**: In F1.8, `paidApiIncurred` is an operational boolean signal indicating that a paid retrieval service endpoint was queried, **NOT proof of a finalized financial charge or billing settlement**.
 - **F1.9 Owns `DiagnosticTelemetry`**:
   - `traceId`, `component`, `phase`, `severity`, `durationMs`, `errorCode`, `diagnosticReason`.
-- **Correlation**: Diagnostics references research operations via the shared `traceId`, recording `KNOWLEDGE_RESEARCH` component events without absorbing research-specific citation bundles into the diagnostic log.
-- **Frozen Docs**: No F1.8 documentation is modified on this branch.
+- **Decoupled Correlation**: Diagnostics references research operations via the shared correlation identifier (`requestId` / `traceId`), recording high-level `KNOWLEDGE_RESEARCH` phase events without absorbing search queries, URL links, or citation bundles into the diagnostic log.
+- **Frozen Documents**: No F1.8 documents or specifications are modified on this branch.
 
 ---
 
@@ -940,7 +1001,7 @@ Diagnostics exposes high-level, user-safe states:
 - `reconnecting`: Network or daemon connection dropped; retrying.
 - `voice_unavailable`: Microphone detached or audio subsystem error.
 - `local_brain_unavailable`: Ollama stopped or model missing.
-- `research_unavailable`: External retrieval unavailable; answering from timeless knowledge.
+- `research_unavailable`: External retrieval unavailable; current claims unverified / failing honestly with explicit caveat; separable timeless concepts preserved.
 - `auth_required`: Subscription login required.
 
 Window geometry, animations, colors, and layout remain strictly governed by `packages/contracts/src/surface.ts` and UI V2.
@@ -950,6 +1011,11 @@ Window geometry, animations, colors, and layout remain strictly governed by `pac
 ## 27. Conceptual Diagnostic Snapshot: "Is MAVE Healthy Right Now?"
 
 A unified runtime diagnostic snapshot answers the question: **"Is MAVE healthy right now?"** across all subsystems:
+
+> [!NOTE]
+> **ILLUSTRATIVE CONCEPTUAL PRESENTATION MODEL — NOT FROZEN CANONICAL ENUM**
+> `SubsystemHealthStatus` (`AVAILABLE`, `DEGRADED`, `UNAVAILABLE`, `UNCONFIGURED`, `UNKNOWN`) is presented here strictly as an **illustrative conceptual presentation/status model** for aggregated UI reflection.
+> It is **NOT** a frozen canonical contract enum. In Phase F1.9-A, this conceptual status model will be audited and reconciled against existing canonical contracts (`CANONICAL_PROVIDER_HEALTH_STATUSES`, `ModelAvailabilityStatus`, etc.) to prevent redundant or conflicting canonical enums.
 
 ```ts
 export type SubsystemHealthStatus =
@@ -1061,11 +1127,11 @@ Future phases must implement the following automated test matrix before producti
 | Test ID | Target Invariant | Verification Method |
 | :--- | :--- | :--- |
 | **TEST-F1.9-01** | `RouteTelemetry` Exact 8 Fields | Assert that `RouteTelemetrySchema` keys exactly equal the 8 canonical fields; reject additions. |
-| **TEST-F1.9-02** | End-to-End Trace Correlation | Trace a synthetic voice turn from wake to playback; assert all diagnostic events share the same `traceId`. |
+| **TEST-F1.9-02** | End-to-End Trace Correlation | Trace a synthetic voice turn from wake to playback; assert all diagnostic events share the same correlation token (`requestId` / `traceId`). |
 | **TEST-F1.9-03** | Health != Quota Separation | Simulate a healthy provider with an active rate limit; verify operational health is `healthy` while quota is `quota_limited`. |
-| **TEST-F1.9-04** | Model Availability != Provider Health | Stop model tag in Ollama; verify provider health remains `healthy` while model availability is `missing`. |
+| **TEST-F1.9-04** | Model Availability != Provider Health | Stop/remove model tag in Ollama; verify provider health remains `healthy` while canonical model availability is `unavailable` with proposed diagnosticReason `model_tag_missing`. |
 | **TEST-F1.9-05** | Paid API Credential != Permission | Inject `OPENAI_API_KEY` with `allowPaidApis: false`; verify router rejects OpenAI and records policy block. |
-| **TEST-F1.9-06** | Canonical Error + Diagnostic Reason | Simulate Ollama daemon crash; assert canonical code is `provider_unavailable` and diagnostic reason is `ollama_daemon_unreachable`. |
+| **TEST-F1.9-06** | Canonical Error + Diagnostic Reason | Simulate Fast Brain failure; assert canonical code is `local_provider_unavailable` (from `CANONICAL_BRAIN_ERROR_CODES`) and diagnostic reason is proposed `fast_brain_unavailable` or `ollama_daemon_unreachable`. |
 | **TEST-F1.9-07** | Startup Self-Check Zero VRAM Load | Run startup self-check; inspect `OllamaResidencyManager` and assert state is `unloaded` and VRAM allocation is 0. |
 | **TEST-F1.9-08** | Ollama Daemon Disappearance Detection | Terminate Ollama mock mid-turn; verify health transition to `unavailable` and active turn termination. |
 | **TEST-F1.9-09** | Residency Stale State Reconciliation | Simulate out-of-sync `/api/ps` response; verify residency manager reconciles leases and states accurately. |
@@ -1076,14 +1142,18 @@ Future phases must implement the following automated test matrix before producti
 | **TEST-F1.9-14** | Midstream Failure No Hidden Retry | Induce stream error mid-generation; verify `request_failed` is emitted immediately with zero secondary provider retry. |
 | **TEST-F1.9-15** | Cancellation != Request Failed | Abort active turn via `AbortSignal`; verify emitted event is `request_cancelled`, turn status is `cancelled`, error is null. |
 | **TEST-F1.9-16** | Secret Redaction Invariant | Log payload containing `apiKey`, `token`, and `authorization`; assert all instances are replaced with `[REDACTED]`. |
-| **TEST-F1.9-17** | Diagnostic Retention Boundedness | Push 2,000 events into the in-memory buffer; assert buffer length never exceeds 1,000 entries. |
+| **TEST-F1.9-17** | Diagnostic Retention Boundedness | Push event burst exceeding capacity into the buffer; assert storage remains strictly bounded within candidate illustrative defaults without memory or disk exhaustion. |
 | **TEST-F1.9-18** | Agent Runtime Unknown Quota Handling | Query Claude Code without rate headers; verify quota status is reported as `unknown` rather than fabricated. |
-| **TEST-F1.9-19** | Research Telemetry Decoupling | Trigger a research-grounded turn; verify `ResearchTelemetry` captures search stats while `RouteTelemetry` remains unchanged. |
+| **TEST-F1.9-19** | Research Telemetry Decoupling | Trigger a research-grounded turn; verify F1.8-owned `ResearchTelemetry` captures search stats without schema modifications while `RouteTelemetry` remains strictly the 8 frozen fields. |
 | **TEST-F1.9-20** | Zero Diagnostic Tool Authority | Inspect diagnostic event handlers and probes; assert zero capability to invoke shell commands or mutate files. |
 
 ---
 
 ## 31. Implementation Phase Plan (F1.9 Stages)
+
+> [!IMPORTANT]
+> **ARCHITECTURE AUDIT ONLY — PRODUCTION IMPLEMENTATION: NOT STARTED**
+> Milestone Pre-M5 F1.9 is strictly an architectural and reliability audit. No production diagnostics implementation code has been written or deployed on this branch. Concrete schema implementations, typed events, and subsystem instrumentation will commence in Phase F1.9-A.
 
 To safely implement diagnostics and reliability without causing runtime regressions, the following staged plan is proposed:
 
@@ -1182,8 +1252,8 @@ F1.9 builds the observability mechanisms required to explain system behavior. F1
 
 ```text
 ================================================================================
-MAVE PRE-M5 F1.9 DIAGNOSTICS & RELIABILITY ARCHITECTURE AUDIT
-Status: READY FOR IMPLEMENTATION PLANNING
+MAVE PRE-M5 F1.9 DIAGNOSTICS & RELIABILITY ARCHITECTURE AUDIT HARDENED
+Status: AUDIT HARDENED / READY FOR F1.9-A CONTRACT DEFINITION
 Architecture Version: Canonical F1.9
 Approved Boundary: OBSERVABILITY != AUTHORITY
 ================================================================================
