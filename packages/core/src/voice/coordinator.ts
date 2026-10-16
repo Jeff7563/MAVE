@@ -851,7 +851,9 @@ export class VoiceSessionCoordinator {
             }
           } else if (convEvent.type === 'response_completed') {
             this.isBrainCompletedForCurrentTurn = true;
-            const routeTelemetry = this.conversationRuntime.getExecutionTelemetry(this.activeBrainRequestId ?? undefined);
+            const routeTelemetry = this.activeBrainRequestId
+              ? this.conversationRuntime.getExecutionTelemetry(this.activeBrainRequestId)
+              : undefined;
             if (routeTelemetry) {
               this.lastRouteTelemetry = routeTelemetry;
               log.info(
@@ -1004,11 +1006,11 @@ export class VoiceSessionCoordinator {
             'tts_synthesis_failed'
           );
           this.lastAudioDiagnostics = currentDiag;
-          if (this.options?.degradeToTextOnTtsFailure === false) {
-            throw ttsError;
+          if (this.options?.degradeToTextOnTtsFailure) {
+            // Degrade gracefully to text: do not emit speaking_started and continue to allow text response
+            continue;
           }
-          // Degrade gracefully to text: do not emit speaking_started and continue to allow text response
-          continue;
+          throw ttsError;
         }
 
         if (audioFrames.length > 0) {
