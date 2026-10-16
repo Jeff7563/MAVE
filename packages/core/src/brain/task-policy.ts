@@ -24,6 +24,9 @@ export type TaskIntent = (typeof TASK_INTENTS)[number];
 
 export interface TaskContext {
   readonly planningType?: 'conversational' | 'project' | 'agent';
+  readonly codingType?: 'conversational' | 'explanation' | 'repository' | 'execution' | 'agent';
+  readonly requiresExecution?: boolean;
+  readonly isRepositoryWork?: boolean;
   readonly [key: string]: unknown;
 }
 
@@ -63,6 +66,26 @@ export function normalizeTaskIntent(rawIntent: string | undefined): TaskIntent |
     case 'casual_followup':
     case 'follow_up':
     case 'followup':
+    // Conversational coding / explanation / short conceptual reviews:
+    // Canonical principle: Complexity != agent work. Coding topic != authority to invoke an agent runtime.
+    case 'explain_code':
+    case 'code_explanation':
+    case 'explain_this_code':
+    case 'code_review':
+    case 'code_snippet':
+    case 'code_concept':
+    case 'explain_error':
+    case 'explain_typescript_error':
+    case 'typescript_error':
+    case 'regex':
+    case 'small_regex':
+    case 'write_a_small_regex':
+    case 'react_hook':
+    case 'explain_react_hook':
+    case 'what_does_flatmap_do':
+    case 'explain_what_array.prototype.flatmap_does':
+    case 'explain_what_array_prototype_flatmap_does':
+    case 'review_a_short_snippet_conceptually':
       return 'quick_chat';
     case 'general_conversation':
     case 'conversation':
@@ -88,6 +111,10 @@ export function normalizeTaskIntent(rawIntent: string | undefined): TaskIntent |
     case 'agent_work':
     case 'agent':
     case 'workflow':
+    case 'repository_work':
+    case 'repo_work':
+    case 'workspace_task':
+    case 'autonomous_execution':
       return 'agent_work';
     case 'research':
     case 'web_research':
@@ -100,8 +127,33 @@ export function normalizeTaskIntent(rawIntent: string | undefined): TaskIntent |
     case 'private':
       return 'local_private';
     default:
-      return undefined;
+      break;
   }
+
+  // Pattern-based fallback for conversational explanations / code inquiries vs repository work
+  if (
+    normalized.startsWith('explain_') ||
+    normalized.startsWith('what_does_') ||
+    normalized.startsWith('how_does_') ||
+    normalized.includes('error') ||
+    normalized.includes('flatmap') ||
+    normalized.includes('regex') ||
+    normalized.includes('snippet')
+  ) {
+    if (
+      normalized.includes('repository') ||
+      normalized.includes('workspace') ||
+      normalized.includes('commit') ||
+      normalized.includes('run_tests') ||
+      normalized.includes('terminal') ||
+      normalized.includes('modify_file')
+    ) {
+      return 'agent_work';
+    }
+    return 'quick_chat';
+  }
+
+  return undefined;
 }
 
 /**
@@ -208,13 +260,55 @@ export class TaskPolicy {
         };
       }
 
-      case 'coding':
+      case 'coding': {
+        // Canonical principle: Complexity != agent work. Coding topic != authority to invoke an agent runtime.
+        // Distinguish conversational coding / explanation from sustained repository/agent execution.
+        const codingType =
+          input.taskContext?.codingType ??
+          (input.context?.codingType as 'conversational' | 'explanation' | 'repository' | 'execution' | 'agent' | undefined);
+        const requiresExecution =
+          input.taskContext?.requiresExecution ??
+          (input.context?.requiresExecution as boolean | undefined);
+        const isRepositoryWork =
+          input.taskContext?.isRepositoryWork ??
+          (input.context?.isRepositoryWork as boolean | undefined);
+
+        // Case 1: Explicit repository execution or autonomous workspace work
+        if (
+          codingType === 'repository' ||
+          codingType === 'execution' ||
+          codingType === 'agent' ||
+          isRepositoryWork === true ||
+          requiresExecution === true
+        ) {
+          return {
+            taskIntent: 'coding',
+            profileId: 'agent_work',
+            modelRole: explicitRole ?? 'CODING',
+            reason: "Task 'coding' (sustained repository/agent execution) resolved to profile 'agent_work' with role 'CODING'"
+          };
+        }
+
+        // Case 2: Conversational coding / snippet review / explanation
+        if (codingType === 'conversational' || codingType === 'explanation' || requiresExecution === false) {
+          return {
+            taskIntent: 'coding',
+            profileId: 'fast_conversation',
+            modelRole: explicitRole ?? 'CODING',
+            reason: "Task 'coding' (conversational explanation/snippet) resolved to conversational profile 'fast_conversation' with role 'CODING'"
+          };
+        }
+
+        // Case 3: Default coding intent without explicit context
+        // Invariant: Resolves to profile 'agent_work' with role 'CODING' for sustained code execution tasks
+        // while conversational inquiries route through quick_chat or explicit codingType: 'conversational'.
         return {
           taskIntent: 'coding',
           profileId: 'agent_work',
           modelRole: explicitRole ?? 'CODING',
           reason: "Task 'coding' resolved to profile 'agent_work' with role 'CODING'"
         };
+      }
 
       case 'agent_work':
         return {

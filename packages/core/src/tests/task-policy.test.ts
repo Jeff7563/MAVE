@@ -137,4 +137,79 @@ describe('TaskPolicy (F1.5-S3)', () => {
       expect(normalizeTaskIntent(undefined)).toBeUndefined();
     });
   });
+
+  describe('Section 44: Coding != Automatic Agent Work (C4-A.1 Hardening)', () => {
+    it('proves "Explain what Array.prototype.flatMap does" != agent_work', () => {
+      const decision = policy.resolve({
+        taskIntent: 'Explain what Array.prototype.flatMap does'
+      });
+      expect(decision.profileId).not.toBe('agent_work');
+      expect(decision.profileId).toBe('fast_conversation');
+    });
+
+    it('proves "Explain this TypeScript error" != agent_work solely because it is coding', () => {
+      const decision = policy.resolve({
+        taskIntent: 'Explain this TypeScript error'
+      });
+      expect(decision.profileId).not.toBe('agent_work');
+      expect(decision.profileId).toBe('fast_conversation');
+    });
+
+    it('proves conversational coding questions map to fast_conversation', () => {
+      const queries = [
+        'explain this code',
+        'what does flatMap do',
+        'write a small regex',
+        'explain React hook',
+        'review a short snippet conceptually'
+      ];
+      for (const query of queries) {
+        const decision = policy.resolve({ taskIntent: query });
+        expect(decision.profileId).not.toBe('agent_work');
+        expect(decision.profileId).toBe('fast_conversation');
+      }
+    });
+
+    it('proves coding with conversational taskContext maps to fast_conversation', () => {
+      const decision = policy.resolve({
+        taskIntent: 'coding',
+        taskContext: { codingType: 'conversational' }
+      });
+      expect(decision.profileId).toBe('fast_conversation');
+      expect(decision.modelRole).toBe('CODING');
+
+      const decisionExpl = policy.resolve({
+        taskIntent: 'coding',
+        taskContext: { codingType: 'explanation' }
+      });
+      expect(decisionExpl.profileId).toBe('fast_conversation');
+    });
+
+    it('proves explicit repository implementation task may be agent_work', () => {
+      const decisionRepoContext = policy.resolve({
+        taskIntent: 'coding',
+        taskContext: { codingType: 'repository' }
+      });
+      expect(decisionRepoContext.profileId).toBe('agent_work');
+      expect(decisionRepoContext.modelRole).toBe('CODING');
+
+      const decisionExecution = policy.resolve({
+        taskIntent: 'coding',
+        taskContext: { requiresExecution: true }
+      });
+      expect(decisionExecution.profileId).toBe('agent_work');
+
+      const decisionRepoWork = policy.resolve({
+        taskIntent: 'coding',
+        taskContext: { isRepositoryWork: true }
+      });
+      expect(decisionRepoWork.profileId).toBe('agent_work');
+
+      const decisionExplicitAgent = policy.resolve({
+        taskIntent: 'agent_work'
+      });
+      expect(decisionExplicitAgent.profileId).toBe('agent_work');
+    });
+  });
 });
+

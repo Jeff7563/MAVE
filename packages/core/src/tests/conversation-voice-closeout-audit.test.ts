@@ -334,6 +334,42 @@ describe('MAVE C4-A: Voice / Language / Conversation Closeout Audit Tests', () =
     expect(decision.providerKind).toBe('model_provider');
     expect(decision.providerId).toBe('mock-chat-model');
     expect(decision.providerId).not.toBe('antigravity');
+
+    // Regression: "Explain what Array.prototype.flatMap does" != agent_work
+    const flatMapDecision = await router.route({
+      taskIntent: 'Explain what Array.prototype.flatMap does'
+    });
+    expect(flatMapDecision.profileId).not.toBe('agent_work');
+    expect(flatMapDecision.profileId).toBe('fast_conversation');
+    expect(flatMapDecision.providerKind).toBe('model_provider');
+    expect(flatMapDecision.providerId).toBe('mock-chat-model');
+
+    // Regression: "Explain this TypeScript error" != agent_work solely because it is coding
+    const tsErrorDecision = await router.route({
+      taskIntent: 'Explain this TypeScript error'
+    });
+    expect(tsErrorDecision.profileId).not.toBe('agent_work');
+    expect(tsErrorDecision.profileId).toBe('fast_conversation');
+    expect(tsErrorDecision.providerKind).toBe('model_provider');
+    expect(tsErrorDecision.providerId).toBe('mock-chat-model');
+
+    // Regression: explicit repository implementation task may be agent_work
+    const repoDecision = await router.route({
+      taskIntent: 'coding',
+      taskContext: { codingType: 'repository' }
+    });
+    expect(repoDecision.profileId).toBe('agent_work');
+    expect(repoDecision.providerKind).toBe('agent_runtime_provider');
+    expect(repoDecision.providerId).toBe('antigravity');
+
+    // Regression: coding with conversational context maps to fast_conversation
+    const convCodingDecision = await router.route({
+      taskIntent: 'coding',
+      taskContext: { codingType: 'conversational' }
+    });
+    expect(convCodingDecision.profileId).toBe('fast_conversation');
+    expect(convCodingDecision.providerKind).toBe('model_provider');
+    expect(convCodingDecision.providerId).toBe('mock-chat-model');
   });
 
   // ==========================================================================

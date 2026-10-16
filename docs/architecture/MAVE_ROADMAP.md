@@ -171,8 +171,8 @@ Program Sequence:
 - **F1.5-C1.1 Local Provider Qualification & Catalog Hardening** ✅ COMPLETE
 - **F1.5-C2 Local Fast Brain Empirical Benchmarking & Model Qualification** ✅ COMPLETE
 - **Parallel Design Track — Intelligence Escalation & Knowledge Trust Architecture** ✅ COMPLETE (PARALLEL DESIGN / FUTURE POLICY ONLY — ZERO CODE MODIFICATIONS, F1.5-C3/C4 UNCHANGED)
-- **F1.5-C3 Local Model Lifecycle & Resident Memory Management** ✅ COMPLETE (PROMOTED: `qwen2.5:1.5b`, BENCHMARK CONSISTENCY RESOLVED, RESIDENCY MANAGER & LEASE GOVERNANCE IMPLEMENTED)
-- **F1.5-C4 Conversational Brain Closeout Audit** (C4-A: ✅ READY FOR HOME-PC LIVE VERIFICATION; C4-B: PENDING HOME-PC HARDWARE VERIFICATION)
+- **F1.5-C3 Local Model Lifecycle & Resident Memory Management** ✅ COMPLETE (CODE-PROMOTED: `qwen2.5:1.5b` AWAITING HOME-PC LIVE CERTIFICATION, RESIDENCY MANAGER & LEASE GOVERNANCE IMPLEMENTED)
+- **F1.5-C4 Conversational Brain Closeout Audit** (C4-A: ✅ HARDENED — READY FOR HOME-PC LIVE VERIFICATION; C4-B: PENDING HOME-PC HARDWARE VERIFICATION)
 - **F1.6 Production Deep Brain** (Deferred after Local Fast Brain Closeout)
 - **F1.7 Agent Runtime Normalization (`ClaudeCode` / `Antigravity` / `Codex`)**
 - **F1.8 Research / Truth Routing**
