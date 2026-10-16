@@ -1,14 +1,15 @@
-# MAVE F1.8 Research / Truth Architecture Audit & Specification
+# MAVE F1.8 Research / Truth Architecture Audit & Hardening Specification
 
 > [!IMPORTANT]
-> **AUDIT & DESIGN ONLY — ZERO PRODUCTION IMPLEMENTATION**
+> **AUDIT & HARDENING DESIGN ONLY — ZERO PRODUCTION IMPLEMENTATION**
 > This specification defines the canonical architecture, contract design, and implementation roadmap for **Milestone Pre-M5 Phase F1.8 (Research / Truth Architecture)**.
-> - **Status:** AUDIT COMPLETE / ARCHITECTURE SPECIFICATION READY
+> - **Implementation Status:** NOT STARTED (Architecture Audit & Hardening Only; production code strictly deferred to future staged phases starting with F1.8-A).
 > - **Production Providers:** None implemented in this phase.
 > - **Web Search Execution:** Zero active web scrapers or network search callers implemented.
 > - **Tool / MCP Authority:** Zero shell, filesystem mutation, or agent execution authority granted.
 > - **Runtime & C3/C4 Invariant:** Zero modifications to existing C3 residency, C4 voice orchestration, or F1.6 Deep Brain contracts.
 > - **Frozen RouteTelemetry:** The canonical 8 fields of `RouteTelemetry` remain 100% unchanged.
+> - **Error Taxonomy Status:** Proposed research error codes are `PROPOSED / NON-CANONICAL — TO BE FINALIZED IN F1.8-A`.
 > - **Paid APIs:** Default OFF (`allowPaidApis: false`).
 > - **UI / Visual Assets:** Zero modifications to UI V2, `docs/pic/*`, or `docs/uiref/*`.
 
@@ -42,15 +43,15 @@ flowchart TD
     subgraph TruthPath["THE F1.8 TRUTH ARCHITECTURE"]
         ResearchTrigger{"Needs Current / External Verification?"}
         KnowledgeProvider["knowledge_provider<br/>Web / Docs / Local Index (Retrieval Only)"]
-        EvidenceBundle["EvidenceBundle<br/>Raw Excerpts + Locators + Timestamps"]
+        EvidenceBundle["EvidenceBundle<br/>Bounded Excerpts + Locators + Timestamps"]
         ModelSynth["model_provider (Synthesis)<br/>Grounded in EvidenceBundle"]
     end
 
     Policy --> ResearchTrigger
-    ResearchTrigger -->|No: Conversational| FastPath
-    ResearchTrigger -->|No: Complex Deduction| DeepPath
+    ResearchTrigger -->|No: Conversational by Default| FastPath
+    ResearchTrigger -->|No: Complex Deduction by Default| DeepPath
     ResearchTrigger -->|No: Workspace Action| AgentPath
-    ResearchTrigger -->|Yes: Current Truth Needed| KnowledgeProvider
+    ResearchTrigger -->|Yes: Verification Required or Explicit Override| KnowledgeProvider
     KnowledgeProvider --> EvidenceBundle
     EvidenceBundle --> ModelSynth
 ```
@@ -62,6 +63,7 @@ Auditing the repository reveals a critical structural void:
 2. **Missing Research Profile Implementation:** Although `research` is defined in `BrainProfileIdSchema` and `DEFAULT_BRAIN_PROFILES`, routing a request with `profileId: 'research'` immediately fails because it requires `webResearch: true`, which no registered direct model provider supports, and no retrieval orchestration exists.
 3. **No Representation of Truth, Freshness, or Evidence:** The system currently possesses no typed contracts to represent:
    - Retrieved evidence items versus model-generated summaries.
+   - Bounded verbatim source snippets versus full-document archives.
    - Publication and retrieval timestamps.
    - Qualitative source authority (primary documentation vs community hearsay).
    - Claim-to-citation linkages.
@@ -69,7 +71,7 @@ Auditing the repository reveals a critical structural void:
 4. **The False Equivalence Risk:** There is an acute danger of conflating research with agent work (granting terminal/filesystem authority to fetch facts) or naively adding an unconstrained web search tool.
 
 **The mission of F1.8 is NOT simply "add web search."**
-The mission is to build MAVE's **Canonical Truth Architecture**: MAVE knows deterministically when external verification is required, retrieves evidence through a strictly governed, read-only research pipeline, models source trust and freshness explicitly, synthesizes answers via conversational `model_provider`, attaches verifiable citations, and refuses to present stale parametric memory as current truth.
+The mission is to build MAVE's **Canonical Truth Architecture**: MAVE knows deterministically when external verification is required, retrieves evidence through a strictly governed, read-only research pipeline, models source trust and freshness explicitly, synthesizes answers via conversational `model_provider`, attaches verifiable citations, and refuses to present stale parametric memory as current fact.
 
 ---
 
@@ -124,10 +126,10 @@ flowchart TD
     IntentCheck -->|No| TempCheck{"Temporal Anchors Present?<br/>'ตอนนี้', 'วันนี้', 'latest', 'current', '2026'"}
     TempCheck -->|Yes| EntityCheck{"Dynamic / Volatile Subject?<br/>Prices, Versions, News, People, Status"}
     EntityCheck -->|Yes| TriggerResearch["Trigger: RESEARCH<br/>Policy: CURRENT_VERIFICATION_REQUIRED"]
-    EntityCheck -->|No: Static concept| FastRoute["Trigger: FAST / DEEP<br/>Policy: STATIC_KNOWLEDGE"]
+    EntityCheck -->|No: Static concept| FastRoute["Trigger: FAST / DEEP<br/>Policy: STATIC_KNOWLEDGE (No research by default)"]
 
     TempCheck -->|No| ClassifySubject{"Subject Volatility Classification"}
-    ClassifySubject -->|Static / Timeless| NoResearch["Trigger: FAST / DEEP<br/>Policy: NO_RESEARCH_NEEDED"]
+    ClassifySubject -->|Static / Timeless / Dialogue| DefaultFast["Trigger: FAST / DEEP<br/>Policy: RESEARCH_NOT_REQUIRED_BY_DEFAULT"]
     ClassifySubject -->|Fast-Evolving / Legal / Regulatory| TriggerResearch2["Trigger: RESEARCH<br/>Policy: DOMAIN_POLICY_TRIGGER"]
 ```
 
@@ -148,18 +150,20 @@ Requests matching these semantic boundaries **must not** be answered from model 
 6. **Explicit User Mandate:** The user explicitly requests search, source finding, or verification.
    *Examples:* *"ค้นหาข้อมูลให้หน่อย"*, *"เช็กข้อมูลล่าสุด"*, *"verify this claim"*, *"find primary sources for this"*.
 
-#### Category B: Research Prohibited / Not Required (Conversational & Deductive Fast Paths)
-Requests matching these categories **must not** trigger external research, avoiding unnecessary latency, token waste, and privacy exposure:
-1. **Timeless & Conceptual Explanations:** Core computer science, mathematics, natural laws, philosophy.
-   *Examples:* *"Explain recursion"*, *"How does a red-black tree work?"*, *"กฎข้อที่สามของนิวตันคืออะไร"*.
-2. **Language Learning & Translation:** Vocabulary definitions, grammatical reviews, conversational drills, natural translation.
-   *Examples:* *"แปลประโยคนี้เป็นภาษาญี่ปุ่น"*, *"Explain the difference between 'affect' and 'effect'"*, *"สอนสนทนาสั่งอาหารภาษาอังกฤษ"*.
-3. **Reasoning Over User-Supplied Context:** In-session summarization, text extraction, rewriting, proofreading.
-   *Examples:* *"Summarize the email pasted above"*, *"Extract key bullet points from this text"*, *"ตรวจแกรมม่าข้อความนี้"*.
-4. **Creative Ideation & Brainstorming:** Game mechanics, fictional storytelling, poetry, roleplaying.
-   *Examples:* *"Brainstorm mechanics for a turn-based space RPG"*, *"แต่งกลอนเกี่ยวกับกาแฟยามเช้า"*.
-5. **Pure Conversational Interaction:** Greetings, check-ins, mood adjustments, personal rapport.
-   *Examples:* *"สวัสดีตอนเช้า"*, *"เหนื่อยจังวันนี้ คุยเป็นเพื่อนหน่อย"*.
+#### Category B: Research Not Required by Default (Fast Path with Explicit Override)
+Requests matching these categories **do not require external research by default**, avoiding unnecessary latency, token waste, and privacy exposure. The conversational `model_provider` handles these directly from prompt context or general parametric knowledge.
+
+> [!NOTE]
+> **Explicit Verification Override:**
+> A default fast-path classification is **not a permanent prohibition**. Explicit research or verification intent by the user **always overrides** the default fast path and invokes the research pipeline.
+
+| Default Fast-Path Request (No Research Needed by Default) | Explicit Verification / Grounding Override (Research Triggered) |
+| :--- | :--- |
+| *"Explain recursion"* $\longrightarrow$ Handled directly by `model_provider` without research by default. | *"Find authoritative academic sources explaining recursion"* $\longrightarrow$ Explicit research requested $\longrightarrow$ triggers `research`. |
+| *"Translate this sentence to Japanese"* $\longrightarrow$ Handled directly by `model_provider` without research by default. | *"Verify whether this newly coined technical term is used this way in Japanese tech blogs"* $\longrightarrow$ Verification required $\longrightarrow$ research triggered. |
+| *"Summarize the email pasted above"* $\longrightarrow$ In-context reasoning over supplied text; no research by default. | *"Verify whether the flight status mentioned in this email is still accurate today"* $\longrightarrow$ Research triggered for live status check. |
+| *"Brainstorm mechanics for a space RPG"* $\longrightarrow$ Creative generation; no research by default. | *"Check what mechanics similar newly released 2026 space games are currently using"* $\longrightarrow$ Research triggered for market context. |
+| *"สวัสดีตอนเช้า คุยเป็นเพื่อนหน่อย"* $\longrightarrow$ Casual dialogue; no research by default. | *"ค้นหาข่าวเช้านี้ให้ฟังหน่อย"* $\longrightarrow$ Research triggered for current news. |
 
 ---
 
@@ -195,7 +199,7 @@ export type EpistemicVerificationState =
 
 ---
 
-## 5. Knowledge Provider Architecture & Reconciliation
+## 5. Knowledge Provider Architecture & Reconciling `webResearch` Capability
 
 ### Reconciling Provider Taxonomy
 In `packages/contracts/src/brain.ts`, `ProviderKindSchema` is defined as:
@@ -232,13 +236,60 @@ sequenceDiagram
     Runtime->>Router: TaskPolicy.resolve(query)
     Router-->>Runtime: profile: research, freshness: CURRENT
     Runtime->>Knowledge: retrieve(queryPlan)
-    Note over Knowledge: Fetches primary financial sources<br/>Validates timestamps & locators
-    Knowledge-->>Runtime: EvidenceBundle (Raw excerpts + URLs)
+    Note over Knowledge: Fetches primary financial sources<br/>Extracts bounded verbatim snippets
+    Knowledge-->>Runtime: EvidenceBundle (Bounded excerpts + Locators)
     Runtime->>Model: chat(prompt + EvidenceBundle)
     Note over Model: Synthesizes grounded answer<br/>Attaches inline citations [^1]
     Model-->>Runtime: Stream tokens + citations
     Runtime-->>User: Synthesized verified answer with sources
 ```
+
+### Reconciling the `webResearch` Capability: Retrieval vs Evidence-Grounded Synthesis
+
+#### Audit of Current Capability Semantics
+In `packages/contracts/src/brain.ts`, `BrainCapabilitiesSchema` defines:
+```ts
+webResearch: z.boolean().default(false)
+```
+And `DEFAULT_BRAIN_PROFILES['research']` mandates:
+```ts
+requiredCapabilities: {
+  webResearch: true
+}
+```
+Historically (Milestone 2 baseline), this flag implied an all-in-one provider or model with native, self-contained browsing or search capability (e.g. an integrated search model).
+
+#### The F1.8 Canonical Architectural Decoupling
+Under F1.8's truth architecture, intelligence is cleanly separated into two distinct stages:
+1. **Retrieval Stage:** Executed by a `knowledge_provider` (e.g. search API adapter, documentation indexer).
+2. **Synthesis Stage:** Executed by a conversational `model_provider` (e.g. Ollama, Claude, Codex, Gemini).
+
+```mermaid
+flowchart LR
+    subgraph Stage1["1. Retrieval Stage"]
+        KP["knowledge_provider"]
+        ReqRet["Requires: RETRIEVAL CAPABILITY<br/>(Query planning, API search, snippet extraction)"]
+    end
+
+    subgraph Stage2["2. Evidence-Grounded Synthesis Stage"]
+        MP["model_provider"]
+        ReqSynth["Requires: EVIDENCE SYNTHESIS CAPABILITY<br/>(In-context reasoning, citation anchoring [^n])<br/>DOES NOT require native web browsing"]
+    end
+
+    KP -->|Produces EvidenceBundle| MP
+```
+
+#### Reconciling the Synthesis Model Provider
+The final synthesis `model_provider` **does NOT perform web retrieval**. It receives a structured `EvidenceBundle` in its prompt context and synthesizes a grounded answer with citations.
+
+If `BrainRouter` were to demand `webResearch: true` on the synthesis `model_provider`, powerful reasoning models (e.g. `qwen2.5:1.5b`, `claude-3-7-sonnet`, `gpt-5`, `gemini-2.5-pro`) would be **erroneously rejected** for synthesis merely because they do not perform native internet crawling!
+
+#### Architectural Recommendations for F1.8-A:
+1. **Decouple Capabilities:**
+   - **`webRetrieval` / `docsRetrieval`:** Evaluated strictly on candidate `knowledge_provider` instances during the retrieval stage.
+   - **`evidenceSynthesis` / `reasoning`:** Evaluated on candidate `model_provider` instances during the synthesis stage.
+2. **Orchestrator-Level Governance:** In `ConversationRuntime`, routing for `profileId: 'research'` will resolve the `knowledge_provider` from a dedicated `KnowledgeProviderRegistry`, and route the final conversational synthesis to a standard `model_provider` (requiring `streaming` and `reasoning` or `fastChat`), without forcing `webResearch: true` onto direct model descriptors.
+3. **Deprecate or Clarify Legacy `webResearch`:** In F1.8-A, either deprecate the monolithic `webResearch` capability flag or clarify that it applies only to standalone search endpoints, not conversational brain models.
 
 ### Single vs Multi-Provider Orchestration
 The research subsystem must support **provider fan-out and multi-source synthesis**:
@@ -300,7 +351,7 @@ export const ResearchEvidenceItemSchema = z.object({
   domain: z.string().optional(),
   publishedAt: z.number().nonnegative().optional(), // Epoch ms
   retrievedAt: z.number().nonnegative(),       // Epoch ms
-  rawExcerpt: z.string().min(1),               // VERBATIM source text — NEVER model-generated
+  rawExcerpt: z.string().min(1).max(4000),     // Bounded verbatim passage/snippet — NEVER model-generated
   excerptSummary: z.string().optional(),       // Optional model pre-summary, strictly labeled
   qualityClass: SourceQualityClassSchema,
   freshnessClass: z.enum(['STATIC', 'SLOW_CHANGING', 'CURRENT', 'BREAKING']),
@@ -321,10 +372,12 @@ export const EvidenceBundleSchema = z.object({
 export type EvidenceBundle = z.infer<typeof EvidenceBundleSchema>;
 ```
 
-### Cardinal Principle: Separation of Raw Retrieval vs Model Summary
+### Cardinal Principle: Bounded Verbatim Snippet vs Model-Generated Summary
 > [!IMPORTANT]
-> A model-generated summary must **NEVER masquerade as source text**.
-> `rawExcerpt` contains only untouched, verbatim text returned by the knowledge provider. If a provider generates a syntactic summary, it must be isolated in `excerptSummary`. The synthesizing `model_provider` must be instructed that only `rawExcerpt` constitutes ground empirical evidence.
+> **Bounded Evidence & Provenance Invariants:**
+> 1. **Verbatim Bounded Snippets:** `rawExcerpt` represents a **bounded verbatim passage or snippet** (typically 200–2,000 characters) provided directly by the source or search API. MAVE does **NOT** design or require a full-document scraping archive (no storing 100-page HTML or PDF dumps).
+> 2. **No Masquerading Summaries:** A model-generated summary must **NEVER masquerade as source text**. If a provider generates a syntactic summary, it must be stored in `excerptSummary`. The synthesizing `model_provider` is instructed that only `rawExcerpt` constitutes ground empirical evidence.
+> 3. **Preserve Provenance:** Neither the orchestrator nor the provider may silently mutate, rewrite, or normalize quoted source text.
 
 ---
 
@@ -393,23 +446,41 @@ flowchart TD
 
 When research is required but retrieval fails, MAVE adheres to a **Fail-Closed Truth Policy**.
 
+### Error Taxonomy Status (Audit of Existing Canonical Errors)
+An audit of `packages/contracts/src/brain.ts` confirms that `CANONICAL_BRAIN_ERROR_CODES` contains 17 frozen codes:
+`provider_unavailable`, `provider_timeout`, `provider_auth`, `provider_limit`, `provider_invalid_response`, `cancelled`, `runtime_error`, `fast_brain_unavailable`, `profile_unavailable`, `model_unavailable`, `provider_unconfigured`, `quota_limited`, `rate_limited`, `auth_required`, `local_provider_unavailable`, `routing_timeout`, `generation_cancelled`.
+
+The specific research failure identifiers below are **PROPOSED / NON-CANONICAL — TO BE FINALIZED IN F1.8-A**. They must **NOT** be treated as frozen canonical errors in this phase.
+
 ```text
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
-│                             FAILED RESEARCH REASON TAXONOMY                            │
+│               PROPOSED RESEARCH FAILURE TAXONOMY (NON-CANONICAL — F1.8-A)              │
 ├───────────────────────────────────┬────────────────────────────────────────────────────┤
-│ Failure Code                      │ User Explanation & Runtime Behavior                │
+│ Proposed Identifier (Non-Canonical│ Conceptual Meaning & Canonical Contract Mapping    │
 ├───────────────────────────────────┼────────────────────────────────────────────────────┤
-│ research_no_provider              │ "No research provider configured; cannot verify."  │
-│ research_network_unavailable      │ "Network unavailable; external check impossible."  │
-│ research_local_only_violation     │ "Local-only privacy active; cloud search blocked." │
-│ research_evidence_insufficient    │ "Search completed, but trustworthy sources lacked."│
-│ research_source_conflict          │ "Retrieved sources contradict; cannot confirm."    │
+│ research_no_provider              │ Maps canonically to: provider_unavailable          │
+│                                   │ Details: { failureReason: 'research_no_provider' } │
+├───────────────────────────────────┼────────────────────────────────────────────────────┤
+│ research_network_unavailable      │ Maps canonically to: provider_timeout / unavailable│
+│                                   │ Details: { failureReason: 'network_unavailable' }  │
+├───────────────────────────────────┼────────────────────────────────────────────────────┤
+│ research_local_only_violation     │ Maps canonically to: local_provider_unavailable    │
+│                                   │ Details: { failureReason: 'local_only_violation' } │
+├───────────────────────────────────┼────────────────────────────────────────────────────┤
+│ research_evidence_insufficient    │ Captured in EvidenceBundle: completeness='failed'  │
+│                                   │ Details: { failureReason: 'insufficient_evidence' }│
+├───────────────────────────────────┼────────────────────────────────────────────────────┤
+│ research_source_conflict          │ Captured in EvidenceBundle: contradictions=true    │
+│                                   │ Details: { failureReason: 'source_conflict' }      │
 └───────────────────────────────────┴────────────────────────────────────────────────────┘
 ```
 
-### Safe Response Pattern
-When retrieval fails for a `CURRENT` inquiry, MAVE's synthesizing prompt instructs the model:
-> *"External verification for this query failed due to {REASON}. You are FORBIDDEN from presenting your pre-training knowledge as current fact. State clearly that you cannot verify the current status, and if you offer historical context, caveat it explicitly with your knowledge cutoff date."*
+### Failed-Research Disclosure & Knowledge Cutoff Correction
+When retrieval fails for a `CURRENT` inquiry, MAVE's synthesizing prompt enforces the following safe disclosure rules:
+1. **Canonical Safe Wording:** Conceptually:
+   `UNVERIFIED MODEL MEMORY — MAY BE STALE`
+2. **Cautious Historical Context:** Historical or model-internal context may be offered **only with this explicit caveat**.
+3. **No Fabricated Cutoff Dates:** MAVE must **NOT** state a concrete pre-training cutoff date (e.g. *"As of October 2024..."*) unless authoritative provider/model metadata explicitly supplies that date. If cutoff metadata is unavailable, MAVE must state that it cannot verify the current state and that its internal memory may be stale, without guessing an unverified date.
 
 ---
 
@@ -442,30 +513,36 @@ MAVE guarantees strict local privacy through `resolveEffectiveLocalOnly(request)
 ### Strict `localOnly = true` Enforcement
 When `localOnly: true` is active:
 1. **Network Search Prohibited:** All outbound HTTP requests, web scraping, and third-party search APIs are immediately blocked.
-2. **Fail-Closed on Cloud Retrieval:** If the request requires internet search, the research orchestrator aborts with `research_local_only_violation`.
+2. **Fail-Closed on Cloud Retrieval:** If the request requires internet search, the research orchestrator aborts (canonically mapping to `local_provider_unavailable`).
 3. **Local Knowledge Sources Permitted:** Local document stores, SQLite notes, and local vector indexes are fully permitted to supply evidence.
 4. **Honest Labeling:** Evidence from local files must be labeled as `Local Knowledge Base (File: notes.md, Dated: 2026-02-15)` and never falsely presented as "Verified Internet Truth."
 
 ---
 
-## 13. Privacy & Query Minimization
+## 13. Privacy & Query Minimization (Required Future Invariants)
 
-External web searches inherently leak user intent to third-party endpoints. The research architecture mitigates this via **Strict Query Minimization**:
+> [!WARNING]
+> **Implementation Status Note:**
+> The privacy protections below describe **REQUIRED F1.8 IMPLEMENTATION INVARIANTS** to be implemented in Phase F1.8-D.
+> **The current codebase does NOT yet implement automated query minimization or secret scrubbing.** These are strict requirements for future F1.8 development.
 
 ```mermaid
 flowchart TD
-    ConversationHistory["Full Conversation History<br/>(User persona, past messages, private context)"] --> Planner["Query Planner"]
+    ConversationHistory["Full Conversation History<br/>(User persona, past messages, private context)"] --> Planner["Query Planner (Future F1.8-D)"]
     UserPrompt["Current Prompt:<br/>'I have \$500k in my Bangkok startup account, what is USD/THB rate today?'"] --> Planner
 
-    Planner --> StripPrivate["Strip Private & Conversational Context"]
+    Planner --> StripPrivate["Required Future Step:<br/>Strip Private & Conversational Context"]
     StripPrivate --> MinimizedQuery["Minimized Search Query:<br/>'USD THB exchange rate today'"]
     MinimizedQuery --> Outbound["Outbound knowledge_provider API"]
 ```
 
-### Privacy Protections
-- **No Conversation Dumping:** Conversation turns and session histories are **never** forwarded to search APIs.
-- **Secret Redaction:** Regex-based sanitization strips potential API keys, passwords, bearer tokens, and private IP addresses prior to query emission.
-- **Provider Privacy Metadata:** Search providers are audited and classified into `standard_cloud`, `private_cloud`, or `local_only`.
+### Required Future F1.8 Implementation Invariants:
+1. **Query Minimization:** The Query Planner must minimize outbound query context, extracting only objective search keywords and excluding conversational filler.
+2. **Exclude Conversation History:** Never send full session history, user personas, or unrelated prior turns to external search providers.
+3. **Redact Credentials & Secrets:** Automatically scrub potential API keys, passwords, bearer tokens, and private host paths before transmitting search queries.
+4. **Avoid Leaking Private Context:** Exclude user identity, financial balances, proprietary repo names, or private system metadata.
+5. **Respect `localOnly`:** Strictly verify `resolveEffectiveLocalOnly` before any external network connection.
+6. **Attach Provider Access Metadata:** Log provider privacy class (`standard_cloud`, `private_cloud`, `local_only`) into diagnostic telemetry.
 
 ---
 
@@ -526,13 +603,14 @@ Reconciling with `docs/architecture/MAVE_INTELLIGENCE_ESCALATION_AND_TRUST.md`:
 NEW ──► OBSERVED ──► VERIFIED ──► TRUSTED ──► STALE ──► REJECTED
 ```
 
-### Trust Derivation Rules
-1. **Teacher Output is Not Ground Truth:** A distilled output from an agent or LLM teacher is classified as `OBSERVED`, never immediately `TRUSTED`.
-2. **Empirical Verification Required:** Transition to `VERIFIED` requires external corroboration:
-   - Primary documentation corroboration.
-   - Successful automated test execution (exit code zero).
-   - Explicit user verification.
-3. **Decay to Stale:** All `TRUSTED` knowledge records decay to `STALE` once their domain half-life TTL expires, requiring positive re-verification.
+### Corrected Trust Derivation & Verification Semantics
+> [!CRITICAL]
+> **Execution Success != Factual Truth:**
+> An automated test passing (exit code 0) or process completing successfully does **NOT** automatically verify factual truth about the external world. Verification must be strictly claim- and evidence-specific:
+> 1. **Software Behavior Claim:** An automated test or reproducible execution verifies operational code behavior (e.g., confirming a parser handles malformed inputs correctly).
+> 2. **External Factual Claim:** Requires authoritative external evidence (primary documentation, government filings, verified registry data). An automated script exiting 0 does not prove external factual assertions.
+> 3. **Current-State Claim:** Requires fresh external evidence satisfying the domain's freshness policy (`CURRENT` / `BREAKING`).
+> 4. **Teacher / Model Output:** Model output never verifies itself. Repeated model generations or multi-LLM consensus do **not** constitute factual verification.
 
 ---
 
@@ -660,7 +738,9 @@ Research is **read-only information retrieval**. It is fundamentally distinct fr
 
 ## 22. Staged F1.8 Implementation Roadmap
 
-The implementation of F1.8 is partitioned into six sequential phases to guarantee zero regression on existing runtime code:
+> [!NOTE]
+> **F1.8 Implementation Status: NOT STARTED (Architecture & Audit Hardening Only)**
+> Production implementation will begin strictly in Phase F1.8-A.
 
 ```mermaid
 flowchart LR
@@ -673,14 +753,16 @@ flowchart LR
 
 ### Phase Details
 
-#### F1.8-A: Contracts & Types Definition
-- Add `ResearchEvidenceItem`, `EvidenceBundle`, `FreshnessClass`, `SourceQualityClass`, and `ResearchTelemetry` schemas to `packages/contracts/src/brain.ts` or dedicated `packages/contracts/src/research.ts`.
-- Add canonical research error codes (`research_provider_unavailable`, `research_evidence_insufficient`, `research_local_only_violation`).
+#### F1.8-A: Contracts & Types Definition (Target of Next Phase)
+- Formalize typed contracts for `ResearchEvidenceItem`, `EvidenceBundle`, `FreshnessClass`, `SourceQualityClass`, and `ResearchTelemetry`.
+- **Finalize Canonical Error Taxonomy:** Reconcile proposed error identifiers with `CANONICAL_BRAIN_ERROR_CODES`, finalizing whether dedicated codes are promoted or represented via structured canonical error details.
+- Reconcile `webResearch` capability flag across contracts and model catalog.
 - Preserve frozen `RouteTelemetry` intact.
 
 #### F1.8-B: Research Policy & Deterministic Trigger Classification
 - Extend `packages/core/src/brain/task-policy.ts` with semantic trigger evaluation.
 - Classify inquiries into `STATIC`, `SLOW_CHANGING`, `CURRENT`, `BREAKING`.
+- Implement explicit override behavior for default fast-path requests.
 - Unit test trigger classification across Thai and English benchmark queries.
 
 #### F1.8-C: Knowledge Provider Abstraction & Registry
@@ -690,13 +772,14 @@ flowchart LR
 
 #### F1.8-D: Research Orchestrator & Evidence-Grounded Synthesis
 - Build `ResearchOrchestrator` in `packages/core/src/conversation`.
+- Implement Query Planner with required query minimization, secret scrubbing, and context stripping.
 - Sequence: `TaskPolicy Trigger -> Query Planning -> KnowledgeProvider.retrieve() -> EvidenceBundle -> BrainRouter(model_provider) -> provider.chat()`.
 - Ground prompts with evidence and instruct models to cite `[^n]`.
 
 #### F1.8-E: Citation Normalization & Surface Integration
 - Parse inline citations in `ConversationRuntime` and map to `SurfaceSourceBlock`.
 - Connect `open_source` actions in `SurfaceView` and `DeveloperChat`.
-- Verify fail-closed behavior for unverified claims.
+- Verify fail-closed behavior for unverified claims (`UNVERIFIED MODEL MEMORY — MAY BE STALE`).
 
 #### F1.8-F: Verification, Harness & Phase Closeout
 - Execute end-to-end integration tests using mock search fixtures.
@@ -713,12 +796,12 @@ The future test suite for F1.8 must cover the following 14 test scenarios:
 | Test ID | Test Scenario | Expected Outcome |
 | :--- | :--- | :--- |
 | **TEST-F1.8-01** | Current fact query (e.g., *"ข่าววันนี้"*, *"ราคาหุ้น Apple ตอนนี้"*) | Deterministically classified as requiring research (`freshness: CURRENT`); triggers `knowledge_provider` retrieval. |
-| **TEST-F1.8-02** | Static conceptual query (e.g., *"Explain recursion"*, *"แปลคำนี้"*) | Classified as `STATIC`; research bypassed; routes to fast conversation. |
-| **TEST-F1.8-03** | Explicit verification mandate (e.g., *"ค้นให้หน่อย"*, *"verify this"*) | Triggers research regardless of subject matter. |
+| **TEST-F1.8-02** | Static conceptual query (e.g., *"Explain recursion"*, *"แปลคำนี้"*) | Classified as `STATIC`; research not required by default; routes to fast conversation. |
+| **TEST-F1.8-03** | Explicit verification override (e.g., *"Find authoritative sources explaining recursion"*, *"verify this"*) | Explicit verification overrides default fast path; triggers research. |
 | **TEST-F1.8-04** | Research query under no circumstances becomes `agent_work` | Verified: `providerKind !== 'agent_runtime_provider'`. |
 | **TEST-F1.8-05** | Knowledge provider guard enforcement | `knowledge_provider` is never returned as final conversational route. |
-| **TEST-F1.8-06** | `localOnly: true` privacy restriction | Fail-closed: external retrieval blocked; error `research_local_only_violation` emitted. |
-| **TEST-F1.8-07** | Retrieval failure handling | When search fails, model refuses to present stale memory as current fact; caveats clearly emitted. |
+| **TEST-F1.8-06** | `localOnly: true` privacy restriction | Fail-closed: external retrieval blocked; canonical `local_provider_unavailable` error emitted. |
+| **TEST-F1.8-07** | Retrieval failure handling | When search fails, model refuses to present stale memory as current fact; emits `UNVERIFIED MODEL MEMORY — MAY BE STALE` without guessing unverified cutoff dates. |
 | **TEST-F1.8-08** | Citation provenance integrity | All `SurfaceSourceBlock` entries link to real evidence items in `EvidenceBundle`; zero phantom citations. |
 | **TEST-F1.8-09** | Conflicting source preservation | When sources diverge, response explicitly notes contradiction rather than fabricating false consensus. |
 | **TEST-F1.8-10** | Stale evidence rejection | Evidence older than domain freshness horizon is rejected for `CURRENT` / `BREAKING` requests. |
@@ -738,7 +821,7 @@ The future test suite for F1.8 must cover the following 14 test scenarios:
 | **`RouteTelemetrySchema`** | `packages/contracts/src/brain.ts` | 8 frozen fields | **FROZEN.** Keep separate from research telemetry. |
 | **`SurfaceSourceBlockSchema`**| `packages/contracts/src/surface.ts` | Existing block for sources | Fully reused for surface UI citation display. |
 | **`open_source` action** | `packages/contracts/src/surface.ts` | Existing surface action | Fully reused for user click interactions. |
-| **`TaskPolicy`** | `packages/core/src/brain/task-policy.ts` | Maps `research` to profile | Extended in F1.8-B with semantic trigger classifier. |
+| **`TaskPolicy`** | `packages/core/src/brain/task-policy.ts` | Maps `research` to profile | Extended in F1.8-B with semantic trigger classifier and explicit overrides. |
 | **`BrainRouter` guard** | `packages/core/src/brain/router.ts` | Blocks `knowledge_provider` | Fully operational (line 761). Must remain inviolate. |
 | **`resolveEffectiveLocalOnly`**| `packages/contracts/src/brain.ts` | Fail-closed privacy logic | Reused directly to block network search. |
 
@@ -748,6 +831,7 @@ The future test suite for F1.8 must cover the following 14 test scenarios:
 
 ### Non-Goals (Strictly Prohibited in F1.8)
 - **NO web scraping scripts or headless browser automation.**
+- **NO full-document crawling or scraping archives.**
 - **NO tool or terminal execution authority.**
 - **NO modification to C3 residency or C4 voice conversation code.**
 - **NO modification to frozen `RouteTelemetry` fields.**
@@ -755,5 +839,5 @@ The future test suite for F1.8 must cover the following 14 test scenarios:
 
 ### Strategic Recommendations
 1. **Execute Home-PC Live Certification for C3/C4 first:** Ensure Local Fast Brain is certified on hardware before activating F1.8 live providers.
-2. **Implement F1.8-A and F1.8-B in simulation first:** Build contracts, test policies, and verify mock knowledge providers prior to connecting live web search APIs.
+2. **Finalize Error Taxonomy & Capability Splitting in F1.8-A:** Formalize whether research error identifiers are promoted to `CANONICAL_BRAIN_ERROR_CODES` or structured via canonical error details, and decouple `webRetrieval` from `evidenceSynthesis`.
 3. **Keep Knowledge Providers decoupled from UI:** Ensure retrieval returns pure data bundles; UI formatting remains strictly within existing `SurfaceSourceBlock` boundaries.
