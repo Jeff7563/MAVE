@@ -36,7 +36,7 @@
 ## 3. Benchmark Consistency (~189 tok/s vs ~16.9 tok/s Resolution)
 
 > [!NOTE]
-> Historical discrepancy: ~189 tok/s was measured using generation tokens divided by generation duration only. ~16.9 tok/s was measured using generation tokens divided by total turn duration (including model cold loading and prompt evaluation). Both values must be captured directly from raw Ollama metrics.
+> Benchmark consistency: ~189–236 tok/s is canonical server-side generation throughput on RTX 3060 Ti measured via eval_count / (eval_duration / 1e9). Historical ~16.9 tok/s was client-side event loop throttling caused by synchronous nvidia-smi child-process execution on every chunk in the client streaming loop. All raw metrics are captured directly from Ollama.
 
 | Metric | Raw Daemon Field | Home PC Raw Output | Calculated Value |
 |---|---|---|---|

@@ -22,7 +22,7 @@ import {
   sampleNvidiaGpu,
   serializeRouteTelemetry
 } from '@mave/core';
-import { OllamaBrainProvider } from '@mave/providers';
+import { DEFAULT_LOCAL_BRAIN_RESIDENCY_POLICY, OllamaBrainProvider } from '@mave/providers';
 import { runCancellationVerification } from './cancellation-runner.js';
 import { runLanguageSessionVerification } from './language-runner.js';
 import { runMultiTurnVerification } from './multi-turn-runner.js';
@@ -133,7 +133,9 @@ export async function runCertificationHarness(): Promise<void> {
     console.log(`Turn Count:          ${multiTurnResult.turns.length}`);
     for (const t of multiTurnResult.turns) {
       console.log(`  [Turn ${t.turnIndex}] Prompt:   "${t.prompt}"`);
+      console.log(`           Req ID:   ${t.requestId}`);
       console.log(`           Response: "${t.responseText.slice(0, 70)}..." (${t.durationMs}ms)`);
+      console.log(`           Observed: completed=${t.responseCompletedObserved}, failed=${t.requestFailedObserved}, cancelled=${t.requestCancelledObserved}`);
     }
     console.log(`Context Continuity:  ${multiTurnResult.contextContinuityPassed ? 'PASSED' : 'FAILED'}`);
     console.log(`Evidence:            ${multiTurnResult.continuityEvidence}\n`);
@@ -152,7 +154,10 @@ export async function runCertificationHarness(): Promise<void> {
   console.log(`Anti-Hallucination Guard:        ${langResult.antiHallucinationGuardPassed ? 'PASSED (fake metrics blocked)' : 'FAILED'}`);
   console.log(`Roleplay Lifecycle:              ${langResult.roleplayLifecyclePassed ? 'PASSED (step-out/resume verified)' : 'FAILED'}`);
   console.log(`Learning Stages (seen/prac/rev): ${langResult.learningStageProgressionPassed ? 'PASSED' : 'FAILED'}`);
-  console.log(`Live Language Turn:              ${langResult.liveTurnCompleted ? 'PASSED' : 'SKIPPED (Home PC required)'}`);
+  const langStatus = langResult.liveTurnCompleted
+    ? 'PASSED'
+    : (langResult.liveEvidence?.includes('skipped') ? 'SKIPPED (Home PC required)' : 'FAILED');
+  console.log(`Live Language Turn:              ${langStatus}`);
   if (langResult.liveEvidence) {
     console.log(`Evidence:                        ${langResult.liveEvidence}`);
   }
@@ -166,9 +171,16 @@ export async function runCertificationHarness(): Promise<void> {
   const cancelResult = await runCancellationVerification();
 
   if (cancelResult.available) {
+    console.log(`Request ID:                  ${cancelResult.requestId}`);
     console.log(`Cancellation Triggered:      ${cancelResult.cancellationTriggered}`);
+    console.log(`runtime.cancel() Returned:   ${cancelResult.cancelMethodReturnedTrue}`);
     console.log(`Deltas Received:             ${cancelResult.receivedDeltasBeforeCancel} before / ${cancelResult.receivedDeltasAfterCancel} after`);
     console.log(`Terminal Event:              ${cancelResult.terminalEventType}`);
+    if (cancelResult.failedErrorCode || cancelResult.failedErrorMessage) {
+      console.log(`Failure Details:             [${cancelResult.failedErrorCode}] ${cancelResult.failedErrorMessage}`);
+    }
+    console.log(`Attempted Providers:         [${cancelResult.attemptedProviderIds.join(', ')}]`);
+    console.log(`Attempted Models:            [${cancelResult.attemptedModelIds.join(', ')}]`);
     console.log(`Fallback Used:               ${cancelResult.fallbackUsed} (must be false)`);
     console.log(`Route Attempts:              ${cancelResult.routeAttempts} (no hidden retry)`);
     console.log(`Invariant Result:            ${cancelResult.invariantPassed ? 'PASSED' : 'FAILED'}\n`);
@@ -186,9 +198,14 @@ export async function runCertificationHarness(): Promise<void> {
   if (timingResult.available && timingResult.metrics) {
     const m = timingResult.metrics;
     console.log(`Model:                     ${m.model}`);
+    console.log(`Raw load_duration:         ${m.raw.loadDurationNs} ns (${m.calculated.loadDurationSec}s)`);
+    console.log(`Raw prompt_eval_count:     ${m.raw.promptEvalCount} tokens`);
+    console.log(`Raw prompt_eval_duration:  ${m.raw.promptEvalDurationNs} ns (${m.calculated.promptEvalDurationSec}s)`);
+    console.log(`Raw eval_count:            ${m.raw.evalCount} tokens`);
     console.log(`Raw eval_duration:         ${m.raw.evalDurationNs} ns (${m.calculated.evalDurationSec}s)`);
     console.log(`Raw total_duration:        ${m.raw.totalDurationNs} ns (${m.calculated.totalDurationSec}s)`);
     console.log(`Generation Throughput:     ${m.calculated.evalTokensPerSec} tok/s`);
+    console.log(`Prompt Ingestion:          ${m.calculated.promptEvalTokensPerSec} tok/s`);
     console.log(`E2E Turn Throughput:       ${m.calculated.e2eTokensPerSec} tok/s`);
     console.log(`Discrepancy Resolution:    ${m.explanation}\n`);
   } else {
@@ -202,11 +219,11 @@ export async function runCertificationHarness(): Promise<void> {
   console.log('   MANUAL HOME-PC CERTIFICATION CHECKS (Execute in sequence)');
   console.log('================================================================================');
   console.log('The following physical checks must be performed manually on Home PC:');
-  console.log('  1. Microphone Audio Sensing:  Verify wake word "MAVE" triggers waking state');
+  console.log('  1. Microphone Audio Sensing:  Verify wake phrase "Hey MAVE" triggers waking state');
   console.log('  2. Audio Output & TTS:        Verify EdgeTTS playback is clearly audible');
-  console.log('  3. PresenceMark Visual Sync:  Verify color transitions (sleeping/listening/speaking)');
+  console.log('  3. PresenceMark Visual Sync:  Verify semantic runtime states (idle -> waking -> listening -> thinking -> speaking)');
   console.log('  4. VRAM Co-Residency:         Run nvidia-smi with CUDA faster-whisper + qwen2.5:1.5b');
-  console.log('  5. Idle Eviction:             Wait 5 minutes; verify Ollama unloads model from VRAM');
+  console.log(`  5. Idle Eviction:             Verify Ollama unloads model from VRAM after configured keepAlive (${DEFAULT_LOCAL_BRAIN_RESIDENCY_POLICY.keepAlive})`);
   console.log('  6. Ollama Daemon Restart:     Run `pnpm tsx scripts/certification/restart-helper.ts`');
   console.log('\nReport Template: docs/architecture/MAVE_C3_1_C4_B_HOME_LIVE_CERTIFICATION_TEMPLATE.md');
   console.log('================================================================================\n');

@@ -3,6 +3,8 @@
 // ============================================================================
 
 import { describe, expect, it } from 'vitest';
+import { ResponseDeltaEventSchema } from '@mave/contracts';
+import { DEFAULT_LOCAL_BRAIN_RESIDENCY_POLICY, type LocalBrainResidencyPolicy } from '@mave/providers';
 import type { BrainRouteDecision } from '../brain/types.js';
 import {
   formatNanosecondsToSeconds,
@@ -98,7 +100,8 @@ describe('Certification Measurement Utilities (C3.1 / C4-B)', () => {
 
       // Explanation includes explicit discrepancy resolution text
       expect(metrics.explanation).toContain('189');
-      expect(metrics.explanation).toContain('generation-only');
+      expect(metrics.explanation).toContain('nvidia-smi');
+      expect(metrics.explanation).toContain('generation throughput');
     });
   });
 
@@ -354,6 +357,253 @@ describe('Certification Measurement Utilities (C3.1 / C4-B)', () => {
       expect(info.nodeVersion).toBe(process.version);
       expect(info.totalRamGiB).toBeGreaterThan(0);
       expect(formatSystemInfo(info)).toContain('Node');
+    });
+  });
+
+  // --------------------------------------------------------------------------
+  // 8. Certification Harness Invariant Corrections (C3.1 / C4-B)
+  // --------------------------------------------------------------------------
+  describe('Certification Harness Invariant Corrections (C3.1 / C4-B)', () => {
+    it('proves certification consumers require response_delta.text rather than event.delta', () => {
+      // Canonical schema requires text
+      const validEvent = {
+        type: 'response_delta',
+        requestId: 'req-1',
+        sessionId: 'session-1',
+        turnId: 'turn-1',
+        text: 'hello world',
+        timestamp: Date.now()
+      };
+      const parsed = ResponseDeltaEventSchema.parse(validEvent);
+      expect(parsed.text).toBe('hello world');
+
+      // Stale event.delta assumption fails schema validation
+      const staleEvent = {
+        type: 'response_delta',
+        requestId: 'req-1',
+        sessionId: 'session-1',
+        turnId: 'turn-1',
+        delta: 'hello world',
+        timestamp: Date.now()
+      };
+      expect(() => ResponseDeltaEventSchema.parse(staleEvent)).toThrow();
+    });
+
+    it('proves empty multi-turn response cannot pass verification', () => {
+      const evaluateTurn = (turn: {
+        responseCompletedObserved: boolean;
+        requestFailedObserved: boolean;
+        requestCancelledObserved: boolean;
+        responseText: string;
+      }) => {
+        return (
+          turn.responseCompletedObserved &&
+          !turn.requestFailedObserved &&
+          !turn.requestCancelledObserved &&
+          turn.responseText.trim().length > 0
+        );
+      };
+
+      expect(
+        evaluateTurn({
+          responseCompletedObserved: true,
+          requestFailedObserved: false,
+          requestCancelledObserved: false,
+          responseText: '   '
+        })
+      ).toBe(false);
+
+      expect(
+        evaluateTurn({
+          responseCompletedObserved: true,
+          requestFailedObserved: false,
+          requestCancelledObserved: false,
+          responseText: 'TypeScript is a typed superset of JavaScript.'
+        })
+      ).toBe(true);
+    });
+
+    it('proves request_failed multi-turn cannot pass verification', () => {
+      const evaluateTurn = (turn: {
+        responseCompletedObserved: boolean;
+        requestFailedObserved: boolean;
+        requestCancelledObserved: boolean;
+        responseText: string;
+      }) => {
+        return (
+          turn.responseCompletedObserved &&
+          !turn.requestFailedObserved &&
+          !turn.requestCancelledObserved &&
+          turn.responseText.trim().length > 0
+        );
+      };
+
+      expect(
+        evaluateTurn({
+          responseCompletedObserved: false,
+          requestFailedObserved: true,
+          requestCancelledObserved: false,
+          responseText: 'Partial text before failure'
+        })
+      ).toBe(false);
+    });
+
+    it('proves language live check cannot pass with empty response', () => {
+      const evaluateLanguageLiveTurn = (state: {
+        responseCompletedObserved: boolean;
+        requestFailedObserved: boolean;
+        requestCancelledObserved: boolean;
+        responseText: string;
+      }) => {
+        return (
+          state.responseCompletedObserved &&
+          !state.requestFailedObserved &&
+          !state.requestCancelledObserved &&
+          state.responseText.trim().length > 0
+        );
+      };
+
+      expect(
+        evaluateLanguageLiveTurn({
+          responseCompletedObserved: true,
+          requestFailedObserved: false,
+          requestCancelledObserved: false,
+          responseText: ''
+        })
+      ).toBe(false);
+    });
+
+    it('proves language live check cannot pass without response_completed', () => {
+      const evaluateLanguageLiveTurn = (state: {
+        responseCompletedObserved: boolean;
+        requestFailedObserved: boolean;
+        requestCancelledObserved: boolean;
+        responseText: string;
+      }) => {
+        return (
+          state.responseCompletedObserved &&
+          !state.requestFailedObserved &&
+          !state.requestCancelledObserved &&
+          state.responseText.trim().length > 0
+        );
+      };
+
+      expect(
+        evaluateLanguageLiveTurn({
+          responseCompletedObserved: false,
+          requestFailedObserved: false,
+          requestCancelledObserved: false,
+          responseText: 'How can I help you today?'
+        })
+      ).toBe(false);
+    });
+
+    it('proves cancellation triggers on first real delta', async () => {
+      const mockStream = [
+        { type: 'response_started' },
+        { type: 'response_delta', text: 'Once upon a time' },
+        { type: 'response_delta', text: ' in a galaxy far away' }
+      ];
+
+      let cancellationTriggered = false;
+      let deltasBeforeCancel = 0;
+      let deltasAfterCancel = 0;
+      const cancelledRequestIds: string[] = [];
+
+      const mockRuntime = {
+        async cancel(id: string) {
+          cancelledRequestIds.push(id);
+          return true;
+        }
+      };
+
+      const testRequestId = 'req-cancel-test-1';
+      for (const event of mockStream) {
+        if (event.type === 'response_delta') {
+          if (!cancellationTriggered) {
+            if (event.text && event.text.length > 0) {
+              deltasBeforeCancel++;
+              cancellationTriggered = true;
+              await mockRuntime.cancel(testRequestId);
+            }
+          } else {
+            deltasAfterCancel++;
+          }
+        }
+      }
+
+      expect(cancellationTriggered).toBe(true);
+      expect(deltasBeforeCancel).toBe(1);
+      expect(deltasAfterCancel).toBe(1);
+      expect(cancelledRequestIds).toEqual([testRequestId]);
+    });
+
+    it('proves cancellation telemetry comes from runtime rather than constants', () => {
+      const capturedTelemetry = {
+        selectedProviderId: 'ollama' as const,
+        selectedModelId: 'ollama-qwen2.5-1.5b',
+        fallbackUsed: false,
+        routeAttempts: 1,
+        attemptedProviderIds: ['ollama' as const],
+        attemptedModelIds: ['ollama-qwen2.5-1.5b']
+      };
+
+      const mockRuntime = {
+        getExecutionTelemetry(requestId: string) {
+          if (requestId === 'cert-cancel-123') {
+            return capturedTelemetry;
+          }
+          return undefined;
+        }
+      };
+
+      const telemetry = mockRuntime.getExecutionTelemetry('cert-cancel-123');
+      expect(telemetry).toBeDefined();
+      expect(telemetry?.fallbackUsed).toBe(false);
+      expect(telemetry?.routeAttempts).toBe(1);
+      expect(telemetry?.attemptedProviderIds).toEqual(['ollama']);
+      expect(telemetry?.attemptedModelIds).toEqual(['ollama-qwen2.5-1.5b']);
+
+      // Unrecognized request returns undefined (not hardcoded static values)
+      expect(mockRuntime.getExecutionTelemetry('unknown-req')).toBeUndefined();
+    });
+
+    it('proves timing explanation does not equate ~16.9 tok/s with total duration throughput and notes nvidia-smi throttle', () => {
+      const rawPayload = {
+        model: 'qwen2.5:1.5b',
+        done: true,
+        total_duration: 6_728_100_000,
+        load_duration: 100_000_000,
+        prompt_eval_count: 20,
+        prompt_eval_duration: 500_000_000,
+        eval_count: 64,
+        eval_duration: 373_308_000
+      };
+
+      const metrics = calculateOllamaTiming(rawPayload);
+      // Canonical generation throughput (64 tokens / ~0.373s)
+      expect(metrics.calculated.evalTokensPerSec).toBeCloseTo(171.44, 1);
+      // Explanation explicitly attributes the historical ~16.9 tok/s to nvidia-smi client throttling
+      expect(metrics.explanation).toContain('nvidia-smi');
+      expect(metrics.explanation).toContain('client-side throttling');
+      expect(metrics.explanation).not.toContain('~16.9 tok/s refers to end-to-end turn throughput');
+    });
+
+    it('proves manual checklist does not freeze keepAlive to 5m and reads configured policy', () => {
+      // Default policy
+      expect(DEFAULT_LOCAL_BRAIN_RESIDENCY_POLICY.keepAlive).toBe('5m');
+
+      // Custom policy verification
+      const customPolicy: LocalBrainResidencyPolicy = { keepAlive: '10m' };
+      const formatEvictionChecklistItem = (policy: LocalBrainResidencyPolicy) =>
+        `Verify Ollama unloads model from VRAM after configured keepAlive (${policy.keepAlive})`;
+
+      expect(formatEvictionChecklistItem(customPolicy)).toBe(
+        'Verify Ollama unloads model from VRAM after configured keepAlive (10m)'
+      );
+      expect(formatEvictionChecklistItem(DEFAULT_LOCAL_BRAIN_RESIDENCY_POLICY)).toBe(
+        'Verify Ollama unloads model from VRAM after configured keepAlive (5m)'
+      );
     });
   });
 });

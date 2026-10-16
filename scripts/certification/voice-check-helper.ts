@@ -90,10 +90,10 @@ export function formatVoiceLoopChecklist(evidence: VoiceLoopExecutionEvidence): 
     `Total Turn Duration:         ${l.totalTurnDurationMs !== undefined ? `${l.totalTurnDurationMs}ms` : 'NOT RUN — HOME PC REQUIRED'}`,
     ``,
     `--- Manual Hardware Verification Status ---`,
-    `Acoustic Wake Recall:        ${m.acousticWakeRecall}`,
+    `Acoustic Wake Recall:        ${m.acousticWakeRecall} (Wake phrase: "Hey MAVE")`,
     `Mic Audio Level Sensing:     ${m.microphoneAudioLevelSensing}`,
     `TTS Audio Playback Audible:  ${m.ttsAudioPlaybackAudible}`,
-    `PresenceMark Color Sync:     ${m.presenceMarkColorSync}`,
+    `Presence State Sync:         ${m.presenceMarkColorSync} (Semantic states: idle -> waking -> listening -> thinking -> speaking)`,
     `Acoustic Echo Limitation:    ${m.softwareVadAcousticEchoObserved} (Expected: Software VAD captures speaker without DSP AEC)`,
     `Presence Transitions:        [${evidence.presenceTransitions.join(' -> ')}]`
   ].join('\n');
@@ -106,7 +106,7 @@ if (import.meta.url === `file:///${process.argv[1].replace(/\\/g, '/')}`) {
     mode: 'manual_microphone',
     timestamps: {},
     latencies: {},
-    presenceTransitions: ['sleeping', 'listening', 'thinking', 'speaking', 'idle'],
+    presenceTransitions: ['idle', 'waking', 'listening', 'thinking', 'speaking', 'idle'],
     manualAudioChecklist: {
       acousticWakeRecall: 'NOT_RUN_HOME_PC_REQUIRED',
       microphoneAudioLevelSensing: 'NOT_RUN_HOME_PC_REQUIRED',

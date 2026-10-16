@@ -9,6 +9,7 @@
 // NEVER assigns a fake quality score.
 // ============================================================================
 
+import type { RouteTelemetry } from '@mave/contracts';
 import {
   BrainProviderRegistry,
   BrainRouter,
@@ -22,11 +23,17 @@ import { OllamaBrainProvider } from '@mave/providers';
 export interface MultiTurnTurnResult {
   readonly turnIndex: number;
   readonly prompt: string;
+  readonly requestId: string;
   readonly profileId?: string;
   readonly selectedProviderId?: string;
   readonly selectedModelId?: string;
   readonly responseText: string;
   readonly durationMs: number;
+  readonly responseCompletedObserved: boolean;
+  readonly requestFailedObserved: boolean;
+  readonly requestCancelledObserved: boolean;
+  readonly executionTelemetry?: RouteTelemetry;
+  readonly error?: string;
 }
 
 export interface MultiTurnBenchmarkResult {
@@ -90,6 +97,7 @@ export async function runMultiTurnVerification(
   });
 
   const session = sessionManager.createSession({ title: 'C4-B Multi-Turn Verification' });
+  await store.createSession(session);
   const sessionId = session.id;
 
   const prompts = [
@@ -102,39 +110,89 @@ export async function runMultiTurnVerification(
 
   for (let i = 0; i < prompts.length; i++) {
     const prompt = prompts[i];
+    const requestId = `cert-multi-${i + 1}-${Date.now()}`;
     const startTime = Date.now();
     let responseText = '';
     let selectedModelId: string | undefined;
+    let responseCompletedObserved = false;
+    let requestFailedObserved = false;
+    let requestCancelledObserved = false;
+    let turnError: string | undefined;
 
     try {
       for await (const event of runtime.send({
         sessionId,
+        requestId,
         message: prompt,
         taskIntent: 'quick_chat'
       })) {
         if (event.type === 'response_delta') {
-          responseText += event.delta;
+          responseText += event.text;
         } else if (event.type === 'response_completed') {
+          responseCompletedObserved = true;
           selectedModelId = event.modelId;
+        } else if (event.type === 'request_failed') {
+          requestFailedObserved = true;
+          turnError = `[${event.error.code}] ${event.error.message}`;
+        } else if (event.type === 'request_cancelled') {
+          requestCancelledObserved = true;
+          turnError = `cancelled: ${event.reason}`;
         }
       }
+
+      const executionTelemetry = runtime.getExecutionTelemetry(requestId);
+      const trimmedResponse = responseText.trim();
+      const selectedProviderId = executionTelemetry?.selectedProviderId ?? 'ollama';
+      selectedModelId = selectedModelId ?? executionTelemetry?.selectedModelId;
 
       turnResults.push({
         turnIndex: i + 1,
         prompt,
+        requestId,
+        profileId: executionTelemetry?.profileId ?? 'fast_conversation',
+        selectedProviderId,
+        selectedModelId,
+        responseText: trimmedResponse,
+        durationMs: Date.now() - startTime,
+        responseCompletedObserved,
+        requestFailedObserved,
+        requestCancelledObserved,
+        executionTelemetry,
+        error: turnError
+      });
+
+      // Do not silently mark a turn successful if empty, failed, or missing completion
+      if (!responseCompletedObserved || requestFailedObserved || requestCancelledObserved || trimmedResponse.length === 0) {
+        return {
+          available: true,
+          sessionId,
+          turns: turnResults,
+          contextContinuityPassed: false,
+          continuityEvidence: `Turn ${i + 1} failed: ${turnError ?? (trimmedResponse.length === 0 ? 'empty response' : 'response_completed not observed')}`,
+          error: `Turn ${i + 1} did not produce completed response`
+        };
+      }
+    } catch (err) {
+      turnResults.push({
+        turnIndex: i + 1,
+        prompt,
+        requestId,
         profileId: 'fast_conversation',
         selectedProviderId: 'ollama',
         selectedModelId,
         responseText: responseText.trim(),
-        durationMs: Date.now() - startTime
+        durationMs: Date.now() - startTime,
+        responseCompletedObserved,
+        requestFailedObserved: true,
+        requestCancelledObserved,
+        error: err instanceof Error ? err.message : String(err)
       });
-    } catch (err) {
       return {
-        available: false,
+        available: true,
         sessionId,
         turns: turnResults,
         contextContinuityPassed: false,
-        continuityEvidence: 'Failed mid-turn',
+        continuityEvidence: `Turn ${i + 1} threw exception: ${err instanceof Error ? err.message : String(err)}`,
         error: `Turn ${i + 1} failed: ${err instanceof Error ? err.message : String(err)}`
       };
     }
@@ -167,7 +225,9 @@ if (import.meta.url === `file:///${process.argv[1].replace(/\\/g, '/')}`) {
     console.log(`Session ID: ${result.sessionId}\n`);
     for (const t of result.turns) {
       console.log(`[Turn ${t.turnIndex}] Prompt:   "${t.prompt}"`);
+      console.log(`         Req ID:   ${t.requestId}`);
       console.log(`         Response: "${t.responseText}"`);
+      console.log(`         Observed: completed=${t.responseCompletedObserved}, failed=${t.requestFailedObserved}, cancelled=${t.requestCancelledObserved}`);
       console.log(`         Time:     ${t.durationMs}ms (model: ${t.selectedModelId})\n`);
     }
 

@@ -7,6 +7,7 @@
 // Safe when Ollama is offline.
 // ============================================================================
 
+import type { RouteTelemetry } from '@mave/contracts';
 import {
   BrainProviderRegistry,
   BrainRouter,
@@ -19,14 +20,21 @@ import { OllamaBrainProvider } from '@mave/providers';
 
 export interface CancellationCheckResult {
   readonly available: boolean;
+  readonly requestId?: string;
   readonly cancellationTriggered: boolean;
+  readonly cancelMethodReturnedTrue: boolean;
   readonly streamStoppedEarly: boolean;
   readonly receivedDeltasBeforeCancel: number;
   readonly receivedDeltasAfterCancel: number;
   readonly terminalEventType?: string;
   readonly fallbackUsed: boolean;
   readonly routeAttempts: number;
+  readonly attemptedProviderIds: readonly string[];
+  readonly attemptedModelIds: readonly string[];
   readonly invariantPassed: boolean;
+  readonly executionTelemetry?: RouteTelemetry;
+  readonly failedErrorCode?: string;
+  readonly failedErrorMessage?: string;
   readonly error?: string;
 }
 
@@ -40,11 +48,14 @@ export async function runCancellationVerification(
       return {
         available: false,
         cancellationTriggered: false,
+        cancelMethodReturnedTrue: false,
         streamStoppedEarly: false,
         receivedDeltasBeforeCancel: 0,
         receivedDeltasAfterCancel: 0,
         fallbackUsed: false,
         routeAttempts: 0,
+        attemptedProviderIds: [],
+        attemptedModelIds: [],
         invariantPassed: false,
         error: `Ollama returned HTTP ${res.status}: ${res.statusText}`
       };
@@ -53,11 +64,14 @@ export async function runCancellationVerification(
     return {
       available: false,
       cancellationTriggered: false,
+      cancelMethodReturnedTrue: false,
       streamStoppedEarly: false,
       receivedDeltasBeforeCancel: 0,
       receivedDeltasAfterCancel: 0,
       fallbackUsed: false,
       routeAttempts: 0,
+      attemptedProviderIds: [],
+      attemptedModelIds: [],
       invariantPassed: false,
       error: `Ollama daemon not reachable at ${baseUrl}: ${err instanceof Error ? err.message : String(err)}`
     };
@@ -84,63 +98,91 @@ export async function runCancellationVerification(
     store
   });
 
-  const abortController = new AbortController();
+  const requestId = `cert-cancel-${Date.now()}`;
   let receivedDeltasBeforeCancel = 0;
   let receivedDeltasAfterCancel = 0;
   let cancellationTriggered = false;
+  let cancelMethodReturnedTrue = false;
   let terminalEventType: string | undefined;
+  let failedErrorCode: string | undefined;
+  let failedErrorMessage: string | undefined;
 
   try {
-    for await (const event of runtime.send(
-      {
-        message: 'Write a long story about a space explorer traveling across ten galaxies.',
-        taskIntent: 'quick_chat'
-      },
-      { signal: abortController.signal }
-    )) {
+    for await (const event of runtime.send({
+      requestId,
+      message: 'Write a very long story about a space explorer traveling across ten distant galaxies in elaborate detail.',
+      taskIntent: 'quick_chat'
+    })) {
       if (event.type === 'response_delta') {
         if (!cancellationTriggered) {
-          receivedDeltasBeforeCancel++;
-          // Abort mid-generation after 2 deltas
-          if (receivedDeltasBeforeCancel >= 2) {
+          if (event.text && event.text.length > 0) {
+            receivedDeltasBeforeCancel++;
             cancellationTriggered = true;
-            abortController.abort('User cancelled during C4-B test');
+            cancelMethodReturnedTrue = await runtime.cancel(requestId);
           }
         } else {
           receivedDeltasAfterCancel++;
         }
-      } else if (event.type === 'request_cancelled' || event.type === 'request_failed') {
+      } else if (event.type === 'request_cancelled') {
         terminalEventType = event.type;
+      } else if (event.type === 'request_failed') {
+        terminalEventType = event.type;
+        failedErrorCode = event.error.code;
+        failedErrorMessage = event.error.message;
       }
     }
 
+    const executionTelemetry = runtime.getExecutionTelemetry(requestId);
+    const fallbackUsed = executionTelemetry?.fallbackUsed ?? false;
+    const routeAttempts = executionTelemetry?.routeAttempts ?? 0;
+    const attemptedProviderIds = executionTelemetry?.attemptedProviderIds ?? [];
+    const attemptedModelIds = executionTelemetry?.attemptedModelIds ?? [];
+
     const invariantPassed =
       cancellationTriggered &&
-      receivedDeltasAfterCancel <= 1 && // negligible race threshold
-      terminalEventType === 'request_cancelled';
+      cancelMethodReturnedTrue &&
+      terminalEventType === 'request_cancelled' &&
+      receivedDeltasAfterCancel <= 1 &&
+      fallbackUsed === false &&
+      routeAttempts === 1;
 
     return {
       available: true,
+      requestId,
       cancellationTriggered,
+      cancelMethodReturnedTrue,
       streamStoppedEarly: true,
       receivedDeltasBeforeCancel,
       receivedDeltasAfterCancel,
       terminalEventType,
-      fallbackUsed: false,
-      routeAttempts: 1,
-      invariantPassed
+      fallbackUsed,
+      routeAttempts,
+      attemptedProviderIds,
+      attemptedModelIds,
+      invariantPassed,
+      executionTelemetry,
+      failedErrorCode,
+      failedErrorMessage
     };
   } catch (err) {
+    const executionTelemetry = runtime.getExecutionTelemetry(requestId);
     return {
       available: true,
+      requestId,
       cancellationTriggered,
+      cancelMethodReturnedTrue,
       streamStoppedEarly: true,
       receivedDeltasBeforeCancel,
       receivedDeltasAfterCancel,
-      terminalEventType,
-      fallbackUsed: false,
-      routeAttempts: 1,
-      invariantPassed: cancellationTriggered,
+      terminalEventType: terminalEventType ?? 'exception',
+      fallbackUsed: executionTelemetry?.fallbackUsed ?? false,
+      routeAttempts: executionTelemetry?.routeAttempts ?? 0,
+      attemptedProviderIds: executionTelemetry?.attemptedProviderIds ?? [],
+      attemptedModelIds: executionTelemetry?.attemptedModelIds ?? [],
+      invariantPassed: false,
+      executionTelemetry,
+      failedErrorCode,
+      failedErrorMessage,
       error: `Caught error on cancel: ${err instanceof Error ? err.message : String(err)}`
     };
   }
@@ -155,12 +197,19 @@ if (import.meta.url === `file:///${process.argv[1].replace(/\\/g, '/')}`) {
       return;
     }
 
+    console.log(`Request ID:                  ${result.requestId}`);
     console.log(`Cancellation Triggered:      ${result.cancellationTriggered}`);
+    console.log(`runtime.cancel() Returned:   ${result.cancelMethodReturnedTrue}`);
     console.log(`Deltas Before Cancel:        ${result.receivedDeltasBeforeCancel}`);
     console.log(`Deltas After Cancel:         ${result.receivedDeltasAfterCancel}`);
     console.log(`Terminal Event:              ${result.terminalEventType}`);
+    if (result.failedErrorCode || result.failedErrorMessage) {
+      console.log(`Failure Details:             [${result.failedErrorCode}] ${result.failedErrorMessage}`);
+    }
     console.log(`Fallback Used:               ${result.fallbackUsed} (must remain false)`);
     console.log(`Route Attempts:              ${result.routeAttempts} (no hidden retry)`);
+    console.log(`Attempted Providers:         [${result.attemptedProviderIds.join(', ')}]`);
+    console.log(`Attempted Models:            [${result.attemptedModelIds.join(', ')}]`);
     console.log(`Invariant Passed:            ${result.invariantPassed ? 'PASSED' : 'FAILED'}`);
   });
 }

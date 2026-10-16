@@ -158,22 +158,48 @@ export async function runLanguageSessionVerification(
           }
         }
       });
+      await store.createSession(session);
 
+      const requestId = `cert-lang-${Date.now()}`;
       let responseText = '';
+      let responseCompletedObserved = false;
+      let requestFailedObserved = false;
+      let requestCancelledObserved = false;
+      let turnError: string | undefined;
+
       for await (const event of runtime.send({
         sessionId: session.id,
+        requestId,
         message: 'How do I politely ask for the wifi password in English?',
         taskIntent: 'language_practice'
       })) {
         if (event.type === 'response_delta') {
-          responseText += event.delta;
+          responseText += event.text;
+        } else if (event.type === 'response_completed') {
+          responseCompletedObserved = true;
+          if (!responseText && event.text) {
+            responseText = event.text;
+          }
+        } else if (event.type === 'request_failed') {
+          requestFailedObserved = true;
+          turnError = `[${event.error.code}] ${event.error.message}`;
+        } else if (event.type === 'request_cancelled') {
+          requestCancelledObserved = true;
+          turnError = `cancelled: ${event.reason}`;
         }
       }
 
-      liveTurnCompleted = true;
-      liveEvidence = `Live response received: "${responseText.trim().slice(0, 100)}..."`;
+      const trimmed = responseText.trim();
+      liveTurnCompleted =
+        responseCompletedObserved && !requestFailedObserved && !requestCancelledObserved && trimmed.length > 0;
+      if (liveTurnCompleted) {
+        liveEvidence = `Live response received: "${trimmed.slice(0, 100)}..."`;
+      } else {
+        liveEvidence = `Live turn failed: ${turnError ?? (trimmed.length === 0 ? 'empty response received' : 'response_completed not observed')}`;
+      }
     }
   } catch (err) {
+    liveTurnCompleted = false;
     liveEvidence = `Live turn skipped (daemon unavailable): ${err instanceof Error ? err.message : String(err)}`;
   }
 

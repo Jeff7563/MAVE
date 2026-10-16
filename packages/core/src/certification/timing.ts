@@ -6,9 +6,13 @@
 // Throughput calculations (tok/s) are derived explicitly and labelled separately.
 //
 // Historical Discrepancy Resolution:
-// ~189 tok/s was computed using: eval_count / (eval_duration_ns / 1e9) [generation only]
-// ~16.9 tok/s was computed using: eval_count / (total_duration_ns / 1e9) [including prompt eval + load]
-// Both metrics are now explicitly captured and labelled to eliminate confusion.
+// Canonical generation throughput is defined as: eval_count / (eval_duration_ns / 1e9).
+// Canonical prompt eval throughput is defined as: prompt_eval_count / (prompt_eval_duration_ns / 1e9).
+// Total turn duration is defined as: total_duration_ns / 1e9.
+// The historical ~16.9 tok/s client observation was caused by client-side event loop throttling
+// from synchronous child-process nvidia-smi sampling during streamed chunk consumption,
+// NOT by server-side Ollama generation throughput.
+// All metrics and raw nanoseconds are explicitly captured and separately labelled.
 // ============================================================================
 
 import type { OllamaRawTimingResponse, OllamaTimingMetrics } from './types.js';
@@ -69,8 +73,9 @@ export function calculateOllamaTiming(raw: OllamaRawTimingResponse): OllamaTimin
 
   const explanation =
     `evalTokensPerSec (${evalTokensPerSec} tok/s) = eval_count (${evalCount}) / (eval_duration_ns (${evalNs}) / 1e9). ` +
+    `promptEvalTokensPerSec (${promptEvalTokensPerSec} tok/s) = prompt_eval_count (${promptEvalCount}) / (prompt_eval_duration_ns (${promptEvalNs}) / 1e9). ` +
     `e2eTokensPerSec (${e2eTokensPerSec} tok/s) = (prompt_tokens (${promptEvalCount}) + eval_tokens (${evalCount})) / (total_duration_ns (${totalNs}) / 1e9). ` +
-    `Discrepancy note: ~189 tok/s refers to generation-only throughput; ~16.9 tok/s refers to end-to-end turn throughput including model load/prompt evaluation.`;
+    `Discrepancy note: ~189-236 tok/s is canonical generation throughput; historical ~16.9 tok/s was client-side throttling from synchronous nvidia-smi sampling during chunk consumption, NOT server-side throughput.`;
 
   return {
     model: raw.model ?? 'unknown',
