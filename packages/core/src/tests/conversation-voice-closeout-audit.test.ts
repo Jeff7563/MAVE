@@ -306,6 +306,10 @@ describe('MAVE C4-A: Voice / Language / Conversation Closeout Audit Tests', () =
     const registry = new BrainProviderRegistry();
     const mockModelProvider = createCatalogModelStub({ id: 'mock-chat-model' });
     const antigravityAgent = new AntigravityBrainProvider({ workingDirectory: '.' });
+    vi.spyOn(antigravityAgent, 'health').mockResolvedValue({
+      status: 'healthy',
+      checkedAt: Date.now()
+    });
 
     registry.register(mockModelProvider, {
       kind: 'model_provider',

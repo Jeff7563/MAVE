@@ -30,13 +30,30 @@ export interface ModelLease {
   release(): void;
 }
 
+/**
+ * Canonical residency policy configuration for local Fast Brain execution.
+ * Represents a configurable operational policy (current default: keepAlive = '5m'),
+ * NOT an immutable architecture constant.
+ */
+export interface LocalBrainResidencyPolicy {
+  readonly keepAlive: string | number;
+}
+
+export const DEFAULT_LOCAL_BRAIN_RESIDENCY_POLICY: LocalBrainResidencyPolicy = {
+  keepAlive: '5m'
+};
+
 export interface OllamaResidencyManagerOptions {
   readonly baseUrl?: string;
   readonly fetchFn?: typeof fetch;
   readonly timeoutMs?: number;
   /**
+   * Configurable residency policy (current default: keepAlive = '5m').
+   */
+  readonly policy?: LocalBrainResidencyPolicy;
+  /**
    * Keep-alive duration passed to Ollama daemon (e.g. '5m', '10m', or seconds).
-   * Default: '5m'
+   * Used as fallback if policy is not provided.
    */
   readonly defaultKeepAlive?: string | number;
   /**
@@ -74,6 +91,7 @@ export class OllamaResidencyManager {
   private readonly baseUrl: string;
   private readonly fetchFn: typeof fetch;
   private readonly timeoutMs: number;
+  private readonly policy: LocalBrainResidencyPolicy;
   private readonly defaultKeepAlive: string | number;
   private readonly idleTimeoutMs?: number;
 
@@ -95,8 +113,15 @@ export class OllamaResidencyManager {
     this.baseUrl = rawUrl;
     this.fetchFn = options?.fetchFn ?? globalThis.fetch;
     this.timeoutMs = options?.timeoutMs ?? 30000;
-    this.defaultKeepAlive = options?.defaultKeepAlive ?? '5m';
+    this.policy = options?.policy ?? {
+      keepAlive: options?.defaultKeepAlive ?? DEFAULT_LOCAL_BRAIN_RESIDENCY_POLICY.keepAlive
+    };
+    this.defaultKeepAlive = this.policy.keepAlive;
     this.idleTimeoutMs = options?.idleTimeoutMs;
+  }
+
+  getPolicy(): LocalBrainResidencyPolicy {
+    return this.policy;
   }
 
   getState(): LocalModelResidencyState {

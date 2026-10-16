@@ -22,7 +22,9 @@ import { createLogger } from '@mave/shared';
 import { CANONICAL_LOCAL_MODEL_QUALIFICATIONS } from './qualification-data.js';
 import {
   OllamaResidencyManager,
-  type ModelLease
+  type ModelLease,
+  type LocalBrainResidencyPolicy,
+  DEFAULT_LOCAL_BRAIN_RESIDENCY_POLICY
 } from './residency.js';
 
 const logger = createLogger({ name: 'mave:provider:ollama' });
@@ -147,6 +149,10 @@ export interface OllamaBrainProviderOptions {
   fetchFn?: typeof fetch;
   models?: ModelDescriptor[];
   keepAlive?: string | number;
+  /**
+   * Configurable residency policy (current default: keepAlive = '5m').
+   */
+  residencyPolicy?: LocalBrainResidencyPolicy;
   qualifications?: LocalModelQualification[];
   defaultNumCtx?: number;
   generationOptions?: Record<string, unknown>;
@@ -249,6 +255,7 @@ export class OllamaBrainProvider implements ModelCatalogProvider {
   private readonly timeoutMs: number;
   private readonly fetchFn: typeof fetch;
   private readonly customModels?: ModelDescriptor[];
+  private readonly residencyPolicy: LocalBrainResidencyPolicy;
   private readonly keepAlive?: string | number;
   private readonly defaultNumCtx?: number;
   private readonly generationOptions?: Record<string, unknown>;
@@ -262,7 +269,10 @@ export class OllamaBrainProvider implements ModelCatalogProvider {
     this.timeoutMs = options?.timeoutMs ?? 30000;
     this.fetchFn = options?.fetchFn ?? globalThis.fetch;
     this.customModels = options?.models;
-    this.keepAlive = options?.keepAlive;
+    this.residencyPolicy = options?.residencyPolicy ?? {
+      keepAlive: options?.keepAlive ?? DEFAULT_LOCAL_BRAIN_RESIDENCY_POLICY.keepAlive
+    };
+    this.keepAlive = this.residencyPolicy.keepAlive;
     this.defaultNumCtx = options?.defaultNumCtx;
     this.generationOptions = options?.generationOptions;
 
@@ -272,7 +282,8 @@ export class OllamaBrainProvider implements ModelCatalogProvider {
         baseUrl: this.baseUrl,
         fetchFn: this.fetchFn,
         timeoutMs: this.timeoutMs,
-        defaultKeepAlive: this.keepAlive ?? '5m',
+        policy: this.residencyPolicy,
+        defaultKeepAlive: this.keepAlive,
         idleTimeoutMs: options?.idleTimeoutMs
       });
 
@@ -290,6 +301,10 @@ export class OllamaBrainProvider implements ModelCatalogProvider {
     return this.residencyManager;
   }
 
+  getResidencyPolicy(): LocalBrainResidencyPolicy {
+    return this.residencyPolicy;
+  }
+
   /**
    * Prewarms the local model into VRAM when a voice / conversation session is anticipated.
    * Lifecycle-only operation: does not mutate conversation or emit inference telemetry.
@@ -298,7 +313,7 @@ export class OllamaBrainProvider implements ModelCatalogProvider {
     const targetTag = modelIdOrTag
       ? this.resolveConcreteModelTag(modelIdOrTag) ?? modelIdOrTag
       : 'qwen2.5:1.5b';
-    await this.residencyManager.prewarm(targetTag, { keepAlive: this.keepAlive });
+    await this.residencyManager.prewarm(targetTag, { keepAlive: this.residencyPolicy.keepAlive });
   }
 
   getQualification(modelIdOrTag: string): LocalModelQualification | undefined {

@@ -3,7 +3,8 @@ import type { BrainRequest, BrainEvent } from '@mave/contracts';
 import {
   OllamaBrainProvider,
   OllamaResidencyManager,
-  CANONICAL_LOCAL_MODEL_QUALIFICATIONS
+  CANONICAL_LOCAL_MODEL_QUALIFICATIONS,
+  DEFAULT_LOCAL_BRAIN_RESIDENCY_POLICY
 } from '../brain/index.js';
 
 function createMockNdjsonResponse(lines: unknown[], status = 200): Response {
@@ -343,6 +344,88 @@ describe('Local Fast Brain Residency & Lifecycle Gate (Pre-M5 F1.5-C3)', () => {
       expect(residency.getState()).toBe('warm');
       expect(residency.getActiveLeases()).toBe(0);
       expect(events.find((e) => e.type === 'completed')).toBeDefined();
+    });
+
+    it('propagates default residency policy (keepAlive: "5m") to /api/generate request body', async () => {
+      let capturedBody: any;
+      const mockFetch = vi.fn().mockImplementation(async (url: string, init?: RequestInit) => {
+        if (url.endsWith('/api/generate')) {
+          capturedBody = JSON.parse((init?.body as string) || '{}');
+          return createJsonResponse({ done: true, done_reason: 'load' });
+        }
+        return createJsonResponse({});
+      });
+
+      const provider = new OllamaBrainProvider({ fetchFn: mockFetch });
+      expect(provider.getResidencyPolicy()).toEqual(DEFAULT_LOCAL_BRAIN_RESIDENCY_POLICY);
+      expect(provider.getResidencyPolicy().keepAlive).toBe('5m');
+
+      await provider.prewarm('qwen2.5:1.5b');
+      expect(capturedBody).toBeDefined();
+      expect(capturedBody.model).toBe('qwen2.5:1.5b');
+      expect(capturedBody.keep_alive).toBe('5m');
+      expect(capturedBody.prompt).toBeUndefined();
+    });
+
+    it('propagates custom residency policy (e.g. keepAlive: "15m" or numeric 600) to /api/generate request body', async () => {
+      let capturedBody: any;
+      const mockFetch = vi.fn().mockImplementation(async (url: string, init?: RequestInit) => {
+        if (url.endsWith('/api/generate')) {
+          capturedBody = JSON.parse((init?.body as string) || '{}');
+          return createJsonResponse({ done: true, done_reason: 'load' });
+        }
+        return createJsonResponse({});
+      });
+
+      const customPolicy = { keepAlive: '15m' };
+      const provider = new OllamaBrainProvider({
+        fetchFn: mockFetch,
+        residencyPolicy: customPolicy
+      });
+      expect(provider.getResidencyPolicy()).toEqual(customPolicy);
+
+      await provider.prewarm('qwen2.5:1.5b');
+      expect(capturedBody.keep_alive).toBe('15m');
+
+      // Also verify numeric seconds policy on residency manager
+      const numericPolicy = { keepAlive: 600 };
+      const manager = new OllamaResidencyManager({
+        fetchFn: mockFetch,
+        policy: numericPolicy
+      });
+      expect(manager.getPolicy().keepAlive).toBe(600);
+      await manager.load('qwen2.5:1.5b');
+      expect(capturedBody.keep_alive).toBe(600);
+    });
+
+    it('prewarm is idempotent: repeated or concurrent calls coalesce into single flight and no-op if already warm', async () => {
+      let generateCalls = 0;
+      const mockFetch = vi.fn().mockImplementation(async (url: string) => {
+        if (url.endsWith('/api/generate')) {
+          generateCalls++;
+          await new Promise((r) => setTimeout(r, 20));
+          return createJsonResponse({ done: true, done_reason: 'load' });
+        }
+        return createJsonResponse({});
+      });
+
+      const provider = new OllamaBrainProvider({ fetchFn: mockFetch });
+      const residency = provider.getResidencyManager();
+
+      // 1. Concurrent prewarm calls coalesce to 1 request
+      await Promise.all([
+        provider.prewarm('qwen2.5:1.5b'),
+        provider.prewarm('qwen2.5:1.5b'),
+        provider.prewarm('qwen2.5:1.5b')
+      ]);
+
+      expect(generateCalls).toBe(1);
+      expect(residency.getState()).toBe('warm');
+      expect(residency.getActiveLeases()).toBe(0); // Zero lease acquired
+
+      // 2. Subsequent call while warm is an immediate no-op
+      await provider.prewarm('qwen2.5:1.5b');
+      expect(generateCalls).toBe(1); // Still 1!
     });
   });
 });

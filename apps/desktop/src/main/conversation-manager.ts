@@ -29,7 +29,8 @@ import {
   MockModelCatalogProvider,
   AntigravityBrainProvider,
   OpenAIBrainProvider,
-  OllamaBrainProvider
+  OllamaBrainProvider,
+  type LocalBrainResidencyPolicy
 } from '@mave/providers';
 import { createLogger } from '@mave/shared';
 
@@ -91,6 +92,7 @@ export interface ConversationManagerOptions {
   openaiProvider?: OpenAIBrainProvider;
   ollamaProvider?: OllamaBrainProvider;
   antigravityWorkspaceDir?: string;
+  residencyPolicy?: LocalBrainResidencyPolicy;
   store?: ConversationStore;
   sessionManager?: SessionManager;
 }
@@ -181,7 +183,9 @@ export class ConversationManager {
 
     this.ollamaProvider =
       options.ollamaProvider ??
-      new OllamaBrainProvider();
+      new OllamaBrainProvider(
+        options.residencyPolicy ? { residencyPolicy: options.residencyPolicy } : undefined
+      );
 
     if (!this.providerRegistry.has(this.ollamaProvider.id)) {
       this.providerRegistry.register(this.ollamaProvider, {
@@ -255,6 +259,10 @@ export class ConversationManager {
 
   getOllamaProvider(): OllamaBrainProvider {
     return this.ollamaProvider;
+  }
+
+  getResidencyPolicy(): LocalBrainResidencyPolicy {
+    return this.ollamaProvider.getResidencyPolicy();
   }
 
   /**

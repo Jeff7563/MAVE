@@ -4,12 +4,24 @@ import {
   BrainRouter,
   ContextManager,
   ConversationRuntime,
-  SessionManager
+  SessionManager,
+  createMaveService
 } from '@mave/core';
 import { createMaveDatabase, SQLiteConversationStore, type MaveDatabase } from '@mave/database';
-import { OllamaBrainProvider } from '@mave/providers';
+import {
+  OllamaBrainProvider,
+  MockWakeWordProvider,
+  MockAudioInputProvider,
+  MockSTTProvider,
+  MockTTSProvider,
+  MockAudioOutput,
+  type LocalBrainResidencyPolicy,
+  DEFAULT_LOCAL_BRAIN_RESIDENCY_POLICY
+} from '@mave/providers';
 import type { ConversationRuntimeEvent } from '@mave/contracts';
 import { ConversationManager } from '../src/main/conversation-manager.js';
+import { WakeManager } from '../src/main/wake-manager.js';
+import { VoiceManager } from '../src/main/voice-manager.js';
 
 function createMockNdjsonResponse(lines: unknown[], status = 200): Response {
   const encoder = new TextEncoder();
@@ -177,5 +189,154 @@ describe('Ollama Desktop Integration (F1.5-C1 Local Model Provider)', () => {
     expect(turns[0]?.content).toBe('สวัสดีครับ');
     expect(turns[1]?.role).toBe('assistant');
     expect(turns[1]?.content).toBe('สวัสดีครับ MAVE พร้อมช่วยเหลือครับ');
+  });
+
+  it('4. app startup invariant: launching MAVE and starting VoiceManager alone NEVER preloads Fast Brain into VRAM', async () => {
+    let generateCalls = 0;
+    const mockFetch = vi.fn().mockImplementation(async (url: string) => {
+      if (url.endsWith('/api/generate')) {
+        generateCalls++;
+        return createJsonResponse({ done: true });
+      }
+      return createJsonResponse({});
+    });
+
+    const ollama = new OllamaBrainProvider({ fetchFn: mockFetch });
+    manager = new ConversationManager({
+      database: db,
+      ollamaProvider: ollama
+    });
+
+    const service = createMaveService();
+    service.start();
+    service.send({ type: 'APP_READY' });
+
+    const wakeProvider = new MockWakeWordProvider({ status: 'listening' });
+    const wakeManager = new WakeManager({
+      service,
+      database: db,
+      provider: wakeProvider
+    });
+    await wakeManager.initialize();
+
+    let prewarmHookCalls = 0;
+    const voiceManager = new VoiceManager({
+      service,
+      wakeManager,
+      conversationRuntime: manager.getRuntime(),
+      audioInput: new MockAudioInputProvider(),
+      stt: new MockSTTProvider(),
+      tts: new MockTTSProvider(),
+      audioOutput: new MockAudioOutput(),
+      prewarmHook: () => {
+        prewarmHookCalls++;
+        return manager.prewarmFastBrain();
+      }
+    });
+
+    // Start voice manager (simulating desktop app startup sequence)
+    await voiceManager.start();
+
+    // Verify invariant: zero prewarm on startup, model remains unloaded
+    expect(prewarmHookCalls).toBe(0);
+    expect(generateCalls).toBe(0);
+    expect(ollama.getResidencyManager().getState()).toBe('unloaded');
+
+    await voiceManager.dispose();
+    await wakeManager.dispose();
+    service.stop();
+  });
+
+  it('5. session prewarm handoff: wake word detection invokes prewarm hook at activation boundary with zero prompt', async () => {
+    let capturedBody: any;
+    let generateCalls = 0;
+    const mockFetch = vi.fn().mockImplementation(async (url: string, init?: RequestInit) => {
+      if (url.endsWith('/api/generate')) {
+        generateCalls++;
+        capturedBody = JSON.parse((init?.body as string) || '{}');
+        return createJsonResponse({ done: true });
+      }
+      return createJsonResponse({});
+    });
+
+    const ollama = new OllamaBrainProvider({ fetchFn: mockFetch });
+    manager = new ConversationManager({
+      database: db,
+      ollamaProvider: ollama
+    });
+
+    const service = createMaveService();
+    service.start();
+    service.send({ type: 'APP_READY' });
+
+    const wakeProvider = new MockWakeWordProvider({ status: 'listening' });
+    const wakeManager = new WakeManager({
+      service,
+      database: db,
+      provider: wakeProvider
+    });
+    await wakeManager.initialize();
+
+    let prewarmHookCalls = 0;
+    const voiceManager = new VoiceManager({
+      service,
+      wakeManager,
+      conversationRuntime: manager.getRuntime(),
+      audioInput: new MockAudioInputProvider(),
+      stt: new MockSTTProvider(),
+      tts: new MockTTSProvider(),
+      audioOutput: new MockAudioOutput(),
+      prewarmHook: () => {
+        prewarmHookCalls++;
+        return manager.prewarmFastBrain();
+      }
+    });
+
+    await voiceManager.start();
+    expect(prewarmHookCalls).toBe(0);
+    expect(generateCalls).toBe(0);
+
+    // Trigger wake word detection -> activates voice handoff
+    await voiceManager.handleWakeDetected();
+
+    // Allow microtasks / background hook to execute
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    expect(prewarmHookCalls).toBe(1);
+    expect(generateCalls).toBe(1);
+    expect(capturedBody).toBeDefined();
+    expect(capturedBody.model).toBe('qwen2.5:1.5b');
+    expect(capturedBody.keep_alive).toBe('5m');
+    expect(capturedBody.prompt).toBeUndefined(); // Zero prompt / zero user content
+    expect(ollama.getResidencyManager().getState()).toBe('warm');
+    expect(ollama.getResidencyManager().getActiveLeases()).toBe(0); // Zero lease acquired
+
+    // Test idempotency: calling prewarmFastBrain again while warm does not trigger another network call
+    await manager.prewarmFastBrain();
+    expect(generateCalls).toBe(1);
+
+    await voiceManager.dispose();
+    await wakeManager.dispose();
+    service.stop();
+  });
+
+  it('6. supports configurable residency policy propagation from ConversationManagerOptions', async () => {
+    const customPolicy: LocalBrainResidencyPolicy = { keepAlive: '15m' };
+    const customManager = new ConversationManager({
+      database: db,
+      residencyPolicy: customPolicy
+    });
+
+    expect(customManager.getResidencyPolicy()).toEqual(customPolicy);
+    expect(customManager.getOllamaProvider().getResidencyPolicy().keepAlive).toBe('15m');
+
+    const defaultManager = new ConversationManager({
+      database: db
+    });
+    expect(defaultManager.getResidencyPolicy()).toEqual(DEFAULT_LOCAL_BRAIN_RESIDENCY_POLICY);
+    expect(defaultManager.getOllamaProvider().getResidencyPolicy().keepAlive).toBe('5m');
+
+    await customManager.dispose();
+    await defaultManager.dispose();
   });
 });

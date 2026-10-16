@@ -45,7 +45,9 @@ export {
   type LocalModelResidencyState,
   type ModelResidencyStatus,
   type ModelLease,
-  type OllamaResidencyManagerOptions
+  type OllamaResidencyManagerOptions,
+  type LocalBrainResidencyPolicy,
+  DEFAULT_LOCAL_BRAIN_RESIDENCY_POLICY
 } from './residency.js';
 export {
   ClaudeCodeBrainProvider,

@@ -33,6 +33,8 @@ export {
   type ModelResidencyStatus,
   type ModelLease,
   type OllamaResidencyManagerOptions,
+  type LocalBrainResidencyPolicy,
+  DEFAULT_LOCAL_BRAIN_RESIDENCY_POLICY,
   OLLAMA_PROVIDER_ID,
   assertLoopbackEndpoint,
   normalizeOllamaModelId,

@@ -17,11 +17,11 @@
 ### Current Working-Tree Baseline
 - **Repository Path**: `D:\project\MAVE-pre-m5`
 - **Current Branch**: `feat/pre-m5-intelligence-providers`
-- **Current HEAD Commit**: `0e4fce59c798f63853a094bdbc4bdf1e576b1736`
+- **Current HEAD Commit**: Target commit `fix(intelligence): harden local brain residency lifecycle` (following `754b4dc`)
 - **Working Tree Status**: Clean (`nothing to commit, working tree clean`)
 
 ### Complete Intelligence Sprint Commit Chain
-The following 6 sequential commits comprise the entire C4-A conversation closeout, certification harness, and F1.6 Deep Brain audit:
+The following 8 sequential commits comprise the entire C4-A conversation closeout, certification harness, F1.6 Deep Brain audit, and C3.1 static residency lifecycle hardening:
 
 | Order | Short SHA | Commit Title | Purpose & Architectural Scope |
 |---|---|---|---|
@@ -31,6 +31,8 @@ The following 6 sequential commits comprise the entire C4-A conversation closeou
 | **4** | `540e55a` | `docs(intelligence): audit deep brain architecture` | **F1.6 Audit**: Initial architecture gap analysis, provider-kind taxonomy, and F1.7 roadmap reconciliation. |
 | **5** | `07d8335` | `docs(intelligence): harden deep brain architecture` | **F1.6 Hardening**: Corrected VRAM co-residency math (~3,478 MiB / ~8,130 MiB); removed speculative offload gates; decoupled Brain from UI. |
 | **6** | `0e4fce5` | `docs(intelligence): align deep brain surface terminology` | **F1.6 Terminology Alignment**: Replaced legacy ring/orb phrasing with canonical MAVE UI V2 presence/companion/workspace definitions. |
+| **7** | `754b4dc` | `docs(intelligence): prepare home certification sync runbook` | **Pre-Home Sync Runbook**: Reproducibility manifest, Home-PC prerequisite gates, and conflict handling protocols. |
+| **8** | *(HEAD)* | `fix(intelligence): harden local brain residency lifecycle` | **C3.1 Static Hardening**: LocalBrainResidencyPolicy, zero-preload startup invariant, single-flight prewarm, active lease safety. |
 
 ### C3 Ancestry Verification
 - **Promoted C3 Base Commit**: `68e1d07699fb1d2402c20a24d9dc82a0987a357e` (`feat(intelligence): promote local fast brain runtime`)
@@ -76,8 +78,8 @@ Before initiating any certification commands, the Home PC environment must fulfi
 ├────────────────────┬───────────────────────────────────────────────────┤
 │ REPOSITORY         │ • Branch: feat/pre-m5-intelligence-providers      │
 │                    │ • Verified Clean Worktree (git status clean)      │
-│                    │ • Verified HEAD == 0e4fce5... (or runbook commit) │
-│                    │ • Dependencies installed (pnpm install clean)     │
+│                    │ • Verified HEAD == Target commit 8 (fix(intelligence): ...) │
+│                    │ • Dependencies: pnpm install --frozen-lockfile    │
 ├────────────────────┼───────────────────────────────────────────────────┤
 │ RUNTIME            │ • Node.js >= 20.x, pnpm >= 9.x/10.x               │
 │                    │ • Local Ollama daemon active at 127.0.0.1:11434   │
@@ -132,7 +134,7 @@ Because Work PC's HEAD is tracked on `origin/feat/pre-m5-intelligence-providers`
 5. **Home PC Step 5 — Verify Parity**:
    ```powershell
    git rev-parse HEAD
-   # Must output: 0e4fce59c798f63853a094bdbc4bdf1e576b1736 (or runbook commit)
+   # Must match Work PC HEAD commit (fix(intelligence): harden local brain residency lifecycle)
    ```
 
 ---
@@ -226,7 +228,7 @@ git branch --show-current
 
 # GATE 2: Verify exact commit
 git rev-parse HEAD
-# -> Must match Work PC HEAD: 0e4fce5... (or runbook commit)
+# -> Must match Work PC HEAD commit (fix(intelligence): harden local brain residency lifecycle)
 
 # GATE 3: Verify clean working tree
 git status
@@ -241,7 +243,7 @@ nvidia-smi --query-gpu=name,memory.total --format=csv,noheader
 # -> Must return: "NVIDIA GeForce RTX 3060 Ti, 8192 MiB" (or equivalent)
 
 # GATE 6: Verify dependencies are fresh
-pnpm install
+pnpm install --frozen-lockfile
 # -> Must finish with exit code 0
 ```
 
