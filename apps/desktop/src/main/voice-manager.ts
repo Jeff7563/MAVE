@@ -732,7 +732,8 @@ export class VoiceManager {
       },
       output: {
         provider: this.voiceCoordinator.getAudioOutput?.()?.id ?? 'sounddevice-audio-output',
-        state: this.voiceCoordinator.getAudioOutput?.()?.getPlaybackState?.() ?? 'idle'
+        state: this.voiceCoordinator.getAudioOutput?.()?.getPlaybackState?.() ?? 'idle',
+        deviceLabel: (this.voiceCoordinator.getAudioOutput?.() as any)?.getResolvedDevice?.()?.deviceName
       },
       inputLevel: this.inputLevel,
       outputLevel: this.outputLevel,
@@ -741,6 +742,14 @@ export class VoiceManager {
       lastError: this.lastError,
       latency: this.voiceCoordinator.getLatencyDiagnostics?.()
     };
+  }
+
+  getAudioDiagnostics() {
+    return this.voiceCoordinator.getAudioDiagnostics();
+  }
+
+  getRouteTelemetry() {
+    return this.voiceCoordinator.getRouteTelemetry();
   }
 
   async startDiagnosticTurn(): Promise<{ success: boolean; error?: string }> {

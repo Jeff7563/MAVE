@@ -148,11 +148,31 @@ app.whenReady().then(async () => {
     await wakeManager.initialize();
 
     // 4. Initialize Conversation Manager (M2 Phase 6)
+    const useMockBrain =
+      process.env['NODE_ENV'] === 'test' || process.env['MAVE_MOCK_BRAIN'] === '1';
+
     conversationManager = new ConversationManager({
       database: maveDatabase,
       getMainWindow: () => mainWindow,
-      timeoutMs: DefaultMaveConfig.brain.timeoutMs
+      timeoutMs: DefaultMaveConfig.brain.timeoutMs,
+      useMockBrain
     });
+
+    // Update runtime AI Status truthfully based on Fast Brain availability
+    try {
+      if (useMockBrain) {
+        maveService.send({ type: 'SET_AI_STATUS', status: 'connected' });
+      } else {
+        const health = await conversationManager.getOllamaProvider().health();
+        if (health.status === 'healthy') {
+          maveService.send({ type: 'SET_AI_STATUS', status: 'connected' });
+        } else {
+          maveService.send({ type: 'SET_AI_STATUS', status: 'offline' });
+        }
+      }
+    } catch {
+      maveService.send({ type: 'SET_AI_STATUS', status: 'offline' });
+    }
 
     // 5. Initialize Voice Manager (M3.5 Wake <-> Voice Handoff)
     const voiceEnabled =
@@ -185,12 +205,17 @@ app.whenReady().then(async () => {
               pythonExecutable: process.env['MAVE_TTS_PYTHON']
             });
 
+      const persistedOutputDevice =
+        getPersistedSetting(maveDatabase, 'voice.output_device') ??
+        process.env['MAVE_AUDIO_OUTPUT_DEVICE'];
+
       const audioOutput =
         process.env['NODE_ENV'] === 'test' || process.env['MAVE_MOCK_AUDIO_OUTPUT'] === '1'
           ? new MockAudioOutput()
           : new SounddeviceAudioOutput({
               rootDir: path.resolve(__dirname, '../../../..'),
-              pythonExecutable: process.env['MAVE_TTS_PYTHON']
+              pythonExecutable: process.env['MAVE_TTS_PYTHON'],
+              deviceId: persistedOutputDevice ?? undefined
             });
 
       voiceManager = new VoiceManager({

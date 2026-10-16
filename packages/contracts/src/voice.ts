@@ -246,7 +246,8 @@ export const VoiceStatusSnapshotSchema = z.object({
   }),
   output: z.object({
     provider: z.string(),
-    state: z.string()
+    state: z.string(),
+    deviceLabel: z.string().optional()
   }),
   inputLevel: z.number().min(0.0).max(1.0).default(0),
   outputLevel: z.number().min(0.0).max(1.0).default(0),

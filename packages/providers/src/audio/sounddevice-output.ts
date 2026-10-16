@@ -362,6 +362,14 @@ export class SounddeviceAudioOutput implements AudioOutput {
     return this.state;
   }
 
+  getResolvedDevice(): { deviceIndex?: number; deviceName?: string; isDefault?: boolean } {
+    return {
+      deviceIndex: this.readyEvent?.deviceIndex ?? (this.options.deviceId ? Number(this.options.deviceId) : undefined),
+      deviceName: this.readyEvent?.deviceName,
+      isDefault: this.readyEvent?.isDefault ?? true
+    };
+  }
+
   onLevel(callback: (level: AudioLevel) => void): () => void {
     this.levelCallbacks.add(callback);
     return () => {

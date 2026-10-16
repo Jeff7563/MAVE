@@ -41,6 +41,22 @@ export class VoiceCoordinatorError extends Error {
   }
 }
 
+export interface VoiceAudioTurnDiagnostics {
+  ttsRequestId?: string;
+  requestedText?: string;
+  selectedVoice?: string;
+  language?: string;
+  framesEmitted?: boolean;
+  frameCount?: number;
+  totalAudioBytes?: number;
+  ttsFirstAudioAt?: number;
+  audioOutputPlayInvoked?: boolean;
+  resolvedOutputDevice?: string;
+  playbackStartedAt?: number;
+  playbackCompletedAt?: number;
+  playbackError?: string;
+}
+
 export interface VoiceSessionCoordinatorOptions {
   audioInput: AudioInputProvider;
   stt: STTProvider;
@@ -50,6 +66,7 @@ export interface VoiceSessionCoordinatorOptions {
   voiceSessionIdFactory?: () => string;
   clock?: () => number;
   textChunkerOptions?: StreamingTextChunkerOptions;
+  degradeToTextOnTtsFailure?: boolean;
 }
 
 export interface StartVoiceSessionOptions {

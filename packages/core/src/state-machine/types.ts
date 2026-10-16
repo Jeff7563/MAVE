@@ -64,6 +64,7 @@ export type MaveMachineEvent =
     }
   | { type: 'DATABASE_READY' }
   | { type: 'DATABASE_ERROR'; error: string }
+  | { type: 'SET_AI_STATUS'; status: AiStatus; error?: string }
   | { type: 'ERROR'; error: string }
   | { type: 'SHUTDOWN' };
 

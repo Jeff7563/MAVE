@@ -3,6 +3,7 @@ import type {
   AudioFrame,
   AudioInputProvider,
   AudioOutput,
+  RouteTelemetry,
   STTProvider,
   TTSProvider,
   TranscriptEvent,
@@ -16,6 +17,7 @@ import type { ConversationRuntime } from '../conversation/runtime.js';
 import {
   VoiceCoordinatorError,
   type StartVoiceSessionOptions,
+  type VoiceAudioTurnDiagnostics,
   type VoiceInterruptOptions,
   type VoiceSessionCoordinatorOptions
 } from './coordinator-types.js';
@@ -112,8 +114,12 @@ export class VoiceSessionCoordinator {
   private chunkNotifier: (() => void) | null = null;
   private currentSpeechQueue: ProgressiveSpeechQueue | null = null;
   private currentTextChunker: StreamingTextChunker | null = null;
+  private readonly options: VoiceSessionCoordinatorOptions;
+  private lastRouteTelemetry?: RouteTelemetry;
+  private lastAudioDiagnostics: VoiceAudioTurnDiagnostics = {};
 
   constructor(options: VoiceSessionCoordinatorOptions) {
+    this.options = options;
     this.audioInput = options.audioInput;
     this.stt = options.stt;
     this.tts = options.tts;
@@ -845,6 +851,22 @@ export class VoiceSessionCoordinator {
             }
           } else if (convEvent.type === 'response_completed') {
             this.isBrainCompletedForCurrentTurn = true;
+            const routeTelemetry = this.conversationRuntime.getExecutionTelemetry(this.activeBrainRequestId ?? undefined);
+            if (routeTelemetry) {
+              this.lastRouteTelemetry = routeTelemetry;
+              log.info(
+                {
+                  sessionId,
+                  turnIndex,
+                  selectedProviderId: routeTelemetry.selectedProviderId,
+                  selectedModelId: routeTelemetry.selectedModelId,
+                  profileId: routeTelemetry.profileId,
+                  fallbackUsed: routeTelemetry.fallbackUsed,
+                  routeAttempts: routeTelemetry.routeAttempts
+                },
+                'voice_turn_route_telemetry'
+              );
+            }
             log.info({ sessionId, requestId: this.activeBrainRequestId, turnIndex }, 'conversation_completed');
             if (turnSignal.aborted || turnEpoch !== this.currentTurnEpoch) {
               break;
@@ -911,18 +933,6 @@ export class VoiceSessionCoordinator {
           continue;
         }
 
-        if (!speakingStartedEmitted) {
-          speakingStartedEmitted = true;
-          session.status = 'speaking';
-          session.updatedAt = this.clock();
-          eventQueue.push({
-            type: 'speaking_started',
-            sessionId,
-            requestId: chunk.text,
-            timestamp: this.clock()
-          });
-        }
-
         const speechReq = createSpeechRequestFromChunk(chunk, {
           voiceTurnId: `${sessionId}:turn:${turnIndex}`,
           language: session.languageHint
@@ -931,32 +941,54 @@ export class VoiceSessionCoordinator {
         if (!this.latencyDiagnostics.ttsRequestedAt) {
           this.latencyDiagnostics.ttsRequestedAt = this.clock();
         }
+
+        const currentDiag: VoiceAudioTurnDiagnostics = {
+          ttsRequestId: speechReq.requestId,
+          requestedText: chunk.text,
+          selectedVoice: speechReq.voiceId,
+          language: speechReq.language,
+          framesEmitted: false,
+          frameCount: 0,
+          totalAudioBytes: 0,
+          audioOutputPlayInvoked: false,
+          resolvedOutputDevice:
+            (this.audioOutput as any)?.getResolvedDevice?.()?.deviceName ?? this.audioOutput.id
+        };
+
         log.info(
-          { sessionId, turnIndex, requestId: speechReq.requestId, sequence: chunk.sequence },
+          { sessionId, turnIndex, requestId: speechReq.requestId, sequence: chunk.sequence, selectedVoice: speechReq.voiceId },
           'tts_started'
         );
 
         const audioFrames: AudioFrame[] = [];
+        let ttsError: Error | null = null;
         try {
           for await (const speechEvent of this.tts.synthesize(speechReq, { signal: turnSignal })) {
             if (turnSignal.aborted || sessionSignal.aborted || turnEpoch !== this.currentTurnEpoch) {
               break;
             }
             if (speechEvent.type === 'audio') {
+              currentDiag.framesEmitted = true;
+              currentDiag.frameCount = (currentDiag.frameCount ?? 0) + 1;
+              currentDiag.totalAudioBytes = (currentDiag.totalAudioBytes ?? 0) + speechEvent.frame.data.byteLength;
               if (!this.latencyDiagnostics.ttsFirstAudioAt) {
                 const now = this.clock();
                 this.latencyDiagnostics.ttsFirstAudioAt = now;
+                currentDiag.ttsFirstAudioAt = now;
                 if (this.latencyDiagnostics.ttsRequestedAt) {
                   this.latencyDiagnostics.ttsTtfaMs = now - this.latencyDiagnostics.ttsRequestedAt;
                 }
               }
               audioFrames.push(speechEvent.frame);
             } else if (speechEvent.type === 'error') {
-              throw new VoiceCoordinatorError('tts_error', speechEvent.error.message, { sessionId });
+              ttsError = new VoiceCoordinatorError('tts_error', speechEvent.error.message, { sessionId });
+              break;
             } else if (speechEvent.type === 'cancelled') {
               return;
             }
           }
+        } catch (err: any) {
+          ttsError = err instanceof Error ? err : new Error(String(err));
         } finally {
           this.activeTTSRequestId = null;
         }
@@ -965,16 +997,44 @@ export class VoiceSessionCoordinator {
           break;
         }
 
+        if (ttsError) {
+          currentDiag.playbackError = ttsError.message;
+          log.warn(
+            { sessionId, turnIndex, requestId: speechReq.requestId, err: ttsError.message, diagnostics: currentDiag },
+            'tts_synthesis_failed'
+          );
+          this.lastAudioDiagnostics = currentDiag;
+          if (this.options?.degradeToTextOnTtsFailure === false) {
+            throw ttsError;
+          }
+          // Degrade gracefully to text: do not emit speaking_started and continue to allow text response
+          continue;
+        }
+
         if (audioFrames.length > 0) {
+          if (!speakingStartedEmitted) {
+            speakingStartedEmitted = true;
+            session.status = 'speaking';
+            session.updatedAt = this.clock();
+            eventQueue.push({
+              type: 'speaking_started',
+              sessionId,
+              requestId: chunk.text,
+              timestamp: this.clock()
+            });
+          }
+
           if (!this.latencyDiagnostics.playbackStartedAt) {
             const now = this.clock();
             this.latencyDiagnostics.playbackStartedAt = now;
+            currentDiag.playbackStartedAt = now;
             const refSpeechEnd = this.latencyDiagnostics.speechEndedAt ?? this.latencyDiagnostics.sttFinalAt;
             if (refSpeechEnd) {
               this.latencyDiagnostics.speechEndToSpokenResponseMs = now - refSpeechEnd;
             }
           }
-          log.info({ sessionId, turnIndex, frameCount: audioFrames.length }, 'audio_output_started');
+          currentDiag.audioOutputPlayInvoked = true;
+          log.info({ sessionId, turnIndex, frameCount: audioFrames.length, diagnostics: currentDiag }, 'audio_output_started');
           async function* frameStream() {
             for (const f of audioFrames) {
               yield f;
@@ -982,17 +1042,26 @@ export class VoiceSessionCoordinator {
           }
           try {
             await this.audioOutput.playStream(frameStream(), { signal: turnSignal });
+            currentDiag.playbackCompletedAt = this.clock();
           } catch (err) {
+            currentDiag.playbackError = err instanceof Error ? err.message : 'Audio playback failed';
+            this.lastAudioDiagnostics = currentDiag;
             if (turnSignal.aborted || sessionSignal.aborted || turnEpoch !== this.currentTurnEpoch) {
               return;
             }
             throw new VoiceCoordinatorError(
               'audio_output_error',
-              err instanceof Error ? err.message : 'Audio playback failed',
+              currentDiag.playbackError,
               { sessionId, cause: err }
             );
           }
+        } else {
+          currentDiag.playbackError = 'No audio frames emitted by TTS provider';
+          log.warn({ sessionId, turnIndex, diagnostics: currentDiag }, 'tts_zero_frames_emitted');
         }
+
+        this.lastAudioDiagnostics = currentDiag;
+        log.info({ sessionId, turnIndex, diagnostics: currentDiag }, 'voice_turn_audio_diagnostics');
       }
     };
 
@@ -1053,5 +1122,13 @@ export class VoiceSessionCoordinator {
 
   getAudioOutput(): AudioOutput {
     return this.audioOutput;
+  }
+
+  getAudioDiagnostics(): VoiceAudioTurnDiagnostics {
+    return { ...this.lastAudioDiagnostics };
+  }
+
+  getRouteTelemetry(): RouteTelemetry | undefined {
+    return this.lastRouteTelemetry;
   }
 }

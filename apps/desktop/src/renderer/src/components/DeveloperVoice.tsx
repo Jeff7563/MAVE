@@ -371,7 +371,7 @@ export const DeveloperVoice: React.FC = () => {
           <span>TTS:</span> {snapshot.tts.provider}
         </div>
         <div className="provider-badge">
-          <span>Output:</span> {snapshot.output.provider}
+          <span>Output:</span> {snapshot.output.provider}{snapshot.output.deviceLabel ? ` (${snapshot.output.deviceLabel})` : ''}
         </div>
       </div>
 

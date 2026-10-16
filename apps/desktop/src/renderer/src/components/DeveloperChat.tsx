@@ -8,7 +8,7 @@ import {
 
 export const DeveloperChat: React.FC = () => {
   const [state, dispatch] = useReducer(chatReducer, initialChatState);
-  const [selectedProvider, setSelectedProvider] = React.useState<string>('mock');
+  const [selectedProvider, setSelectedProvider] = React.useState<string>('ollama');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const activeRequestIdRef = useRef<string | null>(null);
 
@@ -165,6 +165,7 @@ export const DeveloperChat: React.FC = () => {
             onChange={(e) => setSelectedProvider(e.target.value)}
             disabled={state.isStreaming}
           >
+            <option value="ollama">ollama (Local Fast Brain)</option>
             <option value="mock">mock (Deterministic)</option>
             <option value="antigravity">antigravity (Google Antigravity CLI)</option>
           </select>

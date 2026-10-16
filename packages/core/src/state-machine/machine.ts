@@ -76,6 +76,14 @@ export const maveMachine = setup({
       databaseStatus: () => 'error' as const,
       errorMessage: ({ event }) =>
         'error' in event ? (event.error as string) : 'Database error'
+    }),
+    setAiStatus: assign(({ context, event }) => {
+      if (event.type !== 'SET_AI_STATUS') return context;
+      return {
+        ...context,
+        aiStatus: event.status,
+        errorMessage: event.error ?? context.errorMessage
+      };
     })
   }
 }).createMachine({
@@ -95,6 +103,9 @@ export const maveMachine = setup({
     },
     DATABASE_ERROR: {
       actions: ['setDatabaseError']
+    },
+    SET_AI_STATUS: {
+      actions: ['setAiStatus']
     },
     SET_WAKE_ENGINE_STATUS: {
       actions: ['setWakeEngineStatus']

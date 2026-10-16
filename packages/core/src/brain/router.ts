@@ -232,6 +232,10 @@ export class BrainRouter {
     return this.allowPaidApis;
   }
 
+  getDefaultProvider(): string | undefined {
+    return this.defaultProvider;
+  }
+
   /**
    * Evaluates whether a provider satisfies all requested capabilities.
    * Only capabilities explicitly set to true in `required` must be supported.

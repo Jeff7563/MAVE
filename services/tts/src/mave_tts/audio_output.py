@@ -191,11 +191,24 @@ class SounddevicePlayer:
 def run_playback_loop(device_index: Optional[int] = None) -> None:
     """Main stdio playback loop receiving framed binary packets."""
     player = SounddevicePlayer(device_index=device_index)
+
+    actual_device_index = device_index if device_index is not None else sd.default.device[1]
+    device_label = "Default Output"
+    is_default = (device_index is None or device_index == sd.default.device[1])
+    try:
+        if actual_device_index is not None and actual_device_index >= 0:
+            dev_info = sd.query_devices(actual_device_index)
+            device_label = dev_info.get("name", f"Output Device {actual_device_index}")
+    except Exception:
+        device_label = f"Device {actual_device_index}"
+
     emit_event({
         "type": "ready",
         "sampleRate": 16000,
         "channels": 1,
-        "deviceIndex": device_index,
+        "deviceIndex": actual_device_index,
+        "deviceName": device_label,
+        "isDefault": is_default,
         "timestampMs": int(time.time() * 1000),
     })
 

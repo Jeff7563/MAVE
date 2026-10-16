@@ -95,6 +95,8 @@ export interface ConversationManagerOptions {
   residencyPolicy?: LocalBrainResidencyPolicy;
   store?: ConversationStore;
   sessionManager?: SessionManager;
+  useMockBrain?: boolean;
+  defaultProvider?: string;
 }
 
 export class ConversationManager {
@@ -129,8 +131,12 @@ export class ConversationManager {
 
     // 2. Provider Registry & Brain Providers
     this.providerRegistry = options.providerRegistry ?? new BrainProviderRegistry();
+
+    const isTestEnv = process.env['NODE_ENV'] === 'test' || process.env['MAVE_MOCK_BRAIN'] === '1';
+    const useMockBrain = options.useMockBrain ?? (options.mockProvider !== undefined || isTestEnv);
+
     this.mockProvider = options.mockProvider ?? new MockModelCatalogProvider();
-    if (!this.providerRegistry.has(this.mockProvider.id)) {
+    if (useMockBrain && !this.providerRegistry.has(this.mockProvider.id)) {
       this.providerRegistry.register(this.mockProvider, {
         kind: 'model_provider',
         accessPath: 'local_runtime',
@@ -196,12 +202,15 @@ export class ConversationManager {
       });
     }
 
-    // 3. Brain Router (default provider: 'mock', subscription-first, paid APIs disabled by default)
+    const defaultProviderId =
+      options.defaultProvider ?? (useMockBrain ? this.mockProvider.id : this.ollamaProvider.id);
+
+    // 3. Brain Router (default provider: 'ollama' in production, 'mock' in test/mock mode, subscription-first, paid APIs disabled by default)
     this.router =
       options.router ??
       new BrainRouter({
         registry: this.providerRegistry,
-        defaultProvider: this.mockProvider.id,
+        defaultProvider: defaultProviderId,
         allowPaidApis: false
       });
 
