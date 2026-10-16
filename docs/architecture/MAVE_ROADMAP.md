@@ -173,8 +173,8 @@ Program Sequence:
 - **Parallel Design Track — Intelligence Escalation & Knowledge Trust Architecture** ✅ COMPLETE (PARALLEL DESIGN / FUTURE POLICY ONLY — ZERO CODE MODIFICATIONS, F1.5-C3/C4 UNCHANGED)
 - **F1.5-C3 Local Model Lifecycle & Resident Memory Management** ✅ COMPLETE (CODE-PROMOTED: `qwen2.5:1.5b` AWAITING HOME-PC LIVE CERTIFICATION, RESIDENCY MANAGER & LEASE GOVERNANCE IMPLEMENTED)
 - **F1.5-C4 Conversational Brain Closeout Audit** (C4-A: ✅ HARDENED — READY FOR HOME-PC LIVE VERIFICATION; C4-B: PENDING HOME-PC HARDWARE VERIFICATION)
-- **F1.6 Production Deep Brain** (Deferred after Local Fast Brain Closeout)
-- **F1.7 Agent Runtime Normalization (`ClaudeCode` / `Antigravity` / `Codex`)**
+- **F1.6 Production Deep Brain** (Architecture Audit Complete; Implementation Deferred after Local Fast Brain Closeout)
+- **F1.7 Agent Runtime Normalization (`ClaudeCode` / `Antigravity` / `Codex`)** ✅ COMPLETE (Fulfilled via F1.5-S1 through F1.5-S5 Subscription Intelligence Architecture)
 - **F1.8 Research / Truth Routing**
 - **F1.9 Diagnostics, Quota & Reliability**
 - **F1.10 End-to-End Provider Foundation Closeout**
