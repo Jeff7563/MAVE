@@ -5,3 +5,4 @@ export * from './brain/index.js';
 export * from './conversation/index.js';
 export * from './voice/index.js';
 export * from './surface/index.js';
+export * from './certification/index.js';
