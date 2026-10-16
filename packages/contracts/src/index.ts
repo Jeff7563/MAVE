@@ -10,3 +10,4 @@ export * from './stt.js';
 export * from './tts.js';
 export * from './voice.js';
 export * from './surface.js';
+export * from './language.js';

@@ -55,6 +55,14 @@ export function normalizeTaskIntent(rawIntent: string | undefined): TaskIntent |
     case 'quick_chat':
     case 'quickchat':
     case 'fast_chat':
+    case 'short_explanation':
+    case 'explanation':
+    case 'simple_rewrite':
+    case 'rewrite':
+    case 'casual_follow_up':
+    case 'casual_followup':
+    case 'follow_up':
+    case 'followup':
       return 'quick_chat';
     case 'general_conversation':
     case 'conversation':
@@ -62,7 +70,9 @@ export function normalizeTaskIntent(rawIntent: string | undefined): TaskIntent |
       return 'general_conversation';
     case 'language':
     case 'language_learning':
+    case 'language_practice':
     case 'translation':
+    case 'phrase_meaning':
       return 'language';
     case 'deep_reasoning':
     case 'reasoning':

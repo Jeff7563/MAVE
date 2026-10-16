@@ -200,7 +200,8 @@ app.whenReady().then(async () => {
         audioInput,
         stt,
         tts,
-        audioOutput
+        audioOutput,
+        prewarmHook: () => conversationManager!.prewarmFastBrain()
       });
       await voiceManager.start();
       logger.info('voice manager initialized and started');

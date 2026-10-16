@@ -71,7 +71,8 @@ export class ContextManager {
     // Construct minimal safe context metadata
     const context: Record<string, unknown> = {
       sessionId: session.id,
-      mode: session.mode
+      mode: session.mode,
+      ...(session.metadata ? { sessionMetadata: { ...session.metadata } } : {})
     };
 
     if (session.activeProviderId) {

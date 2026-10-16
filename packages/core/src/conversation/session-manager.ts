@@ -189,6 +189,40 @@ export class SessionManager {
   }
 
   /**
+   * Merges metadata into an active session's metadata record.
+   */
+  updateSessionMetadata(sessionId: string, metadata: Record<string, unknown>): Session {
+    if (!sessionId || typeof sessionId !== 'string') {
+      throw new SessionManagerError('session_not_found', 'Invalid session ID');
+    }
+    const trimmedId = sessionId.trim();
+    const session = this.sessions.get(trimmedId);
+    if (!session) {
+      throw new SessionManagerError(
+        'session_not_found',
+        `Session '${trimmedId}' not found`,
+        { sessionId: trimmedId }
+      );
+    }
+
+    if (session.status === 'ended') {
+      throw new SessionManagerError(
+        'session_ended',
+        `Cannot update metadata on ended session '${trimmedId}'`,
+        { sessionId: trimmedId }
+      );
+    }
+
+    session.metadata = {
+      ...session.metadata,
+      ...metadata
+    };
+    session.updatedAt = this.clock();
+
+    return this.cloneSession(session);
+  }
+
+  /**
    * Appends a conversation turn to an active session.
    */
   appendTurn(

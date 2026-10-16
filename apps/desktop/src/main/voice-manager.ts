@@ -50,6 +50,7 @@ export interface VoiceManagerOptions {
   onOwnershipChange?: (ownership: MicOwnership) => void;
   onVoiceRuntimeEvent?: (event: VoiceRuntimeEvent) => void;
   onStateChange?: (state: VoiceManagerState) => void;
+  prewarmHook?: () => Promise<void>;
 }
 
 export class VoiceManager {
@@ -235,6 +236,14 @@ export class VoiceManager {
       const epoch = ++this.wakeEpoch;
       logger.info({ epoch }, 'voice_handoff_begin');
       this.setState('handoff_to_voice');
+
+      if (this.options.prewarmHook) {
+        try {
+          void this.options.prewarmHook();
+        } catch {
+          // safe background prewarm
+        }
+      }
 
       // 1. Transition macro state toward waking
       const currentSnap = this.service.getSnapshot();
