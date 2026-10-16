@@ -271,15 +271,23 @@ MAVE strictly separates **Intelligence Routing** from **Presentation Policy**:
      - Sustained task activity
      - User interaction mode and manual surface expansion
      - Current environmental focus
-2. **Canonical Surface Examples**:
-   - A `deep_reasoning` response that is concise may be spoken over voice or presented cleanly in normal **Conversation**.
-   - A `fast_conversation` response requiring structured data or code snippets may expand to a richer contextual view.
+2. **Canonical Surface Flexibility (Presentation Policy)**:
+   - Presentation policy decides surface dynamically based on interaction context, answer shape, sustained work, artifacts, user expansion, and continuity.
+   - A `deep_reasoning` response that is concise may be delivered purely through spoken voice in **Presence** or presented cleanly in **Conversation**.
+   - A `fast_conversation` response requiring structured data or code snippets may expand to a richer contextual presentation in **Companion** or **Conversation**.
    - `agent_work` may promote to **Workspace** when multi-file artifacts, terminal output, or sustained task diffs require canvas space—not simply because of provider kind.
-3. **Accepted MAVE Surface Terminology**:
-   - **Presence**: Ambient status ring / orb visualizer.
-   - **Companion**: Lightweight floating quick-access capsule.
-   - **Conversation**: Conversational thread and chat surface.
-   - **Workspace**: Full interactive canvas for documents, file inspection, and project artifacts.
+   - **Architectural Rule**: Do NOT create rigid, fixed mappings such as `fast` $\to$ `Presence`, `deep` $\to$ `Conversation`, or `agent` $\to$ `Workspace`. Intelligence routing and presentation routing are completely independent concerns.
+3. **Canonical MAVE Surface Terminology**:
+   - **Presence**: MAVE's minimal ambient conversational presence/state surface.
+     - Canonical state behavior:
+       - `IDLE`: Wordmark "MAVE" only (clean minimal ambient resting state).
+       - `LISTENING`: Compact listening waveform/state visualization.
+       - `THINKING`: Subtle non-acoustic thinking activity.
+       - `SPEAKING`: Speaking waveform/state visualization.
+     - *Architectural Invariant*: Presence must NOT be architecturally defined as an orb, a ring, dots, or a permanent visualizer. Those are implementation/visual choices and specifically conflict with the accepted idle wordmark design.
+   - **Companion**: Lightweight contextual conversational surface positioned near the user's active work. Does not require one fixed capsule geometry forever.
+   - **Conversation**: Persistent conversational thread / focused conversational surface for ongoing dialog and contextual discussion.
+   - **Workspace**: Artifact-dominant sustained-work surface for documents, code, files, analysis, or project work.
 
 ---
 
