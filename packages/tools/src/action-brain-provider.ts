@@ -14,6 +14,14 @@ import type { QuickCommandMatch } from './quick-commands.js';
 
 export const ACTION_PROVIDER_ID = 'mave-actions';
 
+/**
+ * Tools that can run longer than a conversation turn (or wait for approval)
+ * run in the background: MAVE answers right away and the task card shows
+ * progress and the result. This keeps the conversation timeout from killing
+ * a 20-minute agent job.
+ */
+const BACKGROUND_TOOLS = new Set(['agent.delegate', 'terminal.run_command']);
+
 interface PendingAction {
   match: QuickCommandMatch;
   thai: boolean;
@@ -31,6 +39,13 @@ export class ActionBrainProvider implements BrainProvider {
   private readonly pending = new Map<string, PendingAction>();
 
   constructor(private readonly executor: ToolExecutor) {}
+
+  private readonly background = new Set<Promise<ToolResult>>();
+
+  /** Wait for background actions (tests and shutdown). */
+  async drain(): Promise<void> {
+    await Promise.allSettled(Array.from(this.background));
+  }
 
   /** Queue an action for the next chat() call with this request id. */
   enqueue(requestId: string, match: QuickCommandMatch, originalText: string): void {
@@ -68,6 +83,17 @@ export class ActionBrainProvider implements BrainProvider {
       callId: action.match.request.callId ?? `act-${requestId}`,
       sessionId: request.sessionId
     };
+    if (BACKGROUND_TOOLS.has(callRequest.toolId)) {
+      // Not tied to this turn's AbortSignal: cancel from the task card instead.
+      const pending = this.executor.call(callRequest);
+      this.background.add(pending);
+      void pending.finally(() => this.background.delete(pending));
+      const text = describeStarted(action);
+      yield { type: 'delta', requestId, text };
+      yield { type: 'completed', requestId, text, finishReason: 'action_started' };
+      return;
+    }
+
     const result = await this.executor.call(callRequest, options?.signal);
     if (options?.signal?.aborted || result.error?.code === 'cancelled') {
       yield { type: 'cancelled', requestId, reason: 'Action cancelled' };
@@ -83,11 +109,19 @@ export function containsThai(text: string): boolean {
   return /[฀-๿]/.test(text);
 }
 
+function describeStarted(action: PendingAction): string {
+  const { thai, match } = action;
+  if (thai) {
+    return `${toThaiAck(match.acknowledgement)} แล้วครับ ดูความคืบหน้าได้ที่หน้าต่าง MAVE`;
+  }
+  return `${match.acknowledgement} — I'll show progress in the MAVE panel.`;
+}
+
 function describeResult(action: PendingAction, result: ToolResult): string {
   const { thai, match } = action;
   if (result.ok) {
     const toolId = match.request.toolId;
-    if (toolId === 'agent.delegate' || toolId === 'terminal.run_command' || toolId === 'git.status' || toolId.startsWith('fs.')) {
+    if (toolId === 'git.status' || toolId.startsWith('fs.')) {
       const body = result.output.length > 1200 ? `${result.output.slice(0, 1200)}…` : result.output;
       return thai ? `เสร็จแล้วครับ\n${body}` : `Done.\n${body}`;
     }

@@ -154,7 +154,7 @@ Implemented from `MAVE_AMBIENT_ADAPTIVE_SURFACE.md` (Option A — single adaptiv
 
 ## 9. Verification
 
-- Unit: tools 72, providers 144, core 217, desktop 110, contracts 61, database 22 — all passing.
+- Unit: tools 73, providers 144, core 217, desktop 110, contracts 61, database 22 — all passing.
 - E2E (Electron, xvfb): 4/4 including the new surface + quick-command smoke test.
 - Visual check of each surface mode rendered headless.
 

@@ -74,3 +74,22 @@ describe('StreamingActionFilter', () => {
     expect(out).toBe('Use ```ts\nconst a = 1;\n``` ok');
   });
 });
+
+describe('ActionBrainProvider background tools', () => {
+  it('answers immediately for long tools and keeps them running after the turn', async () => {
+    const { provider, system } = setup();
+    system.runDelayMs = 50;
+    system.runResult = { stdout: 'analysis done' };
+    const text = 'ให้ claude ช่วยสรุปโปรเจกต์';
+    const match = new QuickCommandMatcher().match(text)!;
+    provider.enqueue('r3', match, text);
+    // approval handler is missing in this setup → would deny; use a user-run safe command instead
+    provider.enqueue('r4', new QuickCommandMatcher().match('git status')!, 'git status');
+    const events = await run(provider, 'r3');
+    const done = events.at(-1);
+    expect(done?.type === 'completed' && done.text).toContain('ดูความคืบหน้า');
+    await provider.drain();
+    const gitEvents = await run(provider, 'r4');
+    expect(gitEvents.at(-1)?.type).toBe('completed');
+  });
+});
