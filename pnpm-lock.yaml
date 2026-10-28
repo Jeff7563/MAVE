@@ -196,6 +196,9 @@ importers:
       '@mave/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      '@mave/tools':
+        specifier: workspace:*
+        version: link:../../packages/tools
       better-sqlite3:
         specifier: ^13.0.3
         version: 13.0.3
@@ -379,6 +382,31 @@ importers:
       typescript:
         specifier: ^5.8.2
         version: 5.9.3
+
+  packages/tools:
+    dependencies:
+      '@mave/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@mave/shared':
+        specifier: workspace:*
+        version: link:../shared
+      zod:
+        specifier: ^3.24.2
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^22.10.1
+        version: 22.20.5
+      rimraf:
+        specifier: ^6.0.1
+        version: 6.1.3
+      typescript:
+        specifier: ^5.8.2
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.8
+        version: 2.1.9(@types/node@22.20.5)(lightningcss@1.33.0)(supports-color@8.1.1)
 
 packages:
 

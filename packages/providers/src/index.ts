@@ -11,7 +11,13 @@ export {
   type MockBrainOptions,
   AntigravityBrainProvider,
   type AntigravityBrainProviderOptions,
-  type SpawnFactory
+  type SpawnFactory,
+  OpenAICompatibleBrainProvider,
+  type OpenAICompatibleBrainProviderOptions,
+  type OpenAICompatiblePreset,
+  OPENAI_COMPATIBLE_PRESETS,
+  MAVE_FAST_BRAIN_INSTRUCTION,
+  createFastBrainFromEnv
 } from './brain/index.js';
 export * from './audio/index.js';
 export * from './stt/index.js';

@@ -11,3 +11,12 @@ export {
   redactDiagnosticText,
   type AntigravityCliEvent
 } from './antigravity/parser.js';
+export {
+  OpenAICompatibleBrainProvider,
+  type OpenAICompatibleBrainProviderOptions,
+  type OpenAICompatiblePreset,
+  type FetchLike,
+  OPENAI_COMPATIBLE_PRESETS,
+  MAVE_FAST_BRAIN_INSTRUCTION,
+  createFastBrainFromEnv
+} from './openai-compatible.js';

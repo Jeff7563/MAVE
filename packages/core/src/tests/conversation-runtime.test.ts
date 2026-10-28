@@ -788,3 +788,46 @@ describe('ConversationRuntime — Concurrency', () => {
     }).rejects.toThrow(ConversationRuntimeError);
   });
 });
+
+describe('ConversationRuntime systemPromptProvider (M5)', () => {
+  it('adds provider-supplied system context to every brain request', async () => {
+    const registry = new BrainProviderRegistry();
+    const stub = createStubProvider({ id: 'prompt-provider', deltas: ['ok'] });
+    registry.register(stub);
+    const router = new BrainRouter(registry, { defaultProvider: 'prompt-provider' });
+    const calls: string[] = [];
+    const runtime = new ConversationRuntime({
+      sessionManager: new SessionManager(),
+      contextManager: new ContextManager(),
+      router,
+      systemPromptProvider: ({ requestId }) => {
+        calls.push(requestId);
+        return '## Actions\n- git.status';
+      }
+    });
+    for await (const _ of runtime.send({ requestId: 'sp-1', message: 'Hello' })) {
+      // drain
+    }
+    expect(calls).toEqual(['sp-1']);
+    expect(stub.getLastRequest()?.systemPrompt).toBe('## Actions\n- git.status');
+  });
+
+  it('keeps working when the prompt provider throws', async () => {
+    const registry = new BrainProviderRegistry();
+    const stub = createStubProvider({ id: 'prompt-provider', deltas: ['ok'] });
+    registry.register(stub);
+    const router = new BrainRouter(registry, { defaultProvider: 'prompt-provider' });
+    const runtime = new ConversationRuntime({
+      sessionManager: new SessionManager(),
+      contextManager: new ContextManager(),
+      router,
+      systemPromptProvider: () => {
+        throw new Error('broken');
+      }
+    });
+    const types: string[] = [];
+    for await (const event of runtime.send({ requestId: 'sp-2', message: 'Hello' })) types.push(event.type);
+    expect(types).toContain('response_completed');
+    expect(stub.getLastRequest()?.systemPrompt).toBeUndefined();
+  });
+});

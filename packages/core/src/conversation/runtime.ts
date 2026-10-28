@@ -24,6 +24,11 @@ export interface ConversationRuntimeOptions {
   requestIdFactory?: () => string;
   clock?: () => number;
   defaultTimeoutMs?: number;
+  /**
+   * Optional extra system context for every brain request (e.g. the M5 tool
+   * list from @mave/tools). Evaluated per request so it can change at runtime.
+   */
+  systemPromptProvider?: (input: { sessionId: string; requestId: string }) => string | undefined;
 }
 
 interface ActiveRequestRecord {
@@ -51,6 +56,7 @@ export class ConversationRuntime {
   private readonly requestIdFactory: () => string;
   private readonly clock: () => number;
   private readonly defaultTimeoutMs: number;
+  private readonly systemPromptProvider?: ConversationRuntimeOptions['systemPromptProvider'];
 
   private readonly activeRequests = new Map<string, ActiveRequestRecord>();
 
@@ -65,6 +71,7 @@ export class ConversationRuntime {
       options.defaultTimeoutMs !== undefined && options.defaultTimeoutMs > 0
         ? options.defaultTimeoutMs
         : 30000;
+    this.systemPromptProvider = options.systemPromptProvider;
   }
 
   /**
@@ -539,6 +546,14 @@ export class ConversationRuntime {
         messages: contextBundle.messages,
         context: contextBundle.context
       };
+      if (this.systemPromptProvider) {
+        try {
+          const systemPrompt = this.systemPromptProvider({ sessionId, requestId })?.trim();
+          if (systemPrompt) brainRequest.systemPrompt = systemPrompt;
+        } catch {
+          // A broken prompt provider must never block conversation.
+        }
+      }
 
       // 13. Consume BrainEvent stream from provider
       let accumulatedText = '';

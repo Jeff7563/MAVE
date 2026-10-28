@@ -9,3 +9,4 @@ export * from './audio.js';
 export * from './stt.js';
 export * from './tts.js';
 export * from './voice.js';
+export * from './tools.js';

@@ -1,4 +1,4 @@
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, shell } from 'electron';
 import path from 'node:path';
 import { DefaultMaveConfig } from '@mave/contracts';
 import { createLogger } from '@mave/shared';
@@ -9,6 +9,7 @@ import { createSystemTray } from './tray.js';
 import { WakeManager } from './wake-manager.js';
 import { ConversationManager } from './conversation-manager.js';
 import { VoiceManager } from './voice-manager.js';
+import { ElectronSystemAdapter, ToolManager } from './tool-manager.js';
 import {
   SounddeviceAudioInputProvider,
   MockAudioInputProvider,
@@ -28,6 +29,7 @@ let maveDatabase: MaveDatabase | null = null;
 let wakeManager: WakeManager | null = null;
 let conversationManager: ConversationManager | null = null;
 let voiceManager: VoiceManager | null = null;
+let toolManager: ToolManager | null = null;
 let tray: ReturnType<typeof createSystemTray> | null = null;
 
 // Enforce single instance lock
@@ -134,11 +136,19 @@ app.whenReady().then(async () => {
     });
     await wakeManager.initialize();
 
-    // 4. Initialize Conversation Manager (M2 Phase 6)
+    // 4a. Initialize Tool Manager (M5: actions, permissions, audit)
+    toolManager = new ToolManager({
+      repoRoot: path.resolve(__dirname, '../../../..'),
+      getMainWindow: () => mainWindow,
+      system: new ElectronSystemAdapter(shell)
+    });
+
+    // 4b. Initialize Conversation Manager (M2 Phase 6)
     conversationManager = new ConversationManager({
       database: maveDatabase,
       getMainWindow: () => mainWindow,
-      timeoutMs: DefaultMaveConfig.brain.timeoutMs
+      timeoutMs: DefaultMaveConfig.brain.timeoutMs,
+      toolManager
     });
 
     // 5. Initialize Voice Manager (M3.5 Wake <-> Voice Handoff)
@@ -199,7 +209,8 @@ app.whenReady().then(async () => {
       () => mainWindow,
       wakeManager,
       conversationManager,
-      voiceManager ?? undefined
+      voiceManager ?? undefined,
+      toolManager
     );
 
     // 7. Create Window & Tray
@@ -248,6 +259,10 @@ app.on('before-quit', async () => {
   if (conversationManager) {
     await conversationManager.dispose();
     conversationManager = null;
+  }
+  if (toolManager) {
+    await toolManager.dispose();
+    toolManager = null;
   }
   if (maveService) {
     maveService.send({ type: 'SHUTDOWN' });
