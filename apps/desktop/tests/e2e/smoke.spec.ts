@@ -238,13 +238,14 @@ test('Electron desktop smoke test: Milestone 4/5 ambient surface and quick comma
   const electronApp = await electron.launch({ args: [mainScript], env });
 
   try {
-    const consoleWindow = await electronApp.firstWindow();
-    await consoleWindow.waitForLoadState('domcontentloaded');
+    await electronApp.firstWindow();
 
-    // 1. The ambient surface window opens as a small orb.
+    // 1. The ambient surface window opens as a small orb, next to the developer console.
     await expect.poll(() => electronApp.windows().length).toBeGreaterThanOrEqual(2);
     const surface = electronApp.windows().find((w) => w.url().includes('#surface'));
+    const consoleWindow = electronApp.windows().find((w) => !w.url().includes('#surface'))!;
     expect(surface).toBeDefined();
+    await consoleWindow.waitForLoadState('domcontentloaded');
     const root = surface!.locator('[data-testid="surface-root"]');
     await expect(root).toHaveAttribute('data-mode', 'orb');
 

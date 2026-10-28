@@ -109,10 +109,12 @@ Result: Real spoken voice loop with zero mic overlap, bilingual transcription, p
 
 > [!IMPORTANT]
 > **Parallel Fast Brain & Wake V2 Tracks**: While M3 voice loop is complete and ready for M4, parallel work continues on:
-> 1. Fast Brain evaluation to bridge the ~9s TTFT gap to sub-2s conversational turn-taking.
+> 1. Fast Brain evaluation to bridge the ~9s TTFT gap to sub-2s conversational turn-taking. (Adapter ready: `OpenAICompatibleBrainProvider`, needs live TTFT measurement.)
 > 2. Wake V2 retraining for enhanced single-syllable "MAVE" recall under M1.3.
 
-## Milestone 4 — MAVE Surface ← CURRENT
+## Milestone 4 — MAVE Surface ← CURRENT (foundation done 2026-10-28)
+
+Foundation implemented (see [`MAVE_MILESTONE_5_SPEC.md`](MAVE_MILESTONE_5_SPEC.md) §8): single adaptive surface window, orb → capsule → card → panel → workspace, Surface Policy with auto-hide/pin, approval & task cards, Ctrl+Alt+M hotkey. Remaining: rich cards, translation/vocabulary cards, acrylic, multi-monitor/DPI tests.
 
 Goal: Floating UI เป็น visual center
 
@@ -128,7 +130,9 @@ Goal: Floating UI เป็น visual center
 
 Initial cards: Message, Translation, Vocabulary, Source, Image, File, Code, Task, Progress, Approval, Error
 
-## Milestone 5 — Agent Runtime & Tools
+## Milestone 5 — Agent Runtime & Tools ← FOUNDATION DONE (2026-10-28)
+
+Foundation implemented: `@mave/tools` (registry, risk levels, permission policy, approvals, audit, timeouts/cancel), Thai/English quick commands, `mave-action/1` brain protocol, built-in tools including delegation to Claude Code / Codex / Antigravity. Spec: [`MAVE_MILESTONE_5_SPEC.md`](MAVE_MILESTONE_5_SPEC.md). Next: SQLite audit, MCP client, agent task workspace.
 
 Goal: จาก “ตอบได้” → “ทำงานได้”
 

@@ -1,4 +1,5 @@
 import { app, BrowserWindow, shell } from 'electron';
+import fs from 'node:fs';
 import path from 'node:path';
 import { DefaultMaveConfig } from '@mave/contracts';
 import { createLogger } from '@mave/shared';
@@ -23,6 +24,19 @@ import {
 } from '@mave/providers';
 
 const logger = createLogger({ name: 'mave:main' });
+
+// Load <repo>/.env (API keys, MAVE_* settings). Real environment variables win.
+if (process.env['NODE_ENV'] !== 'test') {
+  const envPath = path.resolve(__dirname, '../../../../.env');
+  try {
+    if (fs.existsSync(envPath)) {
+      process.loadEnvFile(envPath);
+      logger.info({ envPath }, 'loaded .env');
+    }
+  } catch (err) {
+    logger.warn({ err, envPath }, 'failed to load .env');
+  }
+}
 
 let mainWindow: BrowserWindow | null = null;
 let maveService: MaveService | null = null;
