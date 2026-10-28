@@ -138,3 +138,21 @@ describe('M5 tools in the desktop runtime', () => {
     expect(resolveToolRoots({}, '/MAVE')).toEqual(['/MAVE']);
   });
 });
+
+describe('surface anchoring', () => {
+  it('anchors bottom-right inside the work area and clamps to small screens', async () => {
+    const { anchorBottomRight } = await import('../src/main/surface-window.js');
+    expect(anchorBottomRight({ x: 0, y: 0, width: 1920, height: 1040 }, { width: 420, height: 620 })).toEqual({
+      x: 1484,
+      y: 404,
+      width: 420,
+      height: 620
+    });
+    expect(anchorBottomRight({ x: 1920, y: 0, width: 400, height: 300 }, { width: 420, height: 620 })).toEqual({
+      x: 1936,
+      y: 16,
+      width: 368,
+      height: 268
+    });
+  });
+});

@@ -224,3 +224,41 @@ test('Electron desktop smoke test: Milestone 3 wake to voice handoff end-to-end 
     await electronApp.close();
   }
 });
+
+test('Electron desktop smoke test: Milestone 4/5 ambient surface and quick command actions', async () => {
+  const mainScript = path.resolve(__dirname, '../../dist/main/index.js');
+  const env: Record<string, string> = {
+    ...(process.env as Record<string, string>),
+    NODE_ENV: 'test',
+    MAVE_VOICE_ENABLED: '0',
+    MAVE_SURFACE: '1'
+  };
+  delete env['ELECTRON_RUN_AS_NODE'];
+
+  const electronApp = await electron.launch({ args: [mainScript], env });
+
+  try {
+    const consoleWindow = await electronApp.firstWindow();
+    await consoleWindow.waitForLoadState('domcontentloaded');
+
+    // 1. The ambient surface window opens as a small orb.
+    await expect.poll(() => electronApp.windows().length).toBeGreaterThanOrEqual(2);
+    const surface = electronApp.windows().find((w) => w.url().includes('#surface'));
+    expect(surface).toBeDefined();
+    const root = surface!.locator('[data-testid="surface-root"]');
+    await expect(root).toHaveAttribute('data-mode', 'orb');
+
+    // 2. A quick command typed in chat runs a read-only tool instantly (no brain call).
+    const chatInput = consoleWindow.locator('[data-testid="chat-input-message"]');
+    await chatInput.fill('git status');
+    await consoleWindow.locator('[data-testid="chat-btn-send"]').click();
+    const assistantMsg = consoleWindow.locator('[data-testid="chat-message-assistant"]').first();
+    await expect(assistantMsg).toContainText('Done.');
+    await expect(consoleWindow.locator('[data-testid="chat-diagnostic-provider"]')).toHaveText('mave-actions');
+
+    // 3. The surface received the same conversation and expanded from the orb.
+    await expect(root).not.toHaveAttribute('data-mode', 'orb');
+  } finally {
+    await electronApp.close();
+  }
+});

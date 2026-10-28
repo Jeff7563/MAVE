@@ -13,7 +13,8 @@ import type { ToolManager } from './tool-manager.js';
  * ConversationRuntime with M5 actions, used by both text chat and voice:
  *
  * 1. Quick commands ("เปิดยูทูป", "open vscode") are routed to the local
- *    action provider — no brain round trip, so they feel instant.
+ *    action provider — no brain round trip, so they feel instant. This wins
+ *    over an explicit brain choice: a typed command is the user's direct ask.
  * 2. Every brain gets the tool list in its system prompt.
  * 3. ```mave-action blocks are hidden from the streamed/spoken text and run
  *    through the ToolExecutor after the answer completes.
@@ -39,7 +40,7 @@ export class ActionAwareConversationRuntime extends ConversationRuntime {
     options?: ConversationRequestOptions
   ): AsyncIterable<ConversationRuntimeEvent> {
     const match = request.message ? this.tools.matchQuickCommand(request.message) : undefined;
-    if (match && !request.preferredProviderId && !request.profileId) {
+    if (match) {
       const requestId = request.requestId?.trim() || randomUUID();
       this.tools.actionProvider.enqueue(requestId, match, request.message);
       yield* super.send(

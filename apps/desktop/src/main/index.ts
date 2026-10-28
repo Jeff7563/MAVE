@@ -10,6 +10,7 @@ import { WakeManager } from './wake-manager.js';
 import { ConversationManager } from './conversation-manager.js';
 import { VoiceManager } from './voice-manager.js';
 import { ElectronSystemAdapter, ToolManager } from './tool-manager.js';
+import { SurfaceWindow } from './surface-window.js';
 import {
   SounddeviceAudioInputProvider,
   MockAudioInputProvider,
@@ -30,6 +31,36 @@ let wakeManager: WakeManager | null = null;
 let conversationManager: ConversationManager | null = null;
 let voiceManager: VoiceManager | null = null;
 let toolManager: ToolManager | null = null;
+let surfaceWindow: SurfaceWindow | null = null;
+
+/**
+ * Runtime events go to every MAVE window (developer console + ambient surface).
+ * Shaped like a BrowserWindow so managers keep their existing getter contract.
+ */
+const broadcastTarget = {
+  isDestroyed: () => false,
+  webContents: {
+    send: (channel: string, ...args: unknown[]) => {
+      for (const win of [mainWindow, surfaceWindow?.getWindow() ?? null]) {
+        if (win && !win.isDestroyed()) {
+          try {
+            win.webContents.send(channel, ...args);
+          } catch (err) {
+            logger.warn({ err, channel }, 'failed to deliver event to window');
+          }
+        }
+      }
+    }
+  }
+} as unknown as BrowserWindow;
+const getBroadcastTarget = () => broadcastTarget;
+
+function showConsoleWindow(): void {
+  if (!mainWindow) mainWindow = createWindow();
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  mainWindow.show();
+  mainWindow.focus();
+}
 let tray: ReturnType<typeof createSystemTray> | null = null;
 
 // Enforce single instance lock
@@ -81,6 +112,11 @@ function createWindow(): BrowserWindow {
   });
 
   win.once('ready-to-show', () => {
+    // MAVE_CONSOLE=0 keeps the developer console hidden (open it from the tray or the surface).
+    if (process.env['MAVE_CONSOLE'] === '0' && process.env['NODE_ENV'] !== 'test') {
+      logger.info('developer console hidden (MAVE_CONSOLE=0)');
+      return;
+    }
     win.show();
     logger.info('MAVE desktop window shown');
   });
@@ -139,14 +175,14 @@ app.whenReady().then(async () => {
     // 4a. Initialize Tool Manager (M5: actions, permissions, audit)
     toolManager = new ToolManager({
       repoRoot: path.resolve(__dirname, '../../../..'),
-      getMainWindow: () => mainWindow,
+      getMainWindow: getBroadcastTarget,
       system: new ElectronSystemAdapter(shell)
     });
 
     // 4b. Initialize Conversation Manager (M2 Phase 6)
     conversationManager = new ConversationManager({
       database: maveDatabase,
-      getMainWindow: () => mainWindow,
+      getMainWindow: getBroadcastTarget,
       timeoutMs: DefaultMaveConfig.brain.timeoutMs,
       toolManager
     });
@@ -206,7 +242,7 @@ app.whenReady().then(async () => {
     // 6. Register IPC
     registerIpcHandlers(
       maveService,
-      () => mainWindow,
+      getBroadcastTarget,
       wakeManager,
       conversationManager,
       voiceManager ?? undefined,
@@ -216,6 +252,21 @@ app.whenReady().then(async () => {
     // 7. Create Window & Tray
     mainWindow = createWindow();
     tray = createSystemTray(maveService, () => mainWindow);
+
+    // 7b. Ambient Surface (M4): orb / capsule / panel bottom-right, Ctrl+Alt+M opens chat
+    const surfaceEnabled =
+      process.env['MAVE_SURFACE'] === '1' ||
+      (process.env['NODE_ENV'] !== 'test' && process.env['MAVE_SURFACE'] !== '0');
+    if (surfaceEnabled) {
+      surfaceWindow = new SurfaceWindow({
+        preloadPath: path.join(__dirname, '../preload/index.js'),
+        rendererIndexPath: path.join(__dirname, '../renderer/index.html'),
+        devServerUrl: process.env['VITE_DEV_SERVER_URL'],
+        hotkey: process.env['MAVE_HOTKEY'],
+        onOpenConsole: showConsoleWindow
+      });
+      surfaceWindow.create();
+    }
 
     // 8. Send APP_READY
     maveService.send({ type: 'APP_READY' });
@@ -247,6 +298,10 @@ app.on('before-quit', async () => {
   if (tray) {
     tray.destroy();
     tray = null;
+  }
+  if (surfaceWindow) {
+    surfaceWindow.dispose();
+    surfaceWindow = null;
   }
   if (voiceManager) {
     await voiceManager.dispose();
