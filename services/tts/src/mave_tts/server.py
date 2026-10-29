@@ -11,7 +11,7 @@ import time
 from typing import Any, Dict, Optional
 
 from .config import TTSConfig
-from .engine import TTSEngine
+from .voxcpm_engine import create_engine
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
@@ -86,7 +86,7 @@ class TTSServer:
 
     def __init__(self, config: TTSConfig):
         self.config = config
-        self.engine = TTSEngine(config)
+        self.engine = create_engine(config)
         self.active_task: Optional[asyncio.Task] = None
         self.active_request_id: Optional[str] = None
         self.active_cancelled = False
@@ -99,6 +99,7 @@ class TTSServer:
         """Main non-blocking async execution loop."""
         emit_event({
             "type": "ready",
+            "engine": getattr(self.engine, "name", "edge-tts"),
             "defaultVoiceTh": self.config.default_voice_th,
             "defaultVoiceEn": self.config.default_voice_en,
             "sampleRate": self.config.sample_rate,
@@ -252,7 +253,7 @@ class TTSServer:
 def run_cli_test(text: str, voice: Optional[str] = None) -> None:
     """Quick offline CLI test."""
     config = TTSConfig()
-    engine = TTSEngine(config)
+    engine = create_engine(config)
 
     async def _test() -> None:
         t0 = time.time()

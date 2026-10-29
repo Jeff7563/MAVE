@@ -25,7 +25,7 @@ Status legend: ✅ adopted · 🧪 adapter ready, needs live test · 📋 recomm
 | Realtime Thai STT | Typhoon ASR Real-time (FastConformer-Transducer) | 👀 | Streaming, lower latency; would need a NeMo-based service |
 | TTS (cloud, current) | EdgeTTS `th-TH-PremwadeeNeural` / `en-US-JennyNeural` | ✅ | Network-backed |
 | Better Thai TTS (local, natural) | **F5-TTS-THAI** / **ThonburianTTS** / **OpenJaiTTS** (all F5-TTS based, zero-shot voice cloning) | 📋 | Very natural Thai; RTF ≈ 0.1–0.2 on GPU (RTX 3060 Ti OK). **License check required**: OpenJaiTTS is CC BY-NC 4.0 (personal use OK, not commercial). Plug in as a new engine in `services/tts` behind the existing `TTSProvider` contract |
-| The user's own Thai voice from the "video AF" project | Reuse that engine | 📋 | Need its location/stack. If it runs as a local HTTP server, add an `HttpTTSProvider` adapter; if it's F5-TTS based, add it as a `services/tts` engine and reuse its reference voice |
+| The user's own Thai voice from the "video AF" project | **VoxCPM2** (`openbmb/VoxCPM2`, Apache-2.0, 30 languages, Thai WER 2.96, 48 kHz, ~8 GB VRAM, voice cloning + voice design) | 🧪 | `MAVE_TTS_ENGINE=voxcpm` in `services/tts` (`voxcpm_engine.py`). Reuses the AF venv via `MAVE_TTS_PYTHON=D:\AF\tools\tts-venv\Scripts\python.exe` and `HF_HOME=D:\AF\tools\hf-cache`. Streams, resamples to 16 kHz, falls back to edge-tts. Needs live test on the RTX 3060 Ti |
 | Offline English TTS | Kokoro-82M / Piper | 👀 | Kokoro has no Thai; use only for English offline |
 | Echo cancellation (speaker barge-in) | WebRTC AEC3 (`webrtc-audio-processing`) or SpeexDSP | 📋 | Fixes "MAVE hears itself" without headphones |
 | VAD | Silero VAD | 👀 | Current energy VAD works; Silero is more robust in noise |
@@ -53,7 +53,7 @@ Status legend: ✅ adopted · 🧪 adapter ready, needs live test · 📋 recomm
 
 1. Set up a Fast Brain (Groq or Gemini Flash) and measure TTFT — biggest UX win.
 2. Try Typhoon Whisper Turbo for Thai STT (config-only swap).
-3. Bring in the Thai TTS from the video project (or F5-TTS-THAI) as a local engine.
+3. Turn on VoxCPM2 from the AF project (`MAVE_TTS_ENGINE=voxcpm`) and tune the reference voice.
 4. MCP client.
 5. AEC.
 
@@ -63,4 +63,5 @@ Status legend: ✅ adopted · 🧪 adapter ready, needs live test · 📋 recomm
 - Typhoon ASR Real-time paper: https://arxiv.org/abs/2601.13044v1
 - OpenJaiTTS: https://huggingface.co/JTS-AI/OpenJaiTTS-v1.0
 - F5-TTS-THAI: https://huggingface.co/VIZINTZOR/F5-TTS-THAI
+- VoxCPM2: https://github.com/OpenBMB/VoxCPM · https://pypi.org/project/voxcpm/
 - ThonburianTTS: https://repository.li.mahidol.ac.th/items/01425a99-9731-4855-ba46-c7c77b0c9079/full

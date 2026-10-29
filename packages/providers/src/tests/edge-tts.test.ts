@@ -5,7 +5,8 @@ import type { ChildProcess } from 'node:child_process';
 import type { SpeechRequest } from '@mave/contracts';
 import {
   EdgeTTSProvider,
-  resolveTTSPythonExecutable
+  resolveTTSPythonExecutable,
+  withServicePythonPath
 } from '../tts/edge-tts.js';
 
 class MockTTSProcess extends EventEmitter {
@@ -258,5 +259,13 @@ describe('EdgeTTSProvider', () => {
       expect(errEvt).toBeDefined();
       expect(errEvt.error.code).toBe('tts_unavailable');
     });
+  });
+});
+
+describe('withServicePythonPath', () => {
+  it('lets an external venv import mave_tts', () => {
+    const sep = process.platform === 'win32' ? ';' : ':';
+    expect(withServicePythonPath({}, '/repo/services/tts/src').PYTHONPATH).toBe('/repo/services/tts/src');
+    expect(withServicePythonPath({ PYTHONPATH: '/x', A: '1' }, '/s')).toEqual({ PYTHONPATH: `/s${sep}/x`, A: '1' });
   });
 });
