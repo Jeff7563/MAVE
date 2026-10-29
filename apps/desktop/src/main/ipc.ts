@@ -1,6 +1,7 @@
 import { ipcMain, type BrowserWindow } from 'electron';
 import {
   CHAT_IPC_CHANNELS,
+  TOOL_IPC_CHANNELS,
   VOICE_IPC_CHANNELS,
   SendCommandPayloadSchema,
   type AssistantStateSnapshot
@@ -11,6 +12,7 @@ import { createLogger } from '@mave/shared';
 import type { WakeManager } from './wake-manager.js';
 import type { ConversationManager } from './conversation-manager.js';
 import type { VoiceManager } from './voice-manager.js';
+import type { ToolManager } from './tool-manager.js';
 
 const logger = createLogger({ name: 'mave:ipc' });
 
@@ -140,6 +142,36 @@ export function registerConversationIpcHandlers(
   };
 }
 
+export function registerToolIpcHandlers(toolManager: ToolManager): () => void {
+  ipcMain.handle(TOOL_IPC_CHANNELS.LIST, () => ({
+    tools: toolManager.listTools(),
+    roots: toolManager.scope.listRoots(),
+    pendingApprovals: toolManager.listPendingApprovals()
+  }));
+  ipcMain.handle(TOOL_IPC_CHANNELS.CALL, (_event, rawPayload: unknown) => toolManager.handleCall(rawPayload));
+  ipcMain.handle(TOOL_IPC_CHANNELS.RUN_COMMAND, (_event, rawPayload: unknown) =>
+    toolManager.handleRunCommand(rawPayload)
+  );
+  ipcMain.handle(TOOL_IPC_CHANNELS.RESPOND_APPROVAL, (_event, rawPayload: unknown) =>
+    toolManager.handleApprovalResponse(rawPayload)
+  );
+  ipcMain.handle(TOOL_IPC_CHANNELS.CANCEL, (_event, rawPayload: unknown) => toolManager.handleCancel(rawPayload));
+  ipcMain.handle(TOOL_IPC_CHANNELS.GET_AUDIT, () => toolManager.getAudit(50));
+
+  return () => {
+    for (const channel of [
+      TOOL_IPC_CHANNELS.LIST,
+      TOOL_IPC_CHANNELS.CALL,
+      TOOL_IPC_CHANNELS.RUN_COMMAND,
+      TOOL_IPC_CHANNELS.RESPOND_APPROVAL,
+      TOOL_IPC_CHANNELS.CANCEL,
+      TOOL_IPC_CHANNELS.GET_AUDIT
+    ]) {
+      ipcMain.removeHandler(channel);
+    }
+  };
+}
+
 export function registerVoiceIpcHandlers(
   voiceManager: VoiceManager,
   getMainWindow: () => BrowserWindow | null
@@ -201,7 +233,8 @@ export function registerIpcHandlers(
   getMainWindow: () => BrowserWindow | null,
   wakeManager?: WakeManager,
   conversationManager?: ConversationManager,
-  voiceManager?: VoiceManager
+  voiceManager?: VoiceManager,
+  toolManager?: ToolManager
 ): () => void {
   ipcMain.handle('mave:get-status', () => {
     return service.getSnapshot();
@@ -221,6 +254,11 @@ export function registerIpcHandlers(
     cleanupVoice = registerVoiceIpcHandlers(voiceManager, getMainWindow);
   }
 
+  let cleanupTools: (() => void) | undefined;
+  if (toolManager) {
+    cleanupTools = registerToolIpcHandlers(toolManager);
+  }
+
   const unsubscribe = service.subscribe((snapshot: AssistantStateSnapshot) => {
     const win = getMainWindow();
     if (win && !win.isDestroyed()) {
@@ -236,6 +274,9 @@ export function registerIpcHandlers(
     }
     if (cleanupVoice) {
       cleanupVoice();
+    }
+    if (cleanupTools) {
+      cleanupTools();
     }
     unsubscribe();
   };

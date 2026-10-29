@@ -16,6 +16,8 @@
 10. `MAVE_UI_SURFACE_ARCHITECTURE.md`
 11. `MAVE_AMBIENT_ADAPTIVE_SURFACE.md`
 12. `MAVE_LEARNING_ENGINE.md`
+13. `MAVE_MILESTONE_5_SPEC.md`
+14. `MAVE_OPEN_SOURCE_ADOPTION.md`
 
 ## Current Project State
 
@@ -26,7 +28,8 @@
 - Wake service: Python + openWakeWord (`assets/wake/mave.onnx`)
 - Milestone 2 Complete: Provider-independent Conversation Runtime, sessions, persistence, typed IPC streaming, official Antigravity CLI adapter
 - Milestone 3 Complete: End-to-end Voice Loop (Audio Input, faster-whisper STT, EdgeTTS, sounddevice playback, progressive synthesis, programmatic barge-in, developer diagnostics)
-- Current focus: Milestone 4 — MAVE Surface (Floating UI, Ambient Adaptive Surface) + parallel Fast Brain & Wake V2 evaluation
+- 2026-10-28: M5 foundation (tools, permissions, quick commands, coding-agent delegation), M4 Surface foundation (UI V2), OpenAI-compatible Fast Brain adapter — see `MAVE_MILESTONE_5_SPEC.md`
+- Current focus: live verification on Windows, Fast Brain TTFT, Thai STT/TTS upgrades (`MAVE_OPEN_SOURCE_ADOPTION.md`), Wake V2
 
 ## Core Direction
 

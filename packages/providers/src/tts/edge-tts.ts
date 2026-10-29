@@ -194,11 +194,14 @@ export class EdgeTTSProvider implements TTSProvider {
 
     const child = spawnImpl(pythonExe, args, {
       cwd: ttsDir,
-      env: {
-        ...process.env,
-        ...this.options.env,
-        PYTHONUNBUFFERED: '1'
-      },
+      env: withServicePythonPath(
+        {
+          ...process.env,
+          ...this.options.env,
+          PYTHONUNBUFFERED: '1'
+        },
+        path.join(ttsDir, 'src')
+      ),
       stdio: ['pipe', 'pipe', 'pipe']
     });
 
@@ -553,4 +556,16 @@ export class EdgeTTSProvider implements TTSProvider {
     }
     this.activeRequests.clear();
   }
+}
+
+/**
+ * Lets an external Python env (e.g. an existing VoxCPM venv set via
+ * MAVE_TTS_PYTHON) import mave_tts without `pip install -e services/tts`.
+ */
+export function withServicePythonPath(
+  env: Record<string, string | undefined>,
+  srcDir: string
+): Record<string, string | undefined> {
+  const existing = env['PYTHONPATH'];
+  return { ...env, PYTHONPATH: existing ? `${srcDir}${path.delimiter}${existing}` : srcDir };
 }

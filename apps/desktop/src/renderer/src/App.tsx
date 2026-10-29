@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import type {
+  ApprovalDecision,
   AssistantStateSnapshot,
   ChatCancelResponse,
   ChatLoadSessionResponse,
@@ -7,6 +8,14 @@ import type {
   ChatSendResponse,
   ConversationRuntimeEvent,
   MaveCommand,
+  SurfaceMode,
+  ToolApprovalRequest,
+  ToolAuditRecord,
+  ToolCallRequestInput,
+  ToolDescriptor,
+  ToolEvent,
+  ToolResult,
+  ToolRunCommandResponse,
   VoiceRuntimeEvent,
   VoiceStatusSnapshot
 } from '@mave/contracts';
@@ -38,6 +47,20 @@ declare global {
         interrupt: (reason?: string) => Promise<{ success: boolean; error?: string }>;
         cancel: (reason?: string) => Promise<{ success: boolean; error?: string }>;
         startDiagnosticSession: () => Promise<{ success: boolean; error?: string }>;
+      };
+      tools?: {
+        list: () => Promise<{ tools: ToolDescriptor[]; roots: string[]; pendingApprovals: ToolApprovalRequest[] }>;
+        call: (request: ToolCallRequestInput) => Promise<ToolResult>;
+        runCommand: (text: string) => Promise<ToolRunCommandResponse>;
+        respondApproval: (decision: ApprovalDecision) => Promise<{ ok: boolean; error?: string }>;
+        cancel: (callId: string) => Promise<{ cancelled: boolean }>;
+        getAudit: () => Promise<ToolAuditRecord[]>;
+        onEvent: (callback: (event: ToolEvent) => void) => () => void;
+      };
+      surface?: {
+        setMode: (mode: SurfaceMode, interactive: boolean) => Promise<{ ok: boolean; error?: string }>;
+        onToggle: (callback: () => void) => () => void;
+        openConsole: () => Promise<{ ok: boolean }>;
       };
     };
   }

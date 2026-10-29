@@ -30,6 +30,34 @@ This launches Vite for the React renderer and starts the Electron desktop applic
 
 ---
 
+## Using MAVE (M4 Surface + M5 Actions)
+
+- **Ambient Surface**: a small MAVE orb sits bottom-right. Click it or press **Ctrl+Alt+M** to open the panel. It grows to a voice capsule while listening/speaking, and shows approval and task cards when MAVE needs you.
+- **Quick commands** (Thai or English, typed or spoken) run instantly without waiting for an AI:
+  - `เปิดยูทูป`, `open github`, `ช่วยเปิด vscode หน่อย`, `เปิดโฟลเดอร์ C:\project`
+  - `ค้นหา ราคาทองวันนี้`, `เปิดเพลง lofi ในยูทูป`
+  - `git status`, `รันเทส`, `run pnpm build`
+  - `ให้ claude ช่วยสรุปว่าโปรเจกต์ถึงไหนแล้ว`, `ask codex to fix the failing test`
+- **Permissions**: reading is automatic; opening things you asked for is automatic; anything a brain proposes, unknown shell commands, and coding agents ask first; destructive commands always ask.
+
+### Configuration (`.env` or system environment)
+
+| Variable | Purpose |
+|---|---|
+| `MAVE_FAST_BRAIN` | `groq` / `cerebras` / `gemini` / `openrouter` / `openai` / `ollama` / `lmstudio` / `custom` — fast conversational brain |
+| `MAVE_FAST_BRAIN_API_KEY` | API key (or `GROQ_API_KEY`, `GEMINI_API_KEY`, …) |
+| `MAVE_FAST_BRAIN_MODEL`, `MAVE_FAST_BRAIN_BASE_URL` | Optional model / custom endpoint |
+| `MAVE_DEFAULT_BRAIN` | Force default brain id (`fast`, `antigravity`, `mock`) |
+| `MAVE_TOOL_ROOTS` | Folders tools may touch, `;`-separated (default: repo + parent folder) |
+| `MAVE_HOTKEY` | Surface hotkey (default `Control+Alt+M`) |
+| `MAVE_SURFACE=0` / `MAVE_CONSOLE=0` | Disable the surface / hide the developer console |
+
+Coding agents use your own installed and signed-in CLIs: `claude` (Claude Code), `codex` (Codex CLI), `agy` (Antigravity).
+
+Specs: [`MAVE_MILESTONE_5_SPEC.md`](docs/architecture/MAVE_MILESTONE_5_SPEC.md) · Open source plan: [`MAVE_OPEN_SOURCE_ADOPTION.md`](docs/architecture/MAVE_OPEN_SOURCE_ADOPTION.md)
+
+---
+
 ## Verification & Scripts
 
 All scripts can be executed from the repository root:
@@ -105,7 +133,8 @@ apps/desktop (Electron Shell & React UI)
   - `packages/contracts`: Shared types, Zod validation schemas, event contracts, and provider interfaces (`VoiceProvider`, `WakeWordProvider`).
   - `packages/database`: Drizzle ORM schemas and SQLite database initialization.
   - `packages/shared`: Structured Pino logger with automatic redaction of sensitive credentials and secrets.
-  - `packages/providers`: Mock adapters establishing clean boundaries for future audio/wake providers.
+  - `packages/providers`: Brain (mock, Antigravity, OpenAI-compatible Fast Brain), wake, audio, STT and TTS adapters.
+  - `packages/tools`: M5 tool runtime — registry, permission policy, executor, audit, quick commands, built-in tools.
   - `packages/prompts`: System prompt definitions and learning mode instructions.
 
 - **State Machine**:

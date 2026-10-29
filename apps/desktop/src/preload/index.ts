@@ -1,14 +1,25 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import {
   CHAT_IPC_CHANNELS,
+  SURFACE_IPC_CHANNELS,
+  TOOL_IPC_CHANNELS,
   VOICE_IPC_CHANNELS,
+  type ApprovalDecision,
   type AssistantStateSnapshot,
+  type ToolApprovalRequest,
+  type ToolAuditRecord,
+  type ToolCallRequestInput,
+  type ToolDescriptor,
+  type ToolEvent,
+  type ToolResult,
+  type ToolRunCommandResponse,
   type ChatCancelResponse,
   type ChatLoadSessionResponse,
   type ChatSendRequest,
   type ChatSendResponse,
   type ConversationRuntimeEvent,
   type MaveCommand,
+  type SurfaceMode,
   type VoiceRuntimeEvent,
   type VoiceStatusSnapshot
 } from '@mave/contracts';
@@ -28,6 +39,22 @@ export interface MaveVoiceApi {
   startDiagnosticSession: () => Promise<{ success: boolean; error?: string }>;
 }
 
+export interface MaveToolsApi {
+  list: () => Promise<{ tools: ToolDescriptor[]; roots: string[]; pendingApprovals: ToolApprovalRequest[] }>;
+  call: (request: ToolCallRequestInput) => Promise<ToolResult>;
+  runCommand: (text: string) => Promise<ToolRunCommandResponse>;
+  respondApproval: (decision: ApprovalDecision) => Promise<{ ok: boolean; error?: string }>;
+  cancel: (callId: string) => Promise<{ cancelled: boolean }>;
+  getAudit: () => Promise<ToolAuditRecord[]>;
+  onEvent: (callback: (event: ToolEvent) => void) => () => void;
+}
+
+export interface MaveSurfaceApi {
+  setMode: (mode: SurfaceMode, interactive: boolean) => Promise<{ ok: boolean; error?: string }>;
+  onToggle: (callback: () => void) => () => void;
+  openConsole: () => Promise<{ ok: boolean }>;
+}
+
 export interface MaveApi {
   getStatus: () => Promise<AssistantStateSnapshot>;
   sendCommand: (
@@ -37,6 +64,8 @@ export interface MaveApi {
   onStateChanged: (callback: (snapshot: AssistantStateSnapshot) => void) => () => void;
   chat: MaveChatApi;
   voice: MaveVoiceApi;
+  tools: MaveToolsApi;
+  surface: MaveSurfaceApi;
 }
 
 const api: MaveApi = {
@@ -76,6 +105,32 @@ const api: MaveApi = {
     },
     loadSession: async (sessionId: string) => {
       return (await ipcRenderer.invoke(CHAT_IPC_CHANNELS.LOAD_SESSION, { sessionId })) as ChatLoadSessionResponse;
+    }
+  },
+  surface: {
+    setMode: async (mode, interactive) => ipcRenderer.invoke(SURFACE_IPC_CHANNELS.SET_MODE, { mode, interactive }),
+    onToggle: (callback) => {
+      const listener = () => callback();
+      ipcRenderer.on(SURFACE_IPC_CHANNELS.TOGGLE, listener);
+      return () => {
+        ipcRenderer.removeListener(SURFACE_IPC_CHANNELS.TOGGLE, listener);
+      };
+    },
+    openConsole: async () => ipcRenderer.invoke(SURFACE_IPC_CHANNELS.OPEN_CONSOLE)
+  },
+  tools: {
+    list: async () => ipcRenderer.invoke(TOOL_IPC_CHANNELS.LIST),
+    call: async (request) => ipcRenderer.invoke(TOOL_IPC_CHANNELS.CALL, request),
+    runCommand: async (text) => ipcRenderer.invoke(TOOL_IPC_CHANNELS.RUN_COMMAND, { text }),
+    respondApproval: async (decision) => ipcRenderer.invoke(TOOL_IPC_CHANNELS.RESPOND_APPROVAL, decision),
+    cancel: async (callId) => ipcRenderer.invoke(TOOL_IPC_CHANNELS.CANCEL, { callId }),
+    getAudit: async () => ipcRenderer.invoke(TOOL_IPC_CHANNELS.GET_AUDIT),
+    onEvent: (callback) => {
+      const listener = (_event: Electron.IpcRendererEvent, toolEvent: ToolEvent) => callback(toolEvent);
+      ipcRenderer.on(TOOL_IPC_CHANNELS.EVENT, listener);
+      return () => {
+        ipcRenderer.removeListener(TOOL_IPC_CHANNELS.EVENT, listener);
+      };
     }
   },
   voice: {

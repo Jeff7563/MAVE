@@ -1,4 +1,5 @@
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, shell } from 'electron';
+import fs from 'node:fs';
 import path from 'node:path';
 import { DefaultMaveConfig } from '@mave/contracts';
 import { createLogger } from '@mave/shared';
@@ -9,6 +10,8 @@ import { createSystemTray } from './tray.js';
 import { WakeManager } from './wake-manager.js';
 import { ConversationManager } from './conversation-manager.js';
 import { VoiceManager } from './voice-manager.js';
+import { ElectronSystemAdapter, ToolManager } from './tool-manager.js';
+import { SurfaceWindow } from './surface-window.js';
 import {
   SounddeviceAudioInputProvider,
   MockAudioInputProvider,
@@ -22,12 +25,56 @@ import {
 
 const logger = createLogger({ name: 'mave:main' });
 
+// Load <repo>/.env (API keys, MAVE_* settings). Real environment variables win.
+if (process.env['NODE_ENV'] !== 'test') {
+  const envPath = path.resolve(__dirname, '../../../../.env');
+  try {
+    if (fs.existsSync(envPath)) {
+      process.loadEnvFile(envPath);
+      logger.info({ envPath }, 'loaded .env');
+    }
+  } catch (err) {
+    logger.warn({ err, envPath }, 'failed to load .env');
+  }
+}
+
 let mainWindow: BrowserWindow | null = null;
 let maveService: MaveService | null = null;
 let maveDatabase: MaveDatabase | null = null;
 let wakeManager: WakeManager | null = null;
 let conversationManager: ConversationManager | null = null;
 let voiceManager: VoiceManager | null = null;
+let toolManager: ToolManager | null = null;
+let surfaceWindow: SurfaceWindow | null = null;
+
+/**
+ * Runtime events go to every MAVE window (developer console + ambient surface).
+ * Shaped like a BrowserWindow so managers keep their existing getter contract.
+ */
+const broadcastTarget = {
+  isDestroyed: () => false,
+  webContents: {
+    send: (channel: string, ...args: unknown[]) => {
+      for (const win of [mainWindow, surfaceWindow?.getWindow() ?? null]) {
+        if (win && !win.isDestroyed()) {
+          try {
+            win.webContents.send(channel, ...args);
+          } catch (err) {
+            logger.warn({ err, channel }, 'failed to deliver event to window');
+          }
+        }
+      }
+    }
+  }
+} as unknown as BrowserWindow;
+const getBroadcastTarget = () => broadcastTarget;
+
+function showConsoleWindow(): void {
+  if (!mainWindow) mainWindow = createWindow();
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  mainWindow.show();
+  mainWindow.focus();
+}
 let tray: ReturnType<typeof createSystemTray> | null = null;
 
 // Enforce single instance lock
@@ -79,6 +126,11 @@ function createWindow(): BrowserWindow {
   });
 
   win.once('ready-to-show', () => {
+    // MAVE_CONSOLE=0 keeps the developer console hidden (open it from the tray or the surface).
+    if (process.env['MAVE_CONSOLE'] === '0' && process.env['NODE_ENV'] !== 'test') {
+      logger.info('developer console hidden (MAVE_CONSOLE=0)');
+      return;
+    }
     win.show();
     logger.info('MAVE desktop window shown');
   });
@@ -134,11 +186,19 @@ app.whenReady().then(async () => {
     });
     await wakeManager.initialize();
 
-    // 4. Initialize Conversation Manager (M2 Phase 6)
+    // 4a. Initialize Tool Manager (M5: actions, permissions, audit)
+    toolManager = new ToolManager({
+      repoRoot: path.resolve(__dirname, '../../../..'),
+      getMainWindow: getBroadcastTarget,
+      system: new ElectronSystemAdapter(shell)
+    });
+
+    // 4b. Initialize Conversation Manager (M2 Phase 6)
     conversationManager = new ConversationManager({
       database: maveDatabase,
-      getMainWindow: () => mainWindow,
-      timeoutMs: DefaultMaveConfig.brain.timeoutMs
+      getMainWindow: getBroadcastTarget,
+      timeoutMs: DefaultMaveConfig.brain.timeoutMs,
+      toolManager
     });
 
     // 5. Initialize Voice Manager (M3.5 Wake <-> Voice Handoff)
@@ -196,15 +256,31 @@ app.whenReady().then(async () => {
     // 6. Register IPC
     registerIpcHandlers(
       maveService,
-      () => mainWindow,
+      getBroadcastTarget,
       wakeManager,
       conversationManager,
-      voiceManager ?? undefined
+      voiceManager ?? undefined,
+      toolManager
     );
 
     // 7. Create Window & Tray
     mainWindow = createWindow();
     tray = createSystemTray(maveService, () => mainWindow);
+
+    // 7b. Ambient Surface (M4): orb / capsule / panel bottom-right, Ctrl+Alt+M opens chat
+    const surfaceEnabled =
+      process.env['MAVE_SURFACE'] === '1' ||
+      (process.env['NODE_ENV'] !== 'test' && process.env['MAVE_SURFACE'] !== '0');
+    if (surfaceEnabled) {
+      surfaceWindow = new SurfaceWindow({
+        preloadPath: path.join(__dirname, '../preload/index.js'),
+        rendererIndexPath: path.join(__dirname, '../renderer/index.html'),
+        devServerUrl: process.env['VITE_DEV_SERVER_URL'],
+        hotkey: process.env['MAVE_HOTKEY'],
+        onOpenConsole: showConsoleWindow
+      });
+      surfaceWindow.create();
+    }
 
     // 8. Send APP_READY
     maveService.send({ type: 'APP_READY' });
@@ -237,6 +313,10 @@ app.on('before-quit', async () => {
     tray.destroy();
     tray = null;
   }
+  if (surfaceWindow) {
+    surfaceWindow.dispose();
+    surfaceWindow = null;
+  }
   if (voiceManager) {
     await voiceManager.dispose();
     voiceManager = null;
@@ -248,6 +328,10 @@ app.on('before-quit', async () => {
   if (conversationManager) {
     await conversationManager.dispose();
     conversationManager = null;
+  }
+  if (toolManager) {
+    await toolManager.dispose();
+    toolManager = null;
   }
   if (maveService) {
     maveService.send({ type: 'SHUTDOWN' });

@@ -3,7 +3,6 @@
 import asyncio
 import sys
 from typing import AsyncIterator, Optional
-import av
 
 from .config import TTSConfig
 
@@ -23,6 +22,7 @@ class TTSEngine:
         language: Optional[str] = None,
     ) -> AsyncIterator[bytes]:
         """Synthesize text into an async stream of canonical 80ms PCM frames (2560 bytes)."""
+        import av
         import edge_tts
 
         resolved_voice = self.config.resolve_voice(language=language, voice_id=voice, text=text)

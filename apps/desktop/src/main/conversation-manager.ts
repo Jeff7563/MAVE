@@ -24,7 +24,14 @@ import {
 } from '@mave/core';
 import type { MaveDatabase } from '@mave/database';
 import { SQLiteConversationStore } from '@mave/database';
-import { MockBrainProvider, AntigravityBrainProvider } from '@mave/providers';
+import {
+  MockBrainProvider,
+  AntigravityBrainProvider,
+  createFastBrainFromEnv,
+  type OpenAICompatibleBrainProvider
+} from '@mave/providers';
+import { ActionAwareConversationRuntime } from './action-runtime.js';
+import type { ToolManager } from './tool-manager.js';
 import { createLogger } from '@mave/shared';
 
 const logger = createLogger({ name: 'mave:conversation-manager' });
@@ -85,6 +92,10 @@ export interface ConversationManagerOptions {
   antigravityWorkspaceDir?: string;
   store?: ConversationStore;
   sessionManager?: SessionManager;
+  /** M5: enables quick commands, tool prompts and brain actions. */
+  toolManager?: ToolManager;
+  /** M3 gap: OpenAI-compatible Fast Brain. Defaults to MAVE_FAST_BRAIN env config. */
+  fastBrainProvider?: OpenAICompatibleBrainProvider | null;
 }
 
 export class ConversationManager {
@@ -146,12 +157,35 @@ export class ConversationManager {
       this.providerRegistry.register(this.antigravityProvider);
     }
 
-    // 3. Brain Router (default provider: 'mock')
+    // 2b. Fast Brain (Groq / Gemini / Ollama ... via OpenAI-compatible API), opt-in via env
+    const fastBrain =
+      options.fastBrainProvider === null
+        ? undefined
+        : (options.fastBrainProvider ?? createFastBrainFromEnv());
+    if (fastBrain && !this.providerRegistry.has(fastBrain.id)) {
+      this.providerRegistry.register(fastBrain);
+      logger.info({ providerId: fastBrain.id, label: fastBrain.label, model: fastBrain.model }, 'fast brain registered');
+    }
+
+    // 2c. M5 action runner (only selected for matched quick commands)
+    if (options.toolManager && !this.providerRegistry.has(options.toolManager.actionProvider.id)) {
+      this.providerRegistry.register(options.toolManager.actionProvider);
+    }
+
+    // 3. Brain Router (default: fast brain when configured, else env MAVE_DEFAULT_BRAIN, else 'mock')
+    const envDefault = process.env['MAVE_DEFAULT_BRAIN']?.trim();
+    const defaultProvider =
+      envDefault && this.providerRegistry.has(envDefault)
+        ? envDefault
+        : fastBrain
+          ? fastBrain.id
+          : this.mockProvider.id;
     this.router =
       options.router ??
       new BrainRouter({
         registry: this.providerRegistry,
-        defaultProvider: this.mockProvider.id
+        defaultProvider,
+        fallbackChain: defaultProvider === this.mockProvider.id ? [] : [this.mockProvider.id]
       });
 
     // 4. Session Manager
@@ -161,15 +195,18 @@ export class ConversationManager {
     this.contextManager = new ContextManager();
 
     // 6. Conversation Runtime
+    const runtimeOptions = {
+      sessionManager: this.sessionManager,
+      contextManager: this.contextManager,
+      router: this.router,
+      store: this.store,
+      defaultTimeoutMs: this.timeoutMs
+    };
     this.runtime =
       options.runtime ??
-      new ConversationRuntime({
-        sessionManager: this.sessionManager,
-        contextManager: this.contextManager,
-        router: this.router,
-        store: this.store,
-        defaultTimeoutMs: this.timeoutMs
-      });
+      (options.toolManager
+        ? new ActionAwareConversationRuntime(runtimeOptions, options.toolManager)
+        : new ConversationRuntime(runtimeOptions));
 
     logger.info('ConversationManager initialized with MockBrainProvider, AntigravityBrainProvider and SQLite store');
   }
